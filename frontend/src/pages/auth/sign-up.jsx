@@ -1,3 +1,5 @@
+// Singn-up
+
 import {
   Card,
   Input,
@@ -9,11 +11,14 @@ import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { toast } from 'react-toastify';
 
 export function SignUp() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -22,8 +27,15 @@ export function SignUp() {
     e.preventDefault();
     setError("");
 
-    if (!username || !password) {
-      setError("Please fill both Username and Password");
+    if (!username || !password || !email) {
+      setError("Please fill all fields");
+      return;
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@(riseit\.in|riseit\.com)$/;
+
+    if (!emailRegex.test(email)) {
+      toast.error("Invalid email domain");
       return;
     }
 
@@ -32,7 +44,15 @@ export function SignUp() {
     try {
       const formData = new FormData();
       formData.append("username", username);
+      formData.append("email", email);
       formData.append("password", password);
+      formData.append("role", 'staff');
+
+      // ✅ Console FormData values
+      console.log("FORM DATA:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ":", pair[1]);
+      }
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}api/signin-out.php`, {
         method: "POST",
@@ -42,17 +62,14 @@ export function SignUp() {
       const data = await res.json();
       console.log("Login API Response:", data);
 
-      if (!data.status || data.status !== "success") {
-        setError(data.error || "Invalid username or password");
-        setLoading(false);
-        return;
+      if (data.status=='success') {
+          toast.success(data.message);
+          navigate("/auth/sign-in", { replace: true });
+      } else {
+          toast.error(data.message);
       }
 
-      localStorage.setItem("user", JSON.stringify(data.data));
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("loggedIn", "true");
-
-      navigate("/dashboard/home", { replace: true });
+      
     } catch (err) {
       console.error("Login Error:", err);
       setError("Something went wrong while logging in.");
@@ -60,6 +77,27 @@ export function SignUp() {
       setLoading(false);
     }
   };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+
+    // Reset error first
+    setEmailError("");
+
+    // Start validation only after '@'
+    if (!value.includes("@")) {
+      return; // no validation yet
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@(riseit\.in|riseit\.com)$/;
+
+    if (!emailRegex.test(value)) {
+      setEmailError("Only riseit.in or riseit.com email addresses are allowed.");
+    }
+  };
+
+
 
   return (
     <section className="m-8 flex">
@@ -74,19 +112,41 @@ export function SignUp() {
           <Typography variant="h2" className="font-bold mb-4">Sign Up</Typography>
           {/* <Typography variant="paragraph" color="blue-gray" className="text-lg font-normal">Enter your email and password to register.</Typography> */}
         </div>
-        <form className="mt-8 mb-2 mx-auto w-80 max-w-screen-lg lg:w-1/2">
+        <form onSubmit={handleSubmit} className="mt-8 mb-2 mx-auto w-80 max-w-screen-lg lg:w-1/2">
           <div className="mb-1 flex flex-col gap-6">
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
-              Your email
+              Your Name
             </Typography>
             <Input
               size="lg"
-              placeholder="Enter email"
+              placeholder="Enter Name"
+              name="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
               labelProps={{
                 className: "before:content-none after:content-none",
               }}
             />
+            <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
+              Your Email
+            </Typography>
+            <Input
+              size="lg"
+              placeholder="Enter email"
+              name="email"
+              value={email}
+              onChange={handleEmailChange}
+              className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
+              labelProps={{
+                className: "before:content-none after:content-none",
+              }}
+            />
+
+            {emailError && (
+              <p className="text-red-500 text-sm mt-1">{emailError}</p>
+            )}
+
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
               Your Password
             </Typography>
@@ -95,6 +155,7 @@ export function SignUp() {
                   type={showPassword ? "text" : "password"}
                   size="lg"
                   placeholder="********"
+                  name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
@@ -113,26 +174,8 @@ export function SignUp() {
               </div>
           </div>
           
-          {/* <Checkbox
-            label={
-              <Typography
-                variant="small"
-                color="gray"
-                className="flex items-center justify-start font-medium"
-              >
-                I agree the&nbsp;
-                <a
-                  href="#"
-                  className="font-normal text-black transition-colors hover:text-gray-900 underline"
-                >
-                  Terms and Conditions
-                </a>
-              </Typography>
-            }
-            containerProps={{ className: "-ml-2.5" }}
-          /> */}
-          <Button className="mt-6" fullWidth>
-            Submit
+          <Button type="submit" className="mt-6" fullWidth>
+            {loading ? "Submitting..." : "Submit"}
           </Button>
 
           {/* <div className="space-y-4 mt-8">
