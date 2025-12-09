@@ -34,7 +34,7 @@ export default function TasksPage() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Tasks</h2>
           <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
-            3 Active Tasks
+            {filteredTasks.length} Active Tasks
           </div>
         </div>
 
@@ -45,18 +45,27 @@ export default function TasksPage() {
             <input
               type="text"
               placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             />
           </div>
 
-          <select className="px-4 py-2.5 border border-gray-200 rounded-xl w-full sm:w-44 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition">
-            <option>Assigned By</option>
-            <option>John</option>
-            <option>Alice</option>
+          <select 
+            value={selectedAssignedBy}
+            onChange={(e) => setSelectedAssignedBy(e.target.value)}
+            className="px-4 py-2.5 border border-gray-200 rounded-xl w-full sm:w-44 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition"
+          >
+            <option value="all">All Assigners</option>
+            {uniqueAssignedBy.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
           </select>
 
           <input
             type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
             className="px-4 py-2.5 border border-gray-200 rounded-xl w-full sm:w-44 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
           />
         </div>
@@ -88,138 +97,66 @@ export default function TasksPage() {
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-100">
-              {/* ROW 1 */}
-              <tr className="hover:bg-blue-50/50 transition-colors duration-150">
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-                      JS
-                    </div>
-                    <span className="font-medium text-gray-800">John Smith</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-semibold text-sm">
-                      AJ
-                    </div>
-                    <span className="font-medium text-gray-800">Alice John</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">
-                  <span className="text-gray-600">2025-01-12</span>
-                </td>
-                <td className="py-4 px-6">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                    ● Pending
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-gray-500">...</td>
-                <td className="py-4 px-6">
-                  <div className="flex gap-2 justify-center">
-                    <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors group">
-                      <FiEye className="text-gray-600 group-hover:text-blue-600 transition-colors" size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-green-100 rounded-lg transition-colors group">
-                      <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors group">
-                      <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              {/* ROW 2 */}
-              <tr className="hover:bg-blue-50/50 transition-colors duration-150">
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
-                      BW
-                    </div>
-                    <span className="font-medium text-gray-800">Bob Will</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-                      JS
-                    </div>
-                    <span className="font-medium text-gray-800">John Smith</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">
-                  <span className="text-gray-600">2025-01-15</span>
-                </td>
-                <td className="py-4 px-6">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                    ● Overdue
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-gray-500">...</td>
-                <td className="py-4 px-6">
-                  <div className="flex gap-2 justify-center">
-                    <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors group">
-                      <FiEye className="text-gray-600 group-hover:text-blue-600 transition-colors" size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-green-100 rounded-lg transition-colors group">
-                      <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors group">
-                      <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              {/* ROW 3 */}
-              <tr className="hover:bg-blue-50/50 transition-colors duration-150">
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-semibold text-sm">
-                      AJ
-                    </div>
-                    <span className="font-medium text-gray-800">Alice John</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
-                      SR
-                    </div>
-                    <span className="font-medium text-gray-800">Steve Roy</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">
-                  <span className="text-gray-600">2025-01-10</span>
-                </td>
-                <td className="py-4 px-6">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                    ● Completed
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-gray-500">...</td>
-                <td className="py-4 px-6">
-                  <div className="flex gap-2 justify-center">
-                    <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors group">
-                      <FiEye className="text-gray-600 group-hover:text-blue-600 transition-colors" size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-green-100 rounded-lg transition-colors group">
-                      <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors group">
-                      <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
+              {filteredTasks.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="py-8 px-6 text-center text-gray-500">
+                    No tasks found matching your filters
+                  </td>
+                </tr>
+              ) : (
+                filteredTasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-blue-50/50 transition-colors duration-150">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${task.assignedBy.color} flex items-center justify-center text-white font-semibold text-sm`}>
+                          {task.assignedBy.initials}
+                        </div>
+                        <span className="font-medium text-gray-800">{task.assignedBy.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${task.assignedTo.color} flex items-center justify-center text-white font-semibold text-sm`}>
+                          {task.assignedTo.initials}
+                        </div>
+                        <span className="font-medium text-gray-800">{task.assignedTo.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-gray-600">{task.deadline}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusStyle(task.status)}`}>
+                        ● {task.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-gray-500">{task.remarks}</td>
+                    <td className="py-4 px-6">
+                      <div className="flex gap-2 justify-center">
+                        <button 
+                          onClick={() => handleEdit(task)}
+                          className="p-2 hover:bg-green-100 rounded-lg transition-colors group"
+                        >
+                          <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(task.id)}
+                          className="p-2 hover:bg-red-100 rounded-lg transition-colors group"
+                        >
+                          <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* PAGINATION */}
         <div className="flex justify-between items-center mt-6">
-          <p className="text-sm text-gray-600">Showing 1 to 3 of 3 results</p>
+          <p className="text-sm text-gray-600">Showing {filteredTasks.length} of {allTasks.length} results</p>
           <div className="flex items-center gap-2">
             <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition">
               Prev
@@ -239,6 +176,172 @@ export default function TasksPage() {
           </div>
         </div>
       </div>
+
+      {/* EDIT MODAL */}
+      {isEditModalOpen && editingTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-gray-800">Edit Task</h3>
+              <button 
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <FiX size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {/* Task Name */}
+              <label className="block text-sm font-medium mb-1">Task Name</label>
+              <input
+                type="text"
+                value={editingTask.name}
+                onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              />
+
+              {/* Assigned By / Assigned To */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Assigned By <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    options={assignedByOptions}
+                    value={editingTask.assignedBySelect}
+                    onChange={(selected) =>
+                      setEditingTask({ ...editingTask, assignedBySelect: selected })
+                    }
+                    classNamePrefix="react-select"
+                    styles={{
+                      menu: (provided) => ({ ...provided, zIndex: 9999 }),
+                      control: (provided) => ({
+                        ...provided,
+                        borderColor: "#d1d5db",
+                        borderRadius: "0.5rem",
+                        padding: "0.125rem",
+                      }),
+                    }}
+                    placeholder="Select..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Assigned To <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    isMulti
+                    options={assignedToOptions}
+                    value={editingTask.assignedToSelect}
+                    onChange={(selected) =>
+                      setEditingTask({ ...editingTask, assignedToSelect: selected })
+                    }
+                    classNamePrefix="react-select"
+                    styles={{
+                      menu: (provided) => ({ ...provided, zIndex: 9999 }),
+                      control: (provided) => ({
+                        ...provided,
+                        borderColor: "#d1d5db",
+                        borderRadius: "0.5rem",
+                        padding: "0.125rem",
+                      }),
+                    }}
+                    placeholder="Select multiple..."
+                  />
+                </div>
+              </div>
+
+              {/* Deadline, Status in one row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                {/* Deadline */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Deadline</label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={editingTask.deadline}
+                      onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none"
+                    />
+                    <Calendar
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none"
+                      size={18}
+                    />
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <div className="flex items-center gap-3 text-sm h-10">
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="Pending"
+                        checked={editingTask.status === "Pending"}
+                        onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                        className="cursor-pointer"
+                      />
+                      Pending
+                    </label>
+
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="Completed"
+                        checked={editingTask.status === "Completed"}
+                        onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                        className="cursor-pointer"
+                      />
+                      Completed
+                    </label>
+
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="Overdue"
+                        checked={editingTask.status === "Overdue"}
+                        onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                        className="cursor-pointer"
+                      />
+                      Overdue
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <label className="block text-sm font-medium mb-1">Remarks</label>
+              <textarea
+                rows="3"
+                value={editingTask.remarks}
+                onChange={(e) => setEditingTask({ ...editingTask, remarks: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              ></textarea>
+
+              {/* Modal Footer - Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateTask}
+                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm"
+                >
+                  Update Task
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
