@@ -1,31 +1,165 @@
-import { FiEye, FiEdit, FiTrash2, FiSearch } from "react-icons/fi";
-import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { FiEye, FiEdit, FiTrash2, FiSearch, FiX } from "react-icons/fi";
+import { useState } from "react";
+import { Calendar } from "lucide-react";
+import Select from "react-select";
 
 export default function TasksPage() {
-  const [allUsers, setAllUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedAssignedBy, setSelectedAssignedBy] = useState("all");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?view-task=viewTask`, {
-          method: "GET",
-        });
-        const data = await response.json();
-        console.log("user data=", data);
-        setAllUsers(data.data);
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Sample options for dropdowns
+  const assignedByOptions = [
+    { value: "admin", label: "Admin" },
+    { value: "manager", label: "Manager" },
+    { value: "teamlead", label: "Team Lead" },
+  ];
 
-    fetchUsers();
-  }, []);
+  const assignedToOptions = [
+    { value: "user1", label: "User 1" },
+    { value: "user2", label: "User 2" },
+    { value: "user3", label: "User 3" },
+    { value: "user4", label: "User 4" },
+  ];
 
+  // Dummy data
+  const [allTasks, setAllTasks] = useState([
+    {
+      id: 1,
+      name: "Complete project documentation",
+      assignedBy: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
+      assignedTo: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
+      deadline: "2025-01-12",
+      status: "Pending",
+      remarks: "Need to review requirements"
+    },
+    {
+      id: 2,
+      name: "Fix critical bugs",
+      assignedBy: { name: "Bob Will", initials: "BW", color: "from-blue-400 to-blue-600" },
+      assignedTo: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
+      deadline: "2025-01-15",
+      status: "Overdue",
+      remarks: "Urgent task"
+    },
+    {
+      id: 3,
+      name: "Update database schema",
+      assignedBy: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
+      assignedTo: { name: "Steve Roy", initials: "SR", color: "from-teal-400 to-teal-600" },
+      deadline: "2025-01-10",
+      status: "Completed",
+      remarks: "Done on time"
+    },
+    {
+      id: 4,
+      name: "Code review session",
+      assignedBy: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
+      assignedTo: { name: "Bob Will", initials: "BW", color: "from-blue-400 to-blue-600" },
+      deadline: "2025-01-18",
+      status: "Pending",
+      remarks: "Follow up needed"
+    },
+    {
+      id: 5,
+      name: "Design new UI components",
+      assignedBy: { name: "Sarah Lee", initials: "SL", color: "from-orange-400 to-orange-600" },
+      assignedTo: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
+      deadline: "2025-01-20",
+      status: "Pending",
+      remarks: "Priority task"
+    },
+    {
+      id: 6,
+      name: "Testing phase completion",
+      assignedBy: { name: "Bob Will", initials: "BW", color: "from-blue-400 to-blue-600" },
+      assignedTo: { name: "Steve Roy", initials: "SR", color: "from-teal-400 to-teal-600" },
+      deadline: "2025-01-08",
+      status: "Completed",
+      remarks: "Completed ahead of schedule"
+    },
+    {
+      id: 7,
+      name: "Client meeting preparation",
+      assignedBy: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
+      assignedTo: { name: "Sarah Lee", initials: "SL", color: "from-orange-400 to-orange-600" },
+      deadline: "2025-01-14",
+      status: "Overdue",
+      remarks: "Needs attention"
+    },
+    {
+      id: 8,
+      name: "API integration",
+      assignedBy: { name: "Sarah Lee", initials: "SL", color: "from-orange-400 to-orange-600" },
+      assignedTo: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
+      deadline: "2025-01-25",
+      status: "Pending",
+      remarks: "New assignment"
+    }
+  ]);
 
+  // Get unique assigned by names for filter
+  const uniqueAssignedBy = [...new Set(allTasks.map(task => task.assignedBy.name))];
+
+  // Filter tasks
+  const filteredTasks = allTasks.filter(task => {
+    const matchesSearch = task.assignedTo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.assignedBy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesAssignedBy = selectedAssignedBy === "all" || task.assignedBy.name === selectedAssignedBy;
+    const matchesDate = !selectedDate || task.deadline === selectedDate;
+    
+    return matchesSearch && matchesAssignedBy && matchesDate;
+  });
+
+  const getStatusStyle = (status) => {
+    switch(status) {
+      case "Pending":
+        return "bg-amber-100 text-amber-700";
+      case "Overdue":
+        return "bg-red-100 text-red-700";
+      case "Completed":
+        return "bg-green-100 text-green-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const handleEdit = (task) => {
+    setEditingTask({
+      ...task,
+      assignedBySelect: assignedByOptions.find(opt => opt.label === task.assignedBy.name),
+      assignedToSelect: [assignedToOptions.find(opt => opt.label === task.assignedTo.name)]
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleDelete = (taskId) => {
+    if (window.confirm("Are you sure you want to delete this task?")) {
+      setAllTasks(allTasks.filter(task => task.id !== taskId));
+    }
+  };
+
+  const handleUpdateTask = () => {
+    if (editingTask) {
+      setAllTasks(allTasks.map(task => 
+        task.id === editingTask.id 
+          ? {
+              ...task,
+              name: editingTask.name,
+              deadline: editingTask.deadline,
+              status: editingTask.status,
+              remarks: editingTask.remarks
+            }
+          : task
+      ));
+      setIsEditModalOpen(false);
+      setEditingTask(null);
+      alert("Task updated successfully!");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
