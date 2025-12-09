@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
 import Select from "react-select";
+import Swal from "sweetalert2";
 
 export default function CreateTask() {
-  // const [allAssignedBy, setAssignedBy] = useState([]);
   const [allAssignedTo, setAssignedTo] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   const user = JSON.parse(localStorage.getItem("user"));
   const userId = user?.id;
@@ -18,8 +20,6 @@ export default function CreateTask() {
     remarks: "",
   });
 
-
-
   // Sample options for dropdowns
   const assignedByOptions = [
     { value: "admin", label: "Admin" },
@@ -27,15 +27,139 @@ export default function CreateTask() {
     { value: "teamlead", label: "Team Lead" },
   ];
 
-  const assignedToOptions = [
-    { value: "user1", label: "User 1" },
-    { value: "user2", label: "User 2" },
-    { value: "user3", label: "User 3" },
-    { value: "user4", label: "User 4" },
-  ];
-
   const handleChange = (e) => {
-    setTaskData({ ...taskData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setTaskData({ ...taskData, [name]: value });
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
+  };
+
+  const handleSelectChange = (field, selected) => {
+    setTaskData({ ...taskData, [field]: selected });
+    
+    // Clear error when user selects something
+    if (errors[field]) {
+      setErrors({ ...errors, [field]: "" });
+    }
+  };
+
+  // Validation function
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Task Name validation
+    if (!taskData.name.trim()) {
+      newErrors.name = "Task name is required";
+    } else if (taskData.name.trim().length < 3) {
+      newErrors.name = "Task name must be at least 3 characters";
+    } else if (taskData.name.trim().length > 100) {
+      newErrors.name = "Task name cannot exceed 100 characters";
+    }
+
+    // Assigned To validation
+    if (taskData.assignedTo.length === 0) {
+      newErrors.assignedTo = "Please select at least one assignee";
+    }
+
+    // Deadline validation
+    if (!taskData.deadline) {
+      newErrors.deadline = "Deadline is required";
+    } else {
+      const selectedDate = new Date(taskData.deadline);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        newErrors.deadline = "Deadline cannot be in the past";
+      }
+    }
+
+    // Remarks validation (optional but with max length)
+    if (taskData.remarks && taskData.remarks.length > 500) {
+      newErrors.remarks = "Remarks cannot exceed 500 characters";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleBlur = (field) => {
+    setTouched({ ...touched, [field]: true });
+    validateField(field);
+  };
+
+  const validateField = (field) => {
+    let error = "";
+
+    switch (field) {
+      case "name":
+        if (!taskData.name.trim()) {
+          error = "Task name is required";
+        } else if (taskData.name.trim().length < 3) {
+          error = "Task name must be at least 3 characters";
+        } else if (taskData.name.trim().length > 100) {
+          error = "Task name cannot exceed 100 characters";
+        }
+        break;
+
+      case "assignedTo":
+        if (taskData.assignedTo.length === 0) {
+          error = "Please select at least one assignee";
+        }
+        break;
+
+      case "deadline":
+        if (!taskData.deadline) {
+          error = "Deadline is required";
+        } else {
+          const selectedDate = new Date(taskData.deadline);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          if (selectedDate < today) {
+            error = "Deadline cannot be in the past";
+          }
+        }
+        break;
+
+      case "remarks":
+        if (taskData.remarks && taskData.remarks.length > 500) {
+          error = "Remarks cannot exceed 500 characters";
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    setErrors({ ...errors, [field]: error });
+  };
+
+  // Helper function for input styling
+  const getInputClassName = (fieldName) => {
+    const baseClasses = "w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:outline-none";
+    
+    if (errors[fieldName] && touched[fieldName]) {
+      return `${baseClasses} border-red-500`;
+    }
+    
+    return baseClasses;
+  };
+
+  const getSelectClassName = (fieldName) => {
+    if (errors[fieldName] && touched[fieldName]) {
+      return "react-select-container error";
+    }
+    return "react-select-container";
+  };
+
+  // Check if form is valid for button enabling
+  const isFormValid = () => {
+    const hasErrors = Object.values(errors).some(error => error && error.trim() !== "");
+    return !hasErrors;
   };
 
   // 🔹 Fetch data from backend API
@@ -47,12 +171,6 @@ export default function CreateTask() {
 
         console.log("API response:", data);
 
-        // Assigned By = ALL users
-        // const assignedByUsers = data.data.map(user => ({
-        //   value: user.id,
-        //   label: user.name
-        // }));
-
         // Assigned To = ALL users EXCEPT logged-in user
         const assignedToUsers = data.data
           .filter(user => user.id !== userId)   // ⬅️ remove logged-in user
@@ -61,7 +179,6 @@ export default function CreateTask() {
             label: user.name
           }));
 
-        // setAssignedBy(assignedByUsers);
         setAssignedTo(assignedToUsers);
 
       } catch (error) {
@@ -75,74 +192,108 @@ export default function CreateTask() {
   }, [userId]);
 
   const handleSubmit = async () => {
-  
-  if (!taskData.name.trim()) {
-    alert("Task name is required");
-    return;
-  }
+    // Mark all fields as touched
+    const allTouched = {
+      name: true,
+      assignedTo: true,
+      deadline: true,
+      remarks: true,
+    };
+    setTouched(allTouched);
 
-  if (taskData.assignedTo.length === 0) {
-    alert("Please select at least one user to assign task");
-    return;
-  }
-
-  if (!taskData.deadline) {
-    alert("Deadline is required");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const form = new FormData();
-
-    form.append("task_name", taskData.name);
-    form.append("assignedBy", userId);  // logged-in user
-    form.append(
-      "assignedTo",
-      JSON.stringify(taskData.assignedTo.map(u => u.value))
-    );
-    form.append("deadline", taskData.deadline);
-    form.append("remarks", taskData.remarks);
-
-    // 🔍 EXACT CONSOLE OUTPUT LIKE YOU WANT
-    console.log("Submitting form data...");
-    for (let pair of form.entries()) {
-      console.log(`${pair[0]}:`, pair[1]);
-    }
-
-    const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
-      {
-        method: "POST",
-        body: form,
+    // Validate form
+    const isValid = validateForm();
+    
+    if (!isValid) {
+      // Show first error
+      const firstError = Object.values(errors)[0];
+      if (firstError) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Validation Error',
+          text: firstError,
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33',
+        });
       }
-    );
-
-    const result = await response.json();
-    console.log("API result:", result);
-
-    if (result.status === "success") {
-      toast.success(result.message);
-      // alert("Task created successfully!");
-
-      // Reset form
-      setTaskData({
-        name: "",
-        assignedTo: [],
-        deadline: "",
-        remarks: "",
-      });
-    } else {
-      alert(result.message || "Failed to create task");
+      return;
     }
-  } catch (error) {
-    console.error("Submit Error:", error);
-    alert("Something went wrong!");
-  } finally {
-    setLoading(false);
-  }
-};
 
+    setLoading(true);
+
+    try {
+      const form = new FormData();
+
+      form.append("task_name", taskData.name);
+      form.append("assignedBy", userId);  // logged-in user
+      form.append(
+        "assignedTo",
+        JSON.stringify(taskData.assignedTo.map(u => u.value))
+      );
+      form.append("deadline", taskData.deadline);
+      form.append("remarks", taskData.remarks);
+
+      // 🔍 EXACT CONSOLE OUTPUT LIKE YOU WANT
+      console.log("Submitting form data...");
+      for (let pair of form.entries()) {
+        console.log(`${pair[0]}:`, pair[1]);
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
+
+      const result = await response.json();
+      console.log("API result:", result);
+
+      if (result.status === "success") {
+        // Show SweetAlert2 success message
+        Swal.fire({
+          icon: 'success',
+          title: 'Task Created Successfully!',
+          text: result.message || 'Task has been created successfully.',
+          timer: 2000,
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
+    
+        // Reset form
+        setTaskData({
+          name: "",
+          assignedBy: null,
+          assignedTo: [],
+          deadline: "",
+          remarks: "",
+        });
+        setErrors({});
+        setTouched({});
+      } else {
+        // Show SweetAlert2 error for API failure
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed to Create Task',
+          text: result.message || "Failed to create task",
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33',
+        });
+      }
+    } catch (error) {
+      console.error("Submit Error:", error);
+      // Show SweetAlert2 error for network/exception
+      Swal.fire({
+        icon: 'error',
+        title: 'Something Went Wrong',
+        text: 'An error occurred while creating the task.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="w-full min-h-screen flex justify-center py-10 bg-gray-50">
@@ -150,41 +301,35 @@ export default function CreateTask() {
         <h2 className="text-2xl font-semibold mb-6">Create Task</h2>
 
         {/* Task Name */}
-        <label className="block text-sm font-medium mb-1">Task Name</label>
-        <input
-          type="text"
-          name="name"
-          value={taskData.name}
-          onChange={handleChange}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-        />
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1">
+            Task Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="name"
+            value={taskData.name}
+            onChange={handleChange}
+            onBlur={() => handleBlur("name")}
+            className={getInputClassName("name")}
+            placeholder="Enter task name"
+          />
+          {errors.name && touched.name && (
+            <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {errors.name}
+            </p>
+          )}
+          <div className="text-xs text-gray-500 mt-1 flex justify-between">
+            <span>Required field</span>
+            <span>{taskData.name.length}/100 characters</span>
+          </div>
+        </div>
 
         {/* Assigned By / Assigned To */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          {/* <div>
-            <label className="block text-sm font-medium mb-1">
-              Assigned By <span className="text-red-500">*</span>
-            </label>
-            <Select
-              options={allAssignedBy}
-              value={taskData.assignedBy}
-              onChange={(selected) =>
-                setTaskData({ ...taskData, assignedBy: selected })
-              }
-              classNamePrefix="react-select"
-              styles={{
-                menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                control: (provided) => ({
-                  ...provided,
-                  borderColor: "#d1d5db",
-                  borderRadius: "0.5rem",
-                  padding: "0.125rem",
-                }),
-              }}
-              placeholder="Select..."
-            />
-          </div> */}
-
           <div>
             <label className="block text-sm font-medium mb-1">
               Assigned To <span className="text-red-500">*</span>
@@ -193,37 +338,56 @@ export default function CreateTask() {
               isMulti
               options={allAssignedTo}
               value={taskData.assignedTo}
-              onChange={(selected) =>
-                setTaskData({ ...taskData, assignedTo: selected })
-              }
+              onChange={(selected) => handleSelectChange("assignedTo", selected)}
+              onBlur={() => handleBlur("assignedTo")}
               classNamePrefix="react-select"
+              className={getSelectClassName("assignedTo")}
               styles={{
                 menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                control: (provided) => ({
+                control: (provided, state) => ({
                   ...provided,
-                  borderColor: "#d1d5db",
+                  borderColor: errors.assignedTo && touched.assignedTo ? "#ef4444" : "#d1d5db",
                   borderRadius: "0.5rem",
                   padding: "0.125rem",
+                  boxShadow: state.isFocused ? (errors.assignedTo && touched.assignedTo ? "0 0 0 2px rgba(239, 68, 68, 0.2)" : "0 0 0 2px rgba(59, 130, 246, 0.2)") : "none",
+                  "&:hover": {
+                    borderColor: errors.assignedTo && touched.assignedTo ? "#ef4444" : "#9ca3af",
+                  },
                 }),
               }}
               placeholder="Select multiple..."
             />
+            {errors.assignedTo && touched.assignedTo && (
+              <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {errors.assignedTo}
+              </p>
+            )}
+            <div className="text-xs text-gray-500 mt-1">
+              {taskData.assignedTo.length} user(s) selected
+            </div>
           </div>
+
           {/* Deadline */}
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Deadline</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Deadline <span className="text-red-500">*</span>
+            </label>
             <div className="relative">
               <input
                 type="date"
                 name="deadline"
                 value={taskData.deadline}
                 onChange={handleChange}
-                min={new Date().toISOString().split('T')[0]} // Disable past dates
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 pl-10 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none transition-all duration-200 hover:border-gray-400"
+                onBlur={() => handleBlur("deadline")}
+                min={new Date().toISOString().split('T')[0]}
+                className={getInputClassName("deadline") + " pl-10"}
               />
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <svg
-                  className="w-5 h-5 text-blue-500"
+                  className={`w-5 h-5 ${errors.deadline && touched.deadline ? 'text-red-500' : 'text-blue-500'}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -238,82 +402,66 @@ export default function CreateTask() {
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">Cannot select past dates</p>
+            {errors.deadline && touched.deadline ? (
+              <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {errors.deadline}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">Cannot select past dates</p>
+            )}
           </div>
         </div>
 
-        {/* Status in one row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          {/* Status */}
-          {/* <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
-            <div className="flex items-center gap-3 text-sm h-10">
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value="pending"
-                  checked={taskData.status === "pending"}
-                  onChange={handleChange}
-                  className="cursor-pointer"
-                />
-                Pending
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="radio"
-                    name="status"
-                    value="completed"
-                    checked={taskData.status === "completed"}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-4 h-4 rounded-full border-2 border-gray-300 group-hover:border-green-500 peer-checked:border-green-500 peer-checked:bg-green-500 transition-all duration-200 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-white"></div>
-                  </div>
-                </div>
-                <span className="text-gray-700 group-hover:text-green-600 peer-checked:text-green-600 transition-colors">Completed</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="radio"  
-                    name="status"
-                    value="overdue"
-                    checked={taskData.status === "overdue"}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-4 h-4 rounded-full border-2 border-gray-300 group-hover:border-red-500 peer-checked:border-red-500 peer-checked:bg-red-500 transition-all duration-200 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-white"></div>
-                  </div>
-                </div>
-                <span className="text-gray-700 group-hover:text-red-600 peer-checked:text-red-600 transition-colors">Overdue</span>
-              </label>
-            </div>
-          </div> */}
-        </div>
-
         {/* Remarks */}
-        <label className="block text-sm font-medium mb-1">Remarks</label>
-        <textarea
-          name="remarks"
-          rows="3"
-          value={taskData.remarks}
-          onChange={handleChange}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-        ></textarea>
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-1">
+            Remarks
+          </label>
+          <textarea
+            name="remarks"
+            rows="3"
+            value={taskData.remarks}
+            onChange={handleChange}
+            onBlur={() => handleBlur("remarks")}
+            className={getInputClassName("remarks")}
+            placeholder="Enter any additional remarks (optional)"
+          ></textarea>
+          {errors.remarks && touched.remarks && (
+            <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {errors.remarks}
+            </p>
+          )}
+          <div className="text-xs text-gray-500 mt-1 flex justify-end">
+            <span className={taskData.remarks.length > 500 ? "text-red-500" : ""}>
+              {taskData.remarks.length}/500 characters
+            </span>
+          </div>
+        </div>
 
         {/* Button - Small, Right Bottom Corner */}
         <div className="flex justify-end">
           <button
             onClick={handleSubmit}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!isFormValid() || loading}
           >
-            Create Task
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating...
+              </span>
+            ) : (
+              'Create Task'
+            )}
           </button>
         </div>
       </div>
