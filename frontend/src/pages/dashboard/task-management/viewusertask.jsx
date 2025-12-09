@@ -1,6 +1,32 @@
 import { FiEye, FiEdit, FiTrash2, FiSearch } from "react-icons/fi";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function TasksPage() {
+  const [allUsers, setAllUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?view-task=viewTask`, {
+          method: "GET",
+        });
+        const data = await response.json();
+        console.log("user data=", data);
+        setAllUsers(data.data);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
       {/* MAIN CONTENT */}

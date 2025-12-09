@@ -1,16 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
 import Select from "react-select";
 
 export default function CreateTask() {
+  // const [allAssignedBy, setAssignedBy] = useState([]);
+  const [allAssignedTo, setAssignedTo] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const user = JSON.parse(localStorage.getItem("user"));
+  const userId = user?.id;
+
   const [taskData, setTaskData] = useState({
     name: "",
     assignedBy: null,
     assignedTo: [],
     deadline: "",
-    status: "pending",
     remarks: "",
   });
+
+
 
   // Sample options for dropdowns
   const assignedByOptions = [
@@ -30,10 +38,111 @@ export default function CreateTask() {
     setTaskData({ ...taskData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = () => {
-    console.log("Task Created:", taskData);
-    alert("Task Created!");
-  };
+  // 🔹 Fetch data from backend API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
+        const data = await response.json();
+
+        console.log("API response:", data);
+
+        // Assigned By = ALL users
+        // const assignedByUsers = data.data.map(user => ({
+        //   value: user.id,
+        //   label: user.name
+        // }));
+
+        // Assigned To = ALL users EXCEPT logged-in user
+        const assignedToUsers = data.data
+          .filter(user => user.id !== userId)   // ⬅️ remove logged-in user
+          .map(user => ({
+            value: user.id,
+            label: user.name
+          }));
+
+        // setAssignedBy(assignedByUsers);
+        setAssignedTo(assignedToUsers);
+
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [userId]);
+
+  const handleSubmit = async () => {
+  
+  if (!taskData.name.trim()) {
+    alert("Task name is required");
+    return;
+  }
+
+  if (taskData.assignedTo.length === 0) {
+    alert("Please select at least one user to assign task");
+    return;
+  }
+
+  if (!taskData.deadline) {
+    alert("Deadline is required");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const form = new FormData();
+
+    form.append("task_name", taskData.name);
+    form.append("assignedBy", userId);  // logged-in user
+    form.append(
+      "assignedTo",
+      JSON.stringify(taskData.assignedTo.map(u => u.value))
+    );
+    form.append("deadline", taskData.deadline);
+    form.append("remarks", taskData.remarks);
+
+    // 🔍 EXACT CONSOLE OUTPUT LIKE YOU WANT
+    console.log("Submitting form data...");
+    for (let pair of form.entries()) {
+      console.log(`${pair[0]}:`, pair[1]);
+    }
+
+    const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+      {
+        method: "POST",
+        body: form,
+      }
+    );
+
+    const result = await response.json();
+    console.log("API result:", result);
+
+    if (result.status === "success") {
+      toast.success(result.message);
+      // alert("Task created successfully!");
+
+      // Reset form
+      setTaskData({
+        name: "",
+        assignedTo: [],
+        deadline: "",
+        remarks: "",
+      });
+    } else {
+      alert(result.message || "Failed to create task");
+    }
+  } catch (error) {
+    console.error("Submit Error:", error);
+    alert("Something went wrong!");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="w-full min-h-screen flex justify-center py-10 bg-gray-50">
@@ -52,12 +161,12 @@ export default function CreateTask() {
 
         {/* Assigned By / Assigned To */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium mb-1">
               Assigned By <span className="text-red-500">*</span>
             </label>
             <Select
-              options={assignedByOptions}
+              options={allAssignedBy}
               value={taskData.assignedBy}
               onChange={(selected) =>
                 setTaskData({ ...taskData, assignedBy: selected })
@@ -74,7 +183,7 @@ export default function CreateTask() {
               }}
               placeholder="Select..."
             />
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -82,7 +191,7 @@ export default function CreateTask() {
             </label>
             <Select
               isMulti
-              options={assignedToOptions}
+              options={allAssignedTo}
               value={taskData.assignedTo}
               onChange={(selected) =>
                 setTaskData({ ...taskData, assignedTo: selected })
@@ -100,10 +209,6 @@ export default function CreateTask() {
               placeholder="Select multiple..."
             />
           </div>
-        </div>
-
-        {/* Deadline, Status in one row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           {/* Deadline */}
           <div>
             <label className="block text-sm font-medium mb-1">Deadline</label>
@@ -121,9 +226,12 @@ export default function CreateTask() {
               />
             </div>
           </div>
+        </div>
 
+        {/* Status in one row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           {/* Status */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium mb-1">Status</label>
             <div className="flex items-center gap-3 text-sm h-10">
               <label className="flex items-center gap-1 cursor-pointer">
@@ -162,7 +270,7 @@ export default function CreateTask() {
                 Overdue
               </label>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Remarks */}
