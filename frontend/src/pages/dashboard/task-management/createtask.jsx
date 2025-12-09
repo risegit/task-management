@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
 import Select from "react-select";
+import { toast } from 'react-toastify';
 
 export default function CreateTask() {
   // const [allAssignedBy, setAssignedBy] = useState([]);
@@ -76,71 +77,71 @@ export default function CreateTask() {
 
   const handleSubmit = async () => {
   
-  if (!taskData.name.trim()) {
-    alert("Task name is required");
-    return;
-  }
-
-  if (taskData.assignedTo.length === 0) {
-    alert("Please select at least one user to assign task");
-    return;
-  }
-
-  if (!taskData.deadline) {
-    alert("Deadline is required");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const form = new FormData();
-
-    form.append("task_name", taskData.name);
-    form.append("assignedBy", userId);  // logged-in user
-    form.append(
-      "assignedTo",
-      JSON.stringify(taskData.assignedTo.map(u => u.value))
-    );
-    form.append("deadline", taskData.deadline);
-    form.append("remarks", taskData.remarks);
-
-    // 🔍 EXACT CONSOLE OUTPUT LIKE YOU WANT
-    console.log("Submitting form data...");
-    for (let pair of form.entries()) {
-      console.log(`${pair[0]}:`, pair[1]);
+    if (!taskData.name.trim()) {
+      alert("Task name is required");
+      return;
     }
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
-      {
-        method: "POST",
-        body: form,
+    if (taskData.assignedTo.length === 0) {
+      alert("Please select at least one user to assign task");
+      return;
+    }
+
+    if (!taskData.deadline) {
+      alert("Deadline is required");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const form = new FormData();
+
+      form.append("task_name", taskData.name);
+      form.append("assignedBy", userId);  // logged-in user
+      form.append(
+        "assignedTo",
+        JSON.stringify(taskData.assignedTo.map(u => u.value))
+      );
+      form.append("deadline", taskData.deadline);
+      form.append("remarks", taskData.remarks);
+
+      // 🔍 EXACT CONSOLE OUTPUT LIKE YOU WANT
+      console.log("Submitting form data...");
+      for (let pair of form.entries()) {
+        console.log(`${pair[0]}:`, pair[1]);
       }
-    );
 
-    const result = await response.json();
-    console.log("API result:", result);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
 
-    if (result.status === "success") {
-      toast.success(result.message);
-      // alert("Task created successfully!");
+      const result = await response.json();
+      console.log("API result:", result);
 
-      // Reset form
-      setTaskData({
-        name: "",
-        assignedTo: [],
-        deadline: "",
-        remarks: "",
-      });
-    } else {
-      alert(result.message || "Failed to create task");
+      if (result.status === "success") {
+        toast.success(result.message);
+        // alert("Task created successfully!");
+
+        // Reset form
+        // setTaskData({
+        //   name: "",
+        //   assignedTo: [],
+        //   deadline: "",
+        //   remarks: "",
+        // });
+      } else {
+        alert(result.message || "Failed to create task");
+      }
+    } catch (error) {
+      console.error("Submit Error:", error);
+      alert("Something went wrong!");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Submit Error:", error);
-    alert("Something went wrong!");
-  } finally {
-    setLoading(false);
-  }
 };
 
 
