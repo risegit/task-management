@@ -1,24 +1,29 @@
-import { FiEye, FiEdit, FiTrash2 } from "react-icons/fi";
+import { FiEye, FiEdit, FiTrash2, FiSearch } from "react-icons/fi";
 
 export default function TasksPage() {
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* TOP NAV */}
-     
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
       {/* MAIN CONTENT */}
-      <div className="bg-white shadow rounded-xl p-6">
-        <h2 className="text-xl font-semibold mb-4">Tasks</h2>
+      <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Tasks</h2>
+          <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
+            3 Active Tasks
+          </div>
+        </div>
 
         {/* FILTERS */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="px-3 py-2 border rounded-lg w-full sm:w-60 focus:ring-2 focus:ring-blue-500"
-          />
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1 sm:max-w-xs">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            />
+          </div>
 
-          <select className="px-3 py-2 border rounded-lg w-full sm:w-40 focus:ring-2 focus:ring-blue-500">
+          <select className="px-4 py-2.5 border border-gray-200 rounded-xl w-full sm:w-44 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition">
             <option>Assigned By</option>
             <option>John</option>
             <option>Alice</option>
@@ -26,74 +31,160 @@ export default function TasksPage() {
 
           <input
             type="date"
-            className="px-3 py-2 border rounded-lg w-full sm:w-40 focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2.5 border border-gray-200 rounded-xl w-full sm:w-44 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
           />
-
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full sm:w-auto">
-            Add New Tasks
-          </button>
         </div>
 
         {/* TABLE */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="w-full">
             <thead>
-              <tr className="text-left text-gray-600 bg-gray-100">
-                <th className="py-3 px-4">Assigned By</th>
-                <th className="py-3 px-4">Assigned To</th>
-                <th className="py-3 px-4">Deadline</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Remarks</th>
-                <th className="py-3 px-4">Actions</th>
+              <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Assigned By
+                </th>
+                <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Assigned To
+                </th>
+                <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Deadline
+                </th>
+                <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Remarks
+                </th>
+                <th className="py-4 px-6 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-100">
               {/* ROW 1 */}
-              <tr className="border-b">
-                <td className="py-3 px-4">John Smith</td>
-                <td className="py-3 px-4">Alice John</td>
-                <td className="py-3 px-4">2025-01-12</td>
-                <td className="py-3 px-4 text-yellow-600 font-medium">
-                  Pending
+              <tr className="hover:bg-blue-50/50 transition-colors duration-150">
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                      JS
+                    </div>
+                    <span className="font-medium text-gray-800">John Smith</span>
+                  </div>
                 </td>
-                <td className="py-3 px-4">...</td>
-                <td className="py-3 px-4 flex gap-3 text-gray-600">
-                  <FiEye className="cursor-pointer hover:text-blue-600" size={18} />
-                  <FiEdit className="cursor-pointer hover:text-green-600" size={18} />
-                  <FiTrash2 className="cursor-pointer hover:text-red-600" size={18} />
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-semibold text-sm">
+                      AJ
+                    </div>
+                    <span className="font-medium text-gray-800">Alice John</span>
+                  </div>
+                </td>
+                <td className="py-4 px-6">
+                  <span className="text-gray-600">2025-01-12</span>
+                </td>
+                <td className="py-4 px-6">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                    ● Pending
+                  </span>
+                </td>
+                <td className="py-4 px-6 text-gray-500">...</td>
+                <td className="py-4 px-6">
+                  <div className="flex gap-2 justify-center">
+                    <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors group">
+                      <FiEye className="text-gray-600 group-hover:text-blue-600 transition-colors" size={18} />
+                    </button>
+                    <button className="p-2 hover:bg-green-100 rounded-lg transition-colors group">
+                      <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
+                    </button>
+                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors group">
+                      <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
 
               {/* ROW 2 */}
-              <tr className="border-b">
-                <td className="py-3 px-4">Bob Will</td>
-                <td className="py-3 px-4">John Smith</td>
-                <td className="py-3 px-4">2025-01-15</td>
-                <td className="py-3 px-4 text-red-600 font-medium">
-                  Overdue
+              <tr className="hover:bg-blue-50/50 transition-colors duration-150">
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+                      BW
+                    </div>
+                    <span className="font-medium text-gray-800">Bob Will</span>
+                  </div>
                 </td>
-                <td className="py-3 px-4">...</td>
-                <td className="py-3 px-4 flex gap-3 text-gray-600">
-                  <FiEye className="cursor-pointer hover:text-blue-600" size={18} />
-                  <FiEdit className="cursor-pointer hover:text-green-600" size={18} />
-                  <FiTrash2 className="cursor-pointer hover:text-red-600" size={18} />
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                      JS
+                    </div>
+                    <span className="font-medium text-gray-800">John Smith</span>
+                  </div>
+                </td>
+                <td className="py-4 px-6">
+                  <span className="text-gray-600">2025-01-15</span>
+                </td>
+                <td className="py-4 px-6">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                    ● Overdue
+                  </span>
+                </td>
+                <td className="py-4 px-6 text-gray-500">...</td>
+                <td className="py-4 px-6">
+                  <div className="flex gap-2 justify-center">
+                    <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors group">
+                      <FiEye className="text-gray-600 group-hover:text-blue-600 transition-colors" size={18} />
+                    </button>
+                    <button className="p-2 hover:bg-green-100 rounded-lg transition-colors group">
+                      <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
+                    </button>
+                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors group">
+                      <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
 
               {/* ROW 3 */}
-              <tr>
-                <td className="py-3 px-4">Alice John</td>
-                <td className="py-3 px-4">Steve Roy</td>
-                <td className="py-3 px-4">2025-01-10</td>
-                <td className="py-3 px-4 text-green-600 font-medium">
-                  Completed
+              <tr className="hover:bg-blue-50/50 transition-colors duration-150">
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-semibold text-sm">
+                      AJ
+                    </div>
+                    <span className="font-medium text-gray-800">Alice John</span>
+                  </div>
                 </td>
-                <td className="py-3 px-4">...</td>
-                <td className="py-3 px-4 flex gap-3 text-gray-600">
-                  <FiEye className="cursor-pointer hover:text-blue-600" size={18} />
-                  <FiEdit className="cursor-pointer hover:text-green-600" size={18} />
-                  <FiTrash2 className="cursor-pointer hover:text-red-600" size={18} />
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
+                      SR
+                    </div>
+                    <span className="font-medium text-gray-800">Steve Roy</span>
+                  </div>
+                </td>
+                <td className="py-4 px-6">
+                  <span className="text-gray-600">2025-01-10</span>
+                </td>
+                <td className="py-4 px-6">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                    ● Completed
+                  </span>
+                </td>
+                <td className="py-4 px-6 text-gray-500">...</td>
+                <td className="py-4 px-6">
+                  <div className="flex gap-2 justify-center">
+                    <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors group">
+                      <FiEye className="text-gray-600 group-hover:text-blue-600 transition-colors" size={18} />
+                    </button>
+                    <button className="p-2 hover:bg-green-100 rounded-lg transition-colors group">
+                      <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
+                    </button>
+                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors group">
+                      <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -101,12 +192,25 @@ export default function TasksPage() {
         </div>
 
         {/* PAGINATION */}
-        <div className="flex justify-end items-center gap-3 mt-4 text-gray-700">
-          <button className="hover:text-blue-600">Prev</button>
-          <button className="font-medium text-blue-600">1</button>
-          <button className="hover:text-blue-600">2</button>
-          <button className="hover:text-blue-600">3</button>
-          <button className="hover:text-blue-600">Next</button>
+        <div className="flex justify-between items-center mt-6">
+          <p className="text-sm text-gray-600">Showing 1 to 3 of 3 results</p>
+          <div className="flex items-center gap-2">
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition">
+              Prev
+            </button>
+            <button className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg shadow-sm">
+              1
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition">
+              2
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition">
+              3
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition">
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>
