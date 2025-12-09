@@ -1,3 +1,5 @@
+//sign-in
+
 import {
   Card,
   Input,
@@ -33,6 +35,7 @@ export function SignIn() {
       const formData = new FormData();
       formData.append("username", username);
       formData.append("password", password);
+      formData.append("singin", "signin");
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}api/signin-out.php`, {
         method: "POST",
@@ -60,6 +63,7 @@ export function SignIn() {
       setLoading(false);
     }
   };
+  
 
   return (
     <section className="m-8 flex">
@@ -77,11 +81,12 @@ export function SignIn() {
         <form onSubmit={handleSubmit} className="mt-8 mb-2 mx-auto w-80 max-w-screen-lg lg:w-1/2">
           <div className="mb-1 flex flex-col gap-6">
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
-              Your email
+              Your email or EMP Code
             </Typography>
             <Input
               size="lg"
-              placeholder="Enter email"
+              placeholder="Enter Email or EMP Code"
+              name="username"
               className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
               labelProps={{
                 className: "before:content-none after:content-none",
@@ -97,6 +102,7 @@ export function SignIn() {
                   type={showPassword ? "text" : "password"}
                   size="lg"
                   placeholder="********"
+                  name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
@@ -134,7 +140,7 @@ export function SignIn() {
             containerProps={{ className: "-ml-2.5" }}
           /> */}
           <Button type="submit" className="mt-6" fullWidth>
-            Register Now
+            Sign In
           </Button>
           
 
@@ -172,3 +178,4 @@ export function SignIn() {
 }
 
 export default SignIn;
+  
