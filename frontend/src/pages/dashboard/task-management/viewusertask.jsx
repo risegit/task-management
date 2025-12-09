@@ -2,6 +2,7 @@ import { FiEye, FiEdit, FiTrash2, FiSearch, FiX } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
 import Select from "react-select";
+import { toast } from 'react-toastify';
 
 export default function TasksPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -176,13 +177,13 @@ export default function TasksPage() {
 
       form.append("task_id", editingTask.id);
       form.append("task_name", editingTask.name);
+      form.append("task_name", editingTask.name);
       form.append("deadline", editingTask.deadline);
       form.append("status", editingTask.status);
       form.append("remarks", editingTask.remarks || "");
-      form.append(
-        "assignedTo",
-        JSON.stringify(taskData.assignedTo.map(u => u.value))
-      );
+      const assignedIds = (editingTask.assignedToSelect || []).map(u => u.value);
+      form.append("assignedTo", JSON.stringify(assignedIds));
+
       form.append('_method', 'PUT');
 
       console.log("Updating task with:");
@@ -203,7 +204,7 @@ export default function TasksPage() {
       console.log("Update Response:", result);
 
       if (result.status === "success") {
-        alert("Task updated successfully!");
+        toast.success(result.message);
 
         // 🔹 Update task list instantly
         setAllTasks((prev) =>
@@ -223,11 +224,11 @@ export default function TasksPage() {
         setIsEditModalOpen(false);
         setEditingTask(null);
       } else {
-        alert(result.message || "Failed to update task");
+        toast.success(result.message || "Failed to update task");
       }
     } catch (error) {
       console.error("Update Error:", error);
-      alert("Something went wrong while updating the task!");
+      toast.success("Something went wrong while updating the task!");
     } finally {
       setLoading(false);
     }
@@ -346,12 +347,12 @@ export default function TasksPage() {
                         >
                           <FiEdit className="text-gray-600 group-hover:text-green-600 transition-colors" size={18} />
                         </button>
-                        <button 
+                        {/* <button 
                           onClick={() => handleDelete(task.id)}
                           className="p-2 hover:bg-red-100 rounded-lg transition-colors group"
                         >
                           <FiTrash2 className="text-gray-600 group-hover:text-red-600 transition-colors" size={18} />
-                        </button>
+                        </button> */}
                       </div>
                     </td>
                   </tr>
