@@ -18,6 +18,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
   const [controller, dispatch] = useMaterialTailwindController();
   const { openSidenav, sidenavType } = controller;
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
   const location = useLocation();
 
   // ---- Read role ----
@@ -26,7 +27,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
   let role = rawRole ?? null;
   const rawUsername = JSON.parse(localStorage.getItem("user"));
   const username = rawUsername?.name;
-  
+
   try {
     if (!role && rawUser) {
       const parsed = JSON.parse(rawUser);
@@ -37,7 +38,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
   }
 
   const sidenavTypes = {
-    dark: "bg-gradient-to-br from-green-800 to-green-900",
+    dark: "bg-gradient-to-br from-blue-800 to-blue-900",
     white: "bg-white shadow-sm",
     transparent: "bg-transparent",
   };
@@ -46,7 +47,34 @@ export function Sidenav({ brandImg, brandName, routes }) {
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  // Auto-open dropdown if inside child route
+  const handleProfileClick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setProfileImage(event.target.result);
+          // Optionally save to localStorage
+          localStorage.setItem('profileImage', event.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  // Load profile image from localStorage on component mount
+  useEffect(() => {
+    const savedImage = localStorage.getItem('profileImage');
+    if (savedImage) {
+      setProfileImage(savedImage);
+    }
+  }, []);
+
+  // Auto-open dropdown when inside a sub-route
   useEffect(() => {
     routes.forEach(({ layout, pages }) => {
       pages.forEach(({ name, collapse }) => {
@@ -67,7 +95,6 @@ export function Sidenav({ brandImg, brandName, routes }) {
     if (page.allowedRoles && Array.isArray(page.allowedRoles)) {
       return page.allowedRoles.includes(role);
     }
-
     if (page.collapse && Array.isArray(page.collapse)) {
       const anyChildHasExplicitRoles = page.collapse.some(
         (sub) => Array.isArray(sub.allowedRoles)
@@ -78,7 +105,6 @@ export function Sidenav({ brandImg, brandName, routes }) {
         );
       }
     }
-
     return true;
   };
 
@@ -108,19 +134,17 @@ export function Sidenav({ brandImg, brandName, routes }) {
     });
   }, [routes, role]);
 
-  // ----------- MOBILE AUTO-CLOSE HANDLER ------------
+  // Auto close sidebar on mobile
   const handleMobileClose = () => {
     if (window.innerWidth < 1280) {
       setOpenSidenav(dispatch, false);
     }
   };
-  // ---------------------------------------------------
 
   return (
     <aside
-      className={`${sidenavTypes[sidenavType]} ${
-        openSidenav ? "translate-x-0" : "-translate-x-80"
-      } fixed inset-0 z-50 my-4 ml-4 h-[calc(100vh-32px)] w-72 rounded-xl transition-transform duration-300 xl:translate-x-0 border border-green-500`}
+      className={`${sidenavTypes[sidenavType]} ${openSidenav ? "translate-x-0" : "-translate-x-80"
+        } fixed inset-0 z-50 my-4 ml-4 h-[calc(100vh-32px)] w-72 rounded-xl transition-transform duration-300 xl:translate-x-0 border border-blue-500`}
     >
       {/* Logo */}
       <div>
@@ -132,25 +156,61 @@ export function Sidenav({ brandImg, brandName, routes }) {
           <img
             src={`${import.meta.env.BASE_URL}img/rise-it-Logo.png`}
             alt="Riseit Logo"
-            className="h-20 w-auto object-contain"
+            className="h-23 w-auto object-contain"
           />
-          <Typography
-            variant="h6"
-            color={sidenavType === "dark" ? "white" : "blue-gray"}
-          >
-            {/* {brandName} */}
-          </Typography>
 
-          {role ? (
-            <p className="text-m font-weight-500 mt-1 capitalize">
-              Role: {role}<br/>
-              <span className="text-borange font-weight-500">{username}</span>
-            </p>
-          ) : (
-            <p className="text-sm text-red-300 mt-1">
-              Role: (none)
-            </p>
-          )}
+          {/* Profile and Role Section */}
+      <div className="flex items-center gap-4 mt-4 w-full">
+  {/* Profile Picture Placeholder - Increased size */}
+  <div className="relative">
+    {profileImage ? (
+      <div
+        className="h-16 w-16 rounded-full bg-cover bg-center shadow-lg border-3 border-white cursor-pointer"
+        style={{ backgroundImage: `url(${profileImage})` }}
+        onClick={handleProfileClick}
+      />
+    ) : (
+      <div
+        className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg border-3 border-white cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={handleProfileClick}
+      >
+        {username ? username.charAt(0).toUpperCase() : "U"}
+      </div>
+    )}
+
+    {/* Change Profile Picture Button - Slightly larger */}
+    <button
+      className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 flex items-center justify-center text-white text-xs transition-colors shadow-md"
+      onClick={handleProfileClick}
+      title="Change profile picture"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+      >
+        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+      </svg>
+    </button>
+  </div>
+
+  {/* Role and Username */}
+  <div className="flex-1 min-w-0">
+    {role ? (
+      <div className="text-left">
+        <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 truncate capitalize">
+          {username || "User"}
+        </p>
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
+          Role: <span className="text-blue-600 dark:text-blue-400 font-bold">{role}</span>
+        </p>
+      </div>
+    ) : (
+      <p className="text-base font-medium text-red-400">Role: (none)</p>
+    )}
+  </div>
+</div>  
         </NavLink>
 
         <IconButton
@@ -165,7 +225,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
         </IconButton>
       </div>
 
-      {/* Routes */}
+      {/* Route List */}
       <div className="m-4">
         {filteredRoutes.map(({ layout, title, pages }, key) => (
           <ul key={key} className="mb-4 flex flex-col gap-1">
@@ -183,16 +243,16 @@ export function Sidenav({ brandImg, brandName, routes }) {
 
             {pages.map(({ icon, name, path, collapse }) => (
               <li key={name}>
+                {/* Dropdown Group */}
                 {collapse && collapse.length > 0 ? (
                   <>
                     <Button
                       variant={openDropdown === name ? "gradient" : "text"}
-                      color="green"
-                      className={`flex items-center justify-between gap-2 px-2 capitalize w-full text-left ${
-                        openDropdown === name
-                          ? "bg-green-500 text-white"
-                          : "text-green-700 hover:bg-green-700/30"
-                      }`}
+                      color="blue"
+                      className={`flex items-center justify-between gap-2 px-2 capitalize w-full text-left ${openDropdown === name
+                          ? "bg-blue-00 text-white"
+                          : "text-blue-700 hover:bg-blue-300/30"
+                        }`}
                       fullWidth
                       onClick={() => handleToggle(name)}
                     >
@@ -210,8 +270,9 @@ export function Sidenav({ brandImg, brandName, routes }) {
                       )}
                     </Button>
 
+                    {/* Collapsed Items */}
                     <Collapse open={openDropdown === name}>
-                      <ul className="ml-5 mt-1 flex flex-col gap-1 border-l border-green-400 pl-3">
+                      <ul className="ml-5 mt-1 flex flex-col gap-1 border-l border-blue-400 pl-3">
                         {collapse.map(({ name: subName, path: subPath }) => (
                           <li key={subName}>
                             <NavLink
@@ -221,12 +282,11 @@ export function Sidenav({ brandImg, brandName, routes }) {
                               {({ isActive }) => (
                                 <Button
                                   variant={isActive ? "gradient" : "text"}
-                                  color="green"
-                                  className={`flex items-center gap-2 px-2 text-sm capitalize ${
-                                    isActive
-                                      ? "bg-green-500 text-white"
-                                      : "text-green-700 hover:bg-green-700/30"
-                                  }`}
+                                  color="blue"
+                                  className={`flex items-center gap-2 px-2 text-sm capitalize ${isActive
+                                      ? "bg-blue-500 text-white"
+                                      : "text-blue-700 hover:bg-blue-700/30"
+                                    }`}
                                   fullWidth
                                 >
                                   <Typography color="inherit">{subName}</Typography>
@@ -239,6 +299,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
                     </Collapse>
                   </>
                 ) : (
+                  // Normal Route Button
                   <NavLink
                     to={`/${layout}${path}`}
                     onClick={handleMobileClose}
@@ -246,12 +307,11 @@ export function Sidenav({ brandImg, brandName, routes }) {
                     {({ isActive }) => (
                       <Button
                         variant={isActive ? "gradient" : "text"}
-                        color="green"
-                        className={`flex items-center gap-2 px-2 capitalize ${
-                          isActive
-                            ? "bg-green-500 text-white"
-                            : "text-green-700 hover:bg-green-700/30"
-                        }`}
+                        color="blue"
+                        className={`flex items-center gap-2 px-2 capitalize ${isActive
+                            ? "bg-blue-500 text-white"
+                            : "text-blue-700 hover:bg-blue-700/30"
+                          }`}
                         fullWidth
                       >
                         {icon}
