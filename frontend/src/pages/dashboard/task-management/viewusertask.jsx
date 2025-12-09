@@ -1,5 +1,5 @@
 import { FiEye, FiEdit, FiTrash2, FiSearch, FiX } from "react-icons/fi";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
 import Select from "react-select";
 
@@ -9,96 +9,28 @@ export default function TasksPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [allTasks, setAllTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [assignedTo, setAssignedTo] = useState([]);
+  const [assignedBy, setAssignedBy] = useState([]);
 
-  // Sample options for dropdowns
+
+  const user = JSON.parse(localStorage.getItem("user"));
+  const userId = user?.id;
+
   const assignedByOptions = [
-    { value: "admin", label: "Admin" },
-    { value: "manager", label: "Manager" },
-    { value: "teamlead", label: "Team Lead" },
-  ];
+    ...new Set(allTasks.map(task => task.assignedBy.name))
+  ].map(name => ({
+    value: name,
+    label: name
+  }));
 
-  const assignedToOptions = [
-    { value: "user1", label: "User 1" },
-    { value: "user2", label: "User 2" },
-    { value: "user3", label: "User 3" },
-    { value: "user4", label: "User 4" },
-  ];
+  
+  const assignedToOptions = assignedTo.filter(user => user.id !== userId).map((s) => ({
+    value: s.id,
+    label: s.name,
+  }));
 
-  // Dummy data
-  const [allTasks, setAllTasks] = useState([
-    {
-      id: 1,
-      name: "Complete project documentation",
-      assignedBy: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
-      assignedTo: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
-      deadline: "2025-01-12",
-      status: "Pending",
-      remarks: "Need to review requirements"
-    },
-    {
-      id: 2,
-      name: "Fix critical bugs",
-      assignedBy: { name: "Bob Will", initials: "BW", color: "from-blue-400 to-blue-600" },
-      assignedTo: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
-      deadline: "2025-01-15",
-      status: "Overdue",
-      remarks: "Urgent task"
-    },
-    {
-      id: 3,
-      name: "Update database schema",
-      assignedBy: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
-      assignedTo: { name: "Steve Roy", initials: "SR", color: "from-teal-400 to-teal-600" },
-      deadline: "2025-01-10",
-      status: "Completed",
-      remarks: "Done on time"
-    },
-    {
-      id: 4,
-      name: "Code review session",
-      assignedBy: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
-      assignedTo: { name: "Bob Will", initials: "BW", color: "from-blue-400 to-blue-600" },
-      deadline: "2025-01-18",
-      status: "Pending",
-      remarks: "Follow up needed"
-    },
-    {
-      id: 5,
-      name: "Design new UI components",
-      assignedBy: { name: "Sarah Lee", initials: "SL", color: "from-orange-400 to-orange-600" },
-      assignedTo: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
-      deadline: "2025-01-20",
-      status: "Pending",
-      remarks: "Priority task"
-    },
-    {
-      id: 6,
-      name: "Testing phase completion",
-      assignedBy: { name: "Bob Will", initials: "BW", color: "from-blue-400 to-blue-600" },
-      assignedTo: { name: "Steve Roy", initials: "SR", color: "from-teal-400 to-teal-600" },
-      deadline: "2025-01-08",
-      status: "Completed",
-      remarks: "Completed ahead of schedule"
-    },
-    {
-      id: 7,
-      name: "Client meeting preparation",
-      assignedBy: { name: "Alice John", initials: "AJ", color: "from-pink-400 to-pink-600" },
-      assignedTo: { name: "Sarah Lee", initials: "SL", color: "from-orange-400 to-orange-600" },
-      deadline: "2025-01-14",
-      status: "Overdue",
-      remarks: "Needs attention"
-    },
-    {
-      id: 8,
-      name: "API integration",
-      assignedBy: { name: "Sarah Lee", initials: "SL", color: "from-orange-400 to-orange-600" },
-      assignedTo: { name: "John Smith", initials: "JS", color: "from-purple-400 to-purple-600" },
-      deadline: "2025-01-25",
-      status: "Pending",
-      remarks: "New assignment"
-    }
-  ]);
 
   // Get unique assigned by names for filter
   const uniqueAssignedBy = [...new Set(allTasks.map(task => task.assignedBy.name))];
@@ -116,50 +48,191 @@ export default function TasksPage() {
 
   const getStatusStyle = (status) => {
     switch(status) {
-      case "Pending":
+      case "pending":
         return "bg-amber-100 text-amber-700";
-      case "Overdue":
+      case "overdue":
         return "bg-red-100 text-red-700";
-      case "Completed":
+      case "completed":
         return "bg-green-100 text-green-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
-  const handleEdit = (task) => {
-    setEditingTask({
-      ...task,
-      assignedBySelect: assignedByOptions.find(opt => opt.label === task.assignedBy.name),
-      assignedToSelect: [assignedToOptions.find(opt => opt.label === task.assignedTo.name)]
-    });
-    setIsEditModalOpen(true);
+  useEffect(() => {
+  const fetchTasks = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/task-management.php?view-task=viewTask`
+      );
+      const result = await response.json();
+
+      console.log("API response:", result);
+
+      // Convert API data into UI format
+      const formatted = result.data.map((t) => ({
+  id: t.id,
+  name: t.task_name,   // <-- FIXED
+  assignedBy: {
+    name: t.assignedby,
+    initials: t.assignedby
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase(),
+    color: "from-purple-400 to-purple-600"
+  },
+  assignedTo: {
+    name: t.assignedto,
+    initials: t.assignedto
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase(),
+    color: "from-blue-400 to-blue-600"
+  },
+  deadline: t.deadline,
+  status: t.status,
+  remarks: t.remarks
+}));
+
+
+      
+      
+      setAllTasks(formatted);
+      setAssignedTo(result.staff); 
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  fetchTasks();
+}, []);
+
+
+  const handleEdit = (task) => {
+  // convert "Amit, John" → ["Amit", "John"]
+  const assignedNames = task.assignedTo.name.split(",").map(n => n.trim());
+
+  const selectedStaff = assignedToOptions.filter(opt =>
+    assignedNames.includes(opt.label)
+  );
+
+  setEditingTask({
+    id: task.id,
+    name: task.name,
+    deadline: task.deadline,
+    status: task.status,
+    remarks: task.remarks,
+
+    // assigned by (single select)
+    assignedBySelect: {
+      value: task.assignedBy.name,
+      label: task.assignedBy.name,
+    },
+
+    // assigned to (multi-select from API staff list)
+    assignedToSelect: selectedStaff
+  });
+
+  setIsEditModalOpen(true);
+};
+
+
 
   const handleDelete = (taskId) => {
     if (window.confirm("Are you sure you want to delete this task?")) {
-      setAllTasks(allTasks.filter(task => task.id !== taskId));
+        setAllTasks(allTasks.filter(task => task.id !== taskId));
+      }
+    };
+
+    const handleUpdateTask = async () => {
+    if (!editingTask) return;
+
+    // 🔹 VALIDATION
+    if (!editingTask.name?.trim()) {
+      alert("Task name is required");
+      return;
+    }
+
+    if (!editingTask.deadline) {
+      alert("Deadline is required");
+      return;
+    }
+
+    if (!editingTask.status) {
+      alert("Please select a status");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 🔹 Prepare form data
+      const form = new FormData();
+
+      form.append("task_id", editingTask.id);
+      form.append("task_name", editingTask.name);
+      form.append("deadline", editingTask.deadline);
+      form.append("status", editingTask.status);
+      form.append("remarks", editingTask.remarks || "");
+      form.append(
+        "assignedTo",
+        JSON.stringify(taskData.assignedTo.map(u => u.value))
+      );
+      form.append('_method', 'PUT');
+
+      console.log("Updating task with:");
+      for (let pair of form.entries()) {
+        console.log(pair[0] + ": ", pair[1]);
+      }
+
+      // 🔹 SEND to backend API
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
+
+      const result = await response.json();
+      console.log("Update Response:", result);
+
+      if (result.status === "success") {
+        alert("Task updated successfully!");
+
+        // 🔹 Update task list instantly
+        setAllTasks((prev) =>
+          prev.map((task) =>
+            task.id === editingTask.id
+              ? {
+                  ...task,
+                  name: editingTask.name,
+                  deadline: editingTask.deadline,
+                  status: editingTask.status,
+                  remarks: editingTask.remarks,
+                }
+              : task
+          )
+        );
+
+        setIsEditModalOpen(false);
+        setEditingTask(null);
+      } else {
+        alert(result.message || "Failed to update task");
+      }
+    } catch (error) {
+      console.error("Update Error:", error);
+      alert("Something went wrong while updating the task!");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleUpdateTask = () => {
-    if (editingTask) {
-      setAllTasks(allTasks.map(task => 
-        task.id === editingTask.id 
-          ? {
-              ...task,
-              name: editingTask.name,
-              deadline: editingTask.deadline,
-              status: editingTask.status,
-              remarks: editingTask.remarks
-            }
-          : task
-      ));
-      setIsEditModalOpen(false);
-      setEditingTask(null);
-      alert("Task updated successfully!");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
@@ -341,26 +414,12 @@ export default function TasksPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Assigned By <span className="text-red-500">*</span>
+                    Assigned By
                   </label>
-                  <Select
-                    options={assignedByOptions}
-                    value={editingTask.assignedBySelect}
-                    onChange={(selected) =>
-                      setEditingTask({ ...editingTask, assignedBySelect: selected })
-                    }
-                    classNamePrefix="react-select"
-                    styles={{
-                      menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                      control: (provided) => ({
-                        ...provided,
-                        borderColor: "#d1d5db",
-                        borderRadius: "0.5rem",
-                        padding: "0.125rem",
-                      }),
-                    }}
-                    placeholder="Select..."
-                  />
+
+                  <p className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                    {editingTask.assignedBySelect.label}
+                  </p>
                 </div>
 
                 <div>
@@ -412,40 +471,52 @@ export default function TasksPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Status</label>
                   <div className="flex items-center gap-3 text-sm h-10">
+
+                    {/* Pending */}
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
                         type="radio"
-                        value="Pending"
-                        checked={editingTask.status === "Pending"}
-                        onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                        value="pending"
+                        checked={editingTask.status === "pending"}
+                        onChange={(e) =>
+                          setEditingTask({ ...editingTask, status: e.target.value })
+                        }
                         className="cursor-pointer"
                       />
                       Pending
                     </label>
 
+                    {/* In-progress */}
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
                         type="radio"
-                        value="Completed"
-                        checked={editingTask.status === "Completed"}
-                        onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                        value="In-progress"
+                        checked={editingTask.status === "In-progress"}
+                        onChange={(e) =>
+                          setEditingTask({ ...editingTask, status: e.target.value })
+                        }
+                        className="cursor-pointer"
+                      />
+                      In-progress
+                    </label>
+
+                    {/* Completed */}
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="completed"
+                        checked={editingTask.status === "completed"}
+                        onChange={(e) =>
+                          setEditingTask({ ...editingTask, status: e.target.value })
+                        }
                         className="cursor-pointer"
                       />
                       Completed
                     </label>
 
-                    <label className="flex items-center gap-1 cursor-pointer">
-                      <input
-                        type="radio"
-                        value="Overdue"
-                        checked={editingTask.status === "Overdue"}
-                        onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
-                        className="cursor-pointer"
-                      />
-                      Overdue
-                    </label>
                   </div>
                 </div>
+
               </div>
 
               {/* Remarks */}
