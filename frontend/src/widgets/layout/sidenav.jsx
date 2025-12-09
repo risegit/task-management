@@ -156,7 +156,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
           <img
             src={`${import.meta.env.BASE_URL}img/rise-it-Logo.png`}
             alt="Riseit Logo"
-            className="h-23 w-auto object-contain"
+            className="h-20 w-auto object-contain"
           />
 
           {/* Profile and Role Section */}
