@@ -50,3 +50,7 @@ aside{
         overflow: scroll; 
     }
 } */
+.h-20{
+    height: 3.2rem;
+    margin-bottom: 3rem;
+}
