@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { toast } from 'react-toastify';
 
 export function SignIn() {
   const [username, setUsername] = useState("");
@@ -46,9 +47,12 @@ export function SignIn() {
       console.log("Login API Response:", data);
 
       if (!data.status || data.status !== "success") {
+        toast.error(data.message);
         setError(data.error || "Invalid username or password");
         setLoading(false);
         return;
+      }else{
+        toast.success(data.message);
       }
 
       localStorage.setItem("user", JSON.stringify(data.data));
