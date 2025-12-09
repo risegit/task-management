@@ -3,7 +3,8 @@ export * from "@/pages/dashboard/profile";
 export * from "@/pages/dashboard/tables";
 export * from "@/pages/dashboard/notifications";
 export * from "@/pages/dashboard/user";
-export * from "@/pages/dashboard/viewuser";
+export * from "@/pages/dashboard/employee/viewuser";
 export * from "@/pages/dashboard/employee/adduser";  
-export * from "@/pages/dashboard/edituser";
-export * from "@/pages/dashboard/createusertask"
+export * from "@/pages/dashboard/employee/edituser";
+export * from "@/pages/dashboard/task-management/createusertask"
+export * from "@/pages/dashboard/task-management/viewusertask"

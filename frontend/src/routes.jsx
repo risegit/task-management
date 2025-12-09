@@ -18,10 +18,10 @@ import {
 } from "@/pages/dashboard";
 
 import AddUser from "@/pages/dashboard/employee/adduser";
-import ViewUser from "@/pages/dashboard/viewuser";
-import EditUserForm from "@/pages/dashboard/edituser";
-import Createusertask from "@/pages/dashboard/createtask"
-import ViewUsertask from "@/pages/dashboard/viewusertask";
+import ViewUser from "@/pages/dashboard/employee/viewuser";
+import EditUserForm from "@/pages/dashboard/employee/edituser";
+import Createusertask from "@/pages/dashboard/task-management/createtask"
+import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
 
 import { SignIn, SignUp } from "@/pages/auth";
 import LogoutButton from "./Components/LogoutButton";
