@@ -8,6 +8,7 @@ include('../inc/config.php');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
+$userCode = $_GET['user_code'] ?? null;
 $viewTask = $_GET['view-task'] ?? null;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
@@ -21,8 +22,13 @@ switch ($method) {
 
     case 'GET':
         if($viewTask){
-            $sql1 = "SELECT t.id,t.task_name,t.remarks,t.deadline,t.status, ab.name assignedby, at.name assignedto FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users at ON ta.user_id=at.id INNER JOIN users ab ON t.created_by=ab.id ORDER BY t.id DESC";
-            $result = $conn->query($sql1);
+            if (!empty($userCode)) {
+                if (str_starts_with($userCode, 'ST')) {
+                    $sql1 = "SELECT t.id, t.task_name, t.remarks, t.deadline, COALESCE(ta.status, ta.status) AS status, t.created_by, ta.user_id AS assigned_to, ab.id AS assignedby, ab.name AS assignedby_name , ua.id AS assignedto, ua.name AS assignedto_name FROM tasks t LEFT JOIN task_assignees ta ON t.id = ta.task_id LEFT JOIN users ab ON t.created_by = ab.id LEFT JOIN users ua ON ta.user_id = ua.id WHERE t.created_by = '$userId' OR ta.user_id = '$userId'";
+                } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
+                    $sql1 = "SELECT t.id,t.task_name,t.remarks,t.deadline, ta.status, ab.id assignedby, ab.name assignedby_name, at.id assignedto, at.name assignedto_name FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users at ON ta.user_id=at.id INNER JOIN users ab ON t.created_by=ab.id ORDER BY t.id DESC";
+                }
+                $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
                 $data[] = $row;
@@ -36,6 +42,11 @@ switch ($method) {
             }
 
             echo json_encode(["status" => "success","data" => $data, 'staff' => $staff]);
+            }else{
+                echo json_encode(["status" => "error", "data" => "Something went wrong"]);
+            }
+                        
+            
         }else{
             $sql1 = "SELECT * FROM users WHERE status='active'";
             $result = $conn->query($sql1);
@@ -87,27 +98,49 @@ switch ($method) {
         // $taskvar=var_dump($assignedTos);
         // echo json_encode(["status" => "success", "message" => $taskvar]);
         
-        $sql1 = "SELECT * From tasks where id='$taskID'";
+        $sql1 = "SELECT * FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id WHERE t.id='$taskID'";
         $result1 = $conn->query($sql1);
         $query1 = '';
         $query2 = '';
         if($result1 && $result1->num_rows > 0){
-            $sql3 = "UPDATE `tasks` SET `task_name`='$taskName',`deadline`='$deadline',`status`='$status',`remarks`='$remarks',`created_by`='$userId',`updated_date`='$date',`updated_time`='$time' WHERE id='$taskID'";
-            if($conn->query($sql3)){
-                // $query1 .= $sql3;
-                $assignedByData = $result1->fetch_assoc();
-                
+            $assignedByData = $result1->fetch_assoc();
+            $assignedBy = $assignedByData['created_by'];
+            $userId = $assignedByData['user_id'];
+            // $sql2 = "UPDATE `tasks` SET `task_name`='$taskName',`deadline`='$deadline', `remarks`='$remarks',`created_by`='$assignedBy',`updated_date`='$date',`updated_time`='$time' WHERE id='$taskID'";
+            $stmt = $conn->prepare("UPDATE tasks SET task_name=?, deadline=?, remarks=?, created_by=?, updated_date=?, updated_time=? WHERE id=?");
+
+            $stmt->bind_param("ssssssi", 
+            $taskName, 
+            $deadline, 
+            $remarks, 
+            $assignedBy, 
+            $date, 
+            $time, 
+            $taskID
+            );
+
+            $stmt->execute();
+
+
+            // $conn->query($sql2);
+
+            $sql3 = "UPDATE `task_assignees` SET `status`='$status',`updated_date`='$date',`updated_time`='$time' WHERE task_id='$taskID' and user_id='$userId'";
+            $conn->query($sql3);
+            
+                $query1 .= $sql3;
+                // $assignedByData = $result1->fetch_assoc();
                 foreach ($assignedTos as $assignedTo) {
-                    $sql2 = "SELECT * From task_assignees where task_id='$taskID' and user_id='$assignedTo'";
-                    $query1 .= $sql2;
-                    $result2 = $conn->query($sql2);
-                    if($result2 && $result2->num_rows < 1){
-                        $sql3 = "INSERT INTO `task_assignees`(`task_id`, `user_id`, `created_date`, `created_time`) VALUES ('$taskID','$assignedTo','$date','$time')";
-                        $query2 .= $sql3;
-                        $conn->query($sql3);
+                    $sql4 = "SELECT * From task_assignees where task_id='$taskID' and user_id='$assignedTo'";
+                    // $query1 .= $sql3;
+                    $query2 .= $sql4;
+                    $result4 = $conn->query($sql4);
+                    if($result4 && $result4->num_rows < 1){
+                        $sql5 = "INSERT INTO `task_assignees`(`task_id`, `user_id`, `created_date`, `created_time`) VALUES ('$taskID','$assignedTo','$date','$time')";
+                        
+                        $conn->query($sql5);
                     }
                 }
-            }
+            
             echo json_encode(["status" => "success", "message" => "Task Updated Successfully"]);
         }else{
             echo json_encode(["status" => "error", "message" => "Task not valid"]);    
