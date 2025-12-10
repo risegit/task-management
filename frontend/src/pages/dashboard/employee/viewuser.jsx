@@ -1,56 +1,134 @@
 import React, { useEffect, useState } from "react";
-import { FiSearch } from "react-icons/fi";
 
 export default function ViewEmployeesStyled() {
   const [employees, setEmployees] = useState([]);
-  const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
 
   useEffect(() => {
     const storedEmployees = JSON.parse(localStorage.getItem("employees")) || [
-      { id: 1, name: "John Doe", email: "john.doe@example.com", role: "assignee" },
-      { id: 2, name: "Sarah Johnson", email: "sarah.j@example.com", role: "assigner" },
-      { id: 3, name: "Michael Lee", email: "mike.lee@example.com", role: "assignee" },
-      { id: 4, name: "Priya Sharma", email: "priya.s@example.com", role: "assigner" },
-      { id: 5, name: "1233 Sharma", email: "priya.s@example.com", role: "assigner" }
+      { id: 1, name: "John Doe", email: "john.doe@example.com", role: "Admin" },
+      { id: 2, name: "Sarah Johnson", email: "sarah.j@example.com", role: "Staff" },
+      { id: 3, name: "Michael Lee", email: "mike.lee@example.com", role: "Staff" },
+      { id: 4, name: "Priya Sharma", email: "priya.s@example.com", role: "Staff" },
+      { id: 5, name: "1233 Sharma", email: "priya.s@example.com", role: "Manager" },
+      
     ];
     setEmployees(storedEmployees);
   }, []);
 
-  const filtered = employees.filter((e) =>
-    e.name.toLowerCase().includes(search.toLowerCase()) ||
-    e.email.toLowerCase().includes(search.toLowerCase()) ||
-    e.role.toLowerCase().includes(search.toLowerCase())
+  // Search functionality
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);        
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
+  };
+
+  // Filter employees based on search query
+  const filteredEmployees = employees.filter((emp) =>
+    emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    emp.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  return (
-  <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
-  <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8">
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Employees</h2>
-        <p className="text-sm text-gray-600 mt-1">Manage your team members</p>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
-          {filtered.length} 
-          Employees
-        </div>
-      </div>
-    </div>
+  // Sorting functionality
+  const handleSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
-    {/* SEARCH BAR WITH BUTTON */}
-    <div className="flex flex-col sm:flex-row gap-3 mb-6">
-      <div className="flex-1"></div> {/* Spacer for left side */}
-      <div className="flex gap-2 items-center justify-end">
-        <div className="relative sm:w-64">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search employees..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-          />
+  // Sort arrow component
+  const SortArrow = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) return null;
+    return (
+      <span className="ml-1">
+        {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+      </span>
+    );
+  };
+
+  // Sort the filtered employees
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === 'ascending' ? -1 : 1;
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === 'ascending' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  // Pagination logic
+  const indexOfLastEmployee = currentPage * itemsPerPage;
+  const indexOfFirstEmployee = indexOfLastEmployee - itemsPerPage;
+  const currentEmployees = sortedEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
+  const totalPages = Math.ceil(sortedEmployees.length / itemsPerPage);
+
+  const goToPage = (pageNumber) => setCurrentPage(pageNumber);
+  const goToNext = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+  const goToPrevious = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  return (
+    <div className="w-full min-h-screen bg-gray-100 mt-10">
+      <div className="mx-auto bg-white rounded-2xl shadow-xl p-6">
+        {/* Header with Search */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 sm:px-6 py-5 sm:py-4 border-b">
+          <div>
+            <h2 className="text-2xl font-bold mb-2 text-gray-800">
+              Employee Management
+            </h2>
+            <p className="text-sm sm:text-base text-gray-600">
+              View and manage employees
+            </p>
+          </div>
+
+          <div className="mt-3 sm:mt-0 w-full sm:w-1/3 relative">
+            <input
+              type="text"
+              placeholder="Search by name, email, or role..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
+            />
+         
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Clear search"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         {/* <button 
           onClick={() => console.log("Searching...")}
@@ -62,39 +140,176 @@ export default function ViewEmployeesStyled() {
       </div>
     </div>
 
-    {/* TABLE */}
-    <div className="overflow-x-auto rounded-xl border border-gray-200">
-      <table className="w-full">
-        <thead>
-          <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-            <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
-            <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
-            <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-100">
-          {filtered.length === 0 ? (
-            <tr>
-              <td colSpan="3" className="text-center p-5 text-gray-500">
-                No matching employees
-              </td>
-            </tr>
+        <div className="p-4 sm:p-6">
+          {currentEmployees.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No employees found</p>
+              <p className="text-gray-400 text-sm mt-2">Try adjusting your search</p>
+            </div>
           ) : (
-            filtered.map((emp, index) => (
-              <tr key={index} className="hover:bg-blue-50/50 transition-colors duration-150">
-                <td className="py-4 px-6 font-medium text-gray-800">{emp.name}</td>
-                <td className="py-4 px-6 text-gray-600">{emp.email}</td>
-                <td className="py-4 px-6 capitalize text-gray-700">{emp.role}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+            <>
+              {/* Desktop Table */}
+              <div className="overflow-x-auto hidden lg:block">
+                <table className="w-full table-fixed text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th
+                        className="w-[30%] py-4 px-4 font-medium text-gray-700 text-left cursor-pointer hover:bg-gray-50 transition"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center">
+                          Name
+                          <SortArrow columnKey="name" />
+                        </div>
+                      </th>
+                      <th
+                        className="w-[40%] py-4 px-4 font-medium text-gray-700 text-left cursor-pointer hover:bg-gray-50 transition"
+                        onClick={() => handleSort('email')}
+                      >
+                        <div className="flex items-center">
+                          Email
+                          <SortArrow columnKey="email" />
+                        </div>
+                      </th>
+                      <th
+                        className="w-[30%] py-4 px-4 font-medium text-gray-700 text-left cursor-pointer hover:bg-gray-50 transition"
+                        onClick={() => handleSort('role')}
+                      >
+                        <div className="flex items-center">
+                          Role
+                          <SortArrow columnKey="role" />
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentEmployees.map((emp) => (
+                      <tr
+                        key={emp.id}
+                        className="border-b border-gray-200 hover:bg-gray-50 transition"
+                      >
+                        {/* Name */}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-800 truncate">
+                              {emp.name}
+                            </span>
+                          </div>
+                        </td>
 
-    {/* FOOTER */}
-    <div className="flex justify-between items-center mt-6">
-      <p className="text-sm text-gray-600">Total: {employees.length}</p>
+                        {/* Email */}
+                        <td className="py-4 px-4 text-gray-700 truncate">
+                          <a
+                            href={`mailto:${emp.email}`}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {emp.email}
+                          </a>
+                        </td>
+
+                        {/* Role */}
+                        <td className="py-4 px-4 text-gray-700 truncate">
+                          <span className="px-3 py-1 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 capitalize">
+                            {emp.role}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="block lg:hidden space-y-5">
+                {currentEmployees.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition bg-white"
+                  >
+                    <h3 className="font-semibold text-gray-800 text-lg mb-3">
+                      {emp.name}
+                    </h3>
+
+                    <div className="space-y-3 mb-5">
+                      {/* Email */}
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+                          Email
+                        </span>
+                        <a
+                          href={`mailto:${emp.email}`}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          {emp.email}
+                        </a>
+                      </div>
+
+                      {/* Role */}
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+                          Role
+                        </span>
+                        <span
+                          className="px-3 py-1 rounded-full text-xs font-bold w-fit bg-blue-100 text-blue-800 capitalize"
+                        >
+                          {emp.role}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {filteredEmployees.length > 0 && (
+          <div className="px-5 sm:px-6 py-4 border-t bg-gray-50">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-600">
+                Showing {indexOfFirstEmployee + 1} to{" "}
+                {Math.min(indexOfLastEmployee, filteredEmployees.length)} of{" "}
+                {filteredEmployees.length} employees
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToPrevious}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-2 rounded-lg font-medium transition ${currentPage === 1
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                >
+                  Previous
+                </button>
+                {[...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index + 1}
+                    onClick={() => goToPage(index + 1)}
+                    className={`px-3 py-2 rounded-lg font-medium transition ${currentPage === index + 1
+                      ? "bg-blue-500 text-white"
+                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={goToNext}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-2 rounded-lg font-medium transition ${currentPage === totalPages
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   </div>
 </div>
