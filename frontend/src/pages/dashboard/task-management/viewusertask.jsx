@@ -27,10 +27,13 @@ export default function TasksPage() {
   }));
 
   
-  const assignedToOptions = assignedTo.filter(user => user.id !== userId).map((s) => ({
-    value: s.id,
+  const assignedToOptions = assignedTo
+  .filter(u => Number(u.id) !== Number(userId))
+  .map(s => ({
+    value: Number(s.id),
     label: s.name,
   }));
+
 
 
   // Get unique assigned by names for filter
@@ -65,41 +68,44 @@ export default function TasksPage() {
     setLoading(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?view-task=viewTask`
+        `${import.meta.env.VITE_API_URL}api/task-management.php?view-task=viewTask&user_code=${user?.user_code}&id=${user?.id}`
       );
       const result = await response.json();
 
       console.log("API response:", result);
 
       // Convert API data into UI format
-      const formatted = result.data.map((t) => ({
+   const formatted = result.data.map((t) => ({
   id: t.id,
-  name: t.task_name,   // <-- FIXED
+  name: t.task_name,
+
   assignedBy: {
-    name: t.assignedby,
-    initials: t.assignedby
+    id: Number(t.assignedby),
+    name: t.assignedby_name,
+    initials: t.assignedby_name
       .split(" ")
       .map((w) => w[0])
       .join("")
       .toUpperCase(),
-    color: "from-purple-400 to-purple-600"
+    color: "from-purple-400 to-purple-600",
   },
+
   assignedTo: {
-    name: t.assignedto,
-    initials: t.assignedto
+    id: Number(t.assignedto),
+    name: t.assignedto_name,
+    initials: t.assignedto_name
       .split(" ")
       .map((w) => w[0])
       .join("")
       .toUpperCase(),
-    color: "from-blue-400 to-blue-600"
+    color: "from-blue-400 to-blue-600",
   },
+
   deadline: t.deadline,
   status: t.status,
   remarks: t.remarks
 }));
 
-
-      
       
       setAllTasks(formatted);
       setAssignedTo(result.staff); 
@@ -115,11 +121,10 @@ export default function TasksPage() {
 
 
   const handleEdit = (task) => {
-  // convert "Amit, John" → ["Amit", "John"]
-  const assignedNames = task.assignedTo.name.split(",").map(n => n.trim());
+  const assignedToId = Number(task.assignedTo.id);
 
   const selectedStaff = assignedToOptions.filter(opt =>
-    assignedNames.includes(opt.label)
+    opt.value === assignedToId
   );
 
   setEditingTask({
@@ -129,18 +134,17 @@ export default function TasksPage() {
     status: task.status,
     remarks: task.remarks,
 
-    // assigned by (single select)
     assignedBySelect: {
-      value: task.assignedBy.name,
+      value: task.assignedBy.id,
       label: task.assignedBy.name,
     },
 
-    // assigned to (multi-select from API staff list)
     assignedToSelect: selectedStaff
   });
 
   setIsEditModalOpen(true);
 };
+
 
 
 
@@ -296,7 +300,7 @@ export default function TasksPage() {
                   Status
                 </th>
                 <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Remarks
+                  Title
                 </th>
                 <th className="py-4 px-6 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Actions
@@ -334,11 +338,21 @@ export default function TasksPage() {
                       <span className="text-gray-600">{task.deadline}</span>
                     </td>
                     <td className="py-4 px-6">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusStyle(task.status)}`}>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusStyle(task.status)}`}>
                         ● {task.status}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-gray-500">{task.remarks}</td>
+<td className="py-4 px-6 text-gray-500 relative group">
+  <span className="">{task.name}</span>
+
+  {/* Tooltip */}
+  {/* <div className="absolute left-0 top-full mt-2 w-64 p-3 rounded-lg shadow-lg bg-gray-900 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+    {task.remarks || "No remarks"}
+  </div> */}
+</td>
+
+
+
                     <td className="py-4 px-6">
                       <div className="flex gap-2 justify-center">
                         <button 
@@ -407,6 +421,7 @@ export default function TasksPage() {
               <input
                 type="text"
                 value={editingTask.name}
+                readOnly={editingTask.assignedBySelect.value !== Number(userId)}
                 onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-1 focus:ring-blue-500 focus:outline-none"
               />
@@ -422,31 +437,29 @@ export default function TasksPage() {
                     {editingTask.assignedBySelect.label}
                   </p>
                 </div>
+                {
+  editingTask.assignedToSelect &&
+  editingTask.assignedToSelect.length > 0 && (
+    <div>
+      <label className="block text-sm font-medium mb-1">
+        Assigned To <span className="text-red-500">*</span>
+      </label>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Assigned To <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    isMulti
-                    options={assignedToOptions}
-                    value={editingTask.assignedToSelect}
-                    onChange={(selected) =>
-                      setEditingTask({ ...editingTask, assignedToSelect: selected })
-                    }
-                    classNamePrefix="react-select"
-                    styles={{
-                      menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                      control: (provided) => ({
-                        ...provided,
-                        borderColor: "#d1d5db",
-                        borderRadius: "0.5rem",
-                        padding: "0.125rem",
-                      }),
-                    }}
-                    placeholder="Select multiple..."
-                  />
-                </div>
+      <Select
+        isMulti
+        options={assignedToOptions}
+        value={editingTask.assignedToSelect}
+        onChange={(selected) =>
+          setEditingTask({
+            ...editingTask,
+            assignedToSelect: selected.length ? selected : editingTask.assignedToSelect
+          })
+        }
+      />
+    </div>
+  )
+}
+
               </div>
 
               {/* Deadline, Status in one row */}
@@ -458,6 +471,7 @@ export default function TasksPage() {
                     <input
                       type="date"
                       value={editingTask.deadline}
+                      disabled={editingTask.assignedBySelect.value !== Number(userId)}
                       onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none"
                     />
@@ -491,8 +505,8 @@ export default function TasksPage() {
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
                         type="radio"
-                        value="In-progress"
-                        checked={editingTask.status === "In-progress"}
+                        value="in-progress"
+                        checked={editingTask.status === "in-progress"}
                         onChange={(e) =>
                           setEditingTask({ ...editingTask, status: e.target.value })
                         }
@@ -525,6 +539,7 @@ export default function TasksPage() {
               <textarea
                 rows="3"
                 value={editingTask.remarks}
+                readOnly={editingTask.assignedBySelect.value !== Number(userId)}
                 onChange={(e) => setEditingTask({ ...editingTask, remarks: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-1 focus:ring-blue-500 focus:outline-none"
               ></textarea>
