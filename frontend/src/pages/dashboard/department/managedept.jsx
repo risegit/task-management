@@ -1,19 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const ManageDepartment = () => {
-  const departmentsData = [
-    { id: 1, name: "Engineering", description: "Product development team", status: "active" },
-    { id: 2, name: "Human Resources", description: "Employee management", status: "active" },
-    { id: 3, name: "Marketing", description: "Brand promotion", status: "inactive" },
-    { id: 4, name: "Sales", description: "Client acquisition", status: "active" },
-    { id: 5, name: "Finance", description: "Budget management", status: "active" },
-  ];
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  const [departments, setDepartments] = useState(departmentsData);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 20;
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}api/department.php`
+        );
+
+        const result = await response.json();
+        console.log("Departments API:", result);
+
+        if (result.status === "success") {
+          setDepartments(result.data); // 👈 API data
+        } else {
+          alert(result.message || "Failed to load departments");
+        }
+      } catch (error) {
+        console.error("Fetch Error:", error);
+        alert("Something went wrong while fetching departments");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
 
   // Handle sorting
   const handleSort = (key) => {
@@ -75,7 +98,9 @@ const ManageDepartment = () => {
   };
   
   const clearSearch = () => setSearchQuery("");
-  const handleEdit = (id) => alert(`Edit department ID: ${id}`);
+  const handleEdit = (userId) => {
+    navigate(`/dashboard/department/editdept/${userId}`);
+  };
   const goToPage = (page) => setCurrentPage(page);
   const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
