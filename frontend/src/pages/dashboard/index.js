@@ -8,3 +8,5 @@ export * from "@/pages/dashboard/employee/adduser";
 export * from "@/pages/dashboard/employee/edituser";
 export * from "@/pages/dashboard/task-management/createusertask"
 export * from "@/pages/dashboard/task-management/viewusertask"
+export * from "@/pages/dashboard/department/adddept";
+export * from "@/pages/dashboard/department/managedept";
