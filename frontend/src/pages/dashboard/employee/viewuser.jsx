@@ -130,15 +130,6 @@ export default function ViewEmployeesStyled() {
             )}
           </div>
         </div>
-        {/* <button 
-          onClick={() => console.log("Searching...")}
-          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
-        >
-          <FiSearch size={18} />
-          <span className="hidden sm:inline">Search</span>
-        </button> */}
-      </div>
-    </div>
 
         <div className="p-4 sm:p-6">
           {currentEmployees.length === 0 ? (
@@ -311,7 +302,5 @@ export default function ViewEmployeesStyled() {
         )}
       </div>
     </div>
-  </div>
-</div>
   );
 }
