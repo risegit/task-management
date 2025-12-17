@@ -13,7 +13,6 @@ import {
 
 import {
   Home,
-  Profile,
   User,
 } from "@/pages/dashboard";
 
@@ -22,9 +21,13 @@ import ViewUser from "@/pages/dashboard/employee/viewuser";
 import EditUserForm from "@/pages/dashboard/employee/edituser";
 import Createusertask from "@/pages/dashboard/task-management/createtask"
 import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
+import Profile from "@/pages/dashboard/profile";
+import Adddept from "@/pages/dashboard/department/adddept";
+import Managedept from "@/pages/dashboard/department/managedept";
 
 import { SignIn, SignUp } from "@/pages/auth";
 import LogoutButton from "./Components/LogoutButton";
+import { element } from "prop-types";
 
 
 const icon = { className: "w-5 h-5 text-inherit" };
@@ -62,9 +65,25 @@ const routes = [
           },
         ],
       },
+       {
+        icon: <UsersIcon {...icon} />,
+        name: "Departments",
+        collapse: [
+          {
+            name: "Add Department",
+            path: "/department/add-department",
+            element: <Adddept />,
+          },
+          {
+            name: "Manage Deptartments",
+            path: "/department/managedept",
+            element: <Managedept />,
+          },
+        ],
+      },
       
-         {
-        icon: <UserCircleIcon {...icon} />,
+      {
+        icon: <UsersIcon {...icon} />,
         name: "Task Management",
         collapse: [
           {
@@ -84,6 +103,13 @@ const routes = [
             hidden: true,
           },
         ],
+      },
+         {
+        icon: <IdentificationIcon {...icon} />,
+        name: "Profile",
+        element: <Profile />,
+        path: "/profile",
+       
       },
     ],
   },
@@ -114,6 +140,7 @@ const routes = [
       },
     ],
   },
+  
   
 ];
 
