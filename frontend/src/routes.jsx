@@ -61,7 +61,7 @@ const routes = [
           },
           {
             name: "Edit Employee",
-            path: "/employee/edit-user",
+            path: "/employee/edit-user/:id",
             element: <Edituser/>,
             hidden: true,
           },
@@ -83,7 +83,7 @@ const routes = [
           },
            {
             name: "Edit Deptartments",
-            path: "/department/edit-dept",
+            path: "/department/edit-dept/:id",
             element: <Editdept />,
             hidden: true,
           },

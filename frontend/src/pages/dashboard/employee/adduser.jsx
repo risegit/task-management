@@ -37,14 +37,14 @@ export default function AddEmployee() {
     setLoading(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/emp.php`
+        `${import.meta.env.VITE_API_URL}api/department.php`
       );
 
       const result = await response.json();
       console.log("EMP_Departments API:", result);
 
-      if (result.departments) {
-        setDepartments(result.departments); // ✅ FIXED
+      if (result.data) {
+        setDepartments(result.data); // ✅ FIXED
       } else {
         alert("No departments found");
       }
@@ -166,7 +166,7 @@ export default function AddEmployee() {
 
 
   // Check if role requires department (Manager and Staff only)
-  const showDepartment = formData.role === "manager" || formData.role === "staff";
+  const showDepartment = formData.role === "admin" || formData.role === "manager" || formData.role === "staff";
 
   return (
     <div className="w-full flex justify-center py-10 bg-gray-100">

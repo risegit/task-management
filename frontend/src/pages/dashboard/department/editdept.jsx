@@ -1,13 +1,59 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 
-export default function AddItemTable() {
+export default function EditDepartment() {
+  const { id } = useParams(); // Get department ID from URL
+  const user = JSON.parse(localStorage.getItem("user"));
+  const user_id = user?.id;
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    active: true, // Default to active (checked)
+    status: true,
   });
 
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ✅ Fixed: Removed any duplicate or old useEffect
+  // Fetch department data based on ID
+useEffect(() => {
+  if (!id) return;
+
+  const fetchDepartment = async () => {
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/department.php?id=${id}`
+      );
+
+      const result = await response.json();
+
+      if (result.status === "success" && result.data?.length > 0) {
+        const departmentData = result.data[0];
+
+        setFormData({
+          name: departmentData.name || "",
+          description: departmentData.description || "",
+          status: departmentData.status === "active", // ✅ string → boolean
+        });
+      } else {
+        alert("Department not found!");
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchDepartment();
+}, [id]);
+
+
 
   const validate = () => {
     let newErrors = {};
@@ -38,35 +84,78 @@ export default function AddItemTable() {
     }
   };
 
-  const handleCheckboxChange = (e) => {
-    const { checked } = e.target;
-    setFormData({ ...formData, active: checked });
-  };
+ const handleCheckboxChange = (e) => {
+  setFormData({
+    ...formData,
+    status: e.target.checked,
+  });
+};
 
-  const handleSubmit = () => {
+
+
+  const handleSubmit = async () => {
     if (!validate()) return;
 
-    // Convert boolean to string for display
-    const submissionData = {
-      ...formData,
-      status: formData.active ? "active" : "inactive"
-    };
-
-    console.log("Item Added:", submissionData);
-    alert("Item Added Successfully!");
+    setIsSubmitting(true);
     
-    // Reset form after successful submission
-    setFormData({
-      name: "",
-      description: "",
-      active: true,
-    });
+    try {
+      // Prepare data for API submission
+      const form = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+          if (value !== null) form.append(key, value);
+      });
+
+      form.append('id', id);
+      form.append('_method', 'PUT');
+      
+      // Send PUT request to update department
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/department.php?id=${user_id}`, {
+        method: "POST",
+        body: form,
+      });
+
+      const result = await response.json();
+      
+      if (result.status === "success") {
+        alert("Department updated successfully!");
+      } else {
+        alert(result.message || "Failed to update department");
+      }
+    } catch (error) {
+      console.error("Update Error:", error);
+      alert("Something went wrong while updating department");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className=" flex justify-center py-10 bg-gray-100">
+        <div className=" bg-white rounded-2xl shadow-lg p-8 text-center">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">Loading Department Data...</h2>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Fetching department information...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full flex justify-center py-10 bg-gray-100">
-      <div className="w-full bg-white rounded-2xl shadow-lg p-6 md:p-8">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Edit Department</h2>
+    <div className="w-full min-h-screen bg-gray-100 mt-10">
+      <div className="mx-auto bg-white rounded-2xl shadow-xl p-6">
+        <div className="px-6 py-4 ">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-800">Edit Department</h2>
+            <p className="text-sm text-gray-600 mt-1">Update department information</p>
+          </div>
+          <div className="mt-2 md:mt-0">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              ID: {id}
+            </span>
+          </div>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column */}
@@ -84,7 +173,7 @@ export default function AddItemTable() {
                 className={`w-full border ${
                   errors.name ? "border-red-500 bg-red-50" : "border-gray-300"
                 } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors`}
-                placeholder="Enter item name"
+                placeholder="Enter department name"
               />
               {errors.name && (
                 <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
@@ -112,7 +201,7 @@ export default function AddItemTable() {
                 className={`w-full border ${
                   errors.description ? "border-red-500 bg-red-50" : "border-gray-300"
                 } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors resize-none`}
-                placeholder="Enter item description"
+                placeholder="Enter department description"
               />
               {errors.description && (
                 <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
@@ -135,38 +224,44 @@ export default function AddItemTable() {
               <label className="block text-sm font-medium mb-1 text-gray-700">
                 Status
               </label>
-              
-              {/* Single checkbox approach */}
               <div className="space-y-2">
                 <div className="flex items-center">
                   <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50">
                     <input
                       type="checkbox"
-                      name="active"
-                      checked={formData.active}
+                      name="status"
+                      checked={formData.status}
                       onChange={handleCheckboxChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <span className="text-sm font-medium text-gray-700">Active</span>
-                  
+
+
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Active</span>
+                      <p className="text-xs text-gray-500">Department will be visible and active</p>
+                    </div>
                   </label>
                 </div>
-                
-          
-                {/* Alternative: Toggle switch approach */}
-          
               </div>
             </div>
           </div>
         </div>
 
         {/* Button */}
-        <div className="flex justify-end mt-8 pt-6 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
           <button
             onClick={handleSubmit}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            disabled={isSubmitting}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Add Department
+            {isSubmitting ? (
+              <>
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Updating...
+              </>
+            ) : (
+              "Update Department"
+            )}
           </button>
         </div>
       </div>

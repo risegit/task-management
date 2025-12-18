@@ -1,19 +1,117 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 
 export default function EditEmployee() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     role: "assignee",
-    department: "",
+    department: null,
     name: "",
     email: "",
     phone: "",
     password: "",
+    active: true, // Added status field
   });
 
+  const [departments, setDepartments] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
 
-  // Generate random alphanumeric password
+  // Fetch employee data on component mount
+  useEffect(() => {
+  if (!id) return;
+
+  const fetchEmployeeAndDepartments = async () => {
+    try {
+      setIsLoading(true);
+      setIsLoadingDepartments(true);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/emp.php?id=${id}`
+      );
+
+      const result = await response.json();
+      console.log("API result:", result);
+
+      if (result.status === "success") {
+        const employee = result.data?.[0];
+        const deptList = result.departments || [];
+
+        // ✅ SET DEPARTMENTS FIRST
+        setDepartments(deptList);
+
+        if (employee) {
+          // ✅ MATCH dept_name → dept.id
+          const matchedDept = deptList.find(
+            (dept) => dept.name === employee.dept_name
+          );
+
+          setFormData({
+            role: employee.role || "assignee",
+            department: matchedDept ? matchedDept.id : "",
+            name: employee.name || "",
+            email: employee.email || "",
+            phone: employee.phone || "",
+            password: "",
+            active:
+              employee.status === "active" ||
+              employee.active === true ||
+              employee.status === "1",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingDepartments(false);
+    }
+  };
+
+  fetchEmployeeAndDepartments();
+}, [id]);
+
+
+  // Fetch departments from API
+  // useEffect(() => {
+  //   const fetchDepartments = async () => {
+  //     try {
+  //       setIsLoadingDepartments(true);
+  //       const response = await fetch(`${import.meta.env.VITE_API_URL}api/department.php`);
+        
+  //       const result = await response.json();
+  //       console.log("Fetched departments:", result);
+        
+  //       if (result.status === "success") {
+  //         if (result.departments && Array.isArray(result.departments)) {
+  //           setDepartments(result.departments);
+  //         } else if (result.data && Array.isArray(result.data)) {
+  //           setDepartments(result.data);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching departments:", error);
+  //       // Fallback static departments if API fails
+  //       setDepartments([
+  //         { id: 1, name: "Engineering" },
+  //         { id: 2, name: "Development" },
+  //         { id: 3, name: "Sales" },
+  //         { id: 4, name: "Marketing" },
+  //         { id: 5, name: "Human Resources" },
+  //         { id: 6, name: "Finance" }
+  //       ]);
+  //     } finally {
+  //       setIsLoadingDepartments(false);
+  //     }
+  //   };
+
+  //   fetchDepartments();
+  // }, []);
+
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
@@ -23,7 +121,6 @@ export default function EditEmployee() {
     setFormData({ ...formData, password });
   };
 
-  // Copy password to clipboard
   const copyPassword = () => {
     navigator.clipboard.writeText(formData.password);
     alert("Password copied to clipboard!");
@@ -32,18 +129,13 @@ export default function EditEmployee() {
   const validate = () => {
     let newErrors = {};
 
-    if (!formData.role) {
-      newErrors.role = "Role is required";
-    }
+    if (!formData.role) newErrors.role = "Role is required";
 
-    // Department validation for manager and staff only
     if ((formData.role === "manager" || formData.role === "staff") && !formData.department) {
       newErrors.department = "Department is required";
     }
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
+    if (!formData.name.trim()) newErrors.name = "Name is required";
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
@@ -51,19 +143,10 @@ export default function EditEmployee() {
       newErrors.email = "Enter a valid email";
     }
 
-    // Phone validation for all roles (Admin, Manager, Staff)
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required";
     } else if (!/^\d{10}$/.test(formData.phone)) {
       newErrors.phone = "Enter a valid 10-digit phone number";
-    }
-
-    if (!formData.password.trim()) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    } else if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password)) {
-      newErrors.password = "Password must be alphanumeric (letters and numbers)";
     }
 
     setErrors(newErrors);
@@ -73,94 +156,73 @@ export default function EditEmployee() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    
-    // Clear error on typing
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: "" });
-    }
+    if (errors[name]) setErrors({ ...errors, [name]: "" });
   };
 
-  // API call function
-  const callAPI = async (payload) => {
-    setIsSubmitting(true);
-    try {
-      console.log("API Payload to http://localhost:5173/employee:", payload);
-      
-      // Uncomment this to make actual API call
-      // const response = await fetch("http://localhost:5173/employee", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(payload),
-      // });
-      
-      // const data = await response.json();
-      // console.log("API Response:", data);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("API Call Successful!");
-      return { success: true, message: "Employee added successfully" };
-    } catch (error) {
-      console.error("API Error:", error);
-      return { success: false, message: "Failed to add employee" };
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleCheckboxChange = (e) => {
+    const { checked } = e.target;
+    setFormData({ ...formData, active: checked });
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    console.log("Final Submission - Employee Added:", formData);
-    
-    // Create final payload
-    const finalPayload = {
-      role: formData.role,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      password: formData.password,
-      ...(formData.department && { department: formData.department })
-    };
-
-    console.log("Sending to API:", finalPayload);
-    
-    // Call API only on submit
-    const result = await callAPI(finalPayload);
-    
-    if (result.success) {
-      alert("Employee Added Successfully! Check console for API payload.");
+    setIsSubmitting(true);
+    try {
+      console.log("Updating employee ID:", id);
+      console.log("Update Payload:", formData);
       
-      // Reset form after successful submission
-      setFormData({
-        role: "assignee",
-        department: "",
-        name: "",
-        email: "",
-        phone: "",
-        password: "",
+      const form = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+          if (value !== null) form.append(key, value);
       });
-    } else {
-      alert(result.message);
+
+      form.append('id', id);
+      form.append('_method', 'PUT');
+      
+      // Send PUT request to update employee
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/emp.php`, {
+        method: 'POST',
+        body: form,
+      });
+
+      const result = await response.json();
+      
+      if (result.status === "success") {
+        alert("Employee Updated Successfully!");
+      } else {
+        alert(result.message || "Failed to update employee");
+      }
+    } catch (error) {
+      console.error("Update Error:", error);
+      alert("Failed to update employee");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Check if role requires department (Manager and Staff only)
-  const showDepartment = formData.role === "manager" || formData.role === "staff";
+  const showDepartment = formData.role === "manager" || formData.role === "staff" || formData.role === "admin";
+
+  if (isLoading) {
+    return (
+      <div className="w-full flex justify-center py-10 bg-gray-100">
+        <div className="w-full bg-white rounded-2xl shadow-lg p-6 md:p-8">
+          <h2 className="text-2xl font-semibold mb-6 text-gray-800">Edit Employee</h2>
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex justify-center py-10 bg-gray-100">
       <div className="w-full bg-white rounded-2xl shadow-lg p-6 md:p-8">
         <h2 className="text-2xl font-semibold mb-6 text-gray-800">Edit Employee</h2>
         
-        {/* All inputs in one parent div */}
         <div className="space-y-6">
-          {/* First row: Role and Department side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Role */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700">
                 Role <span className="text-red-500">*</span>
@@ -188,27 +250,32 @@ export default function EditEmployee() {
               )}
             </div>
 
-            {/* Department (shown for Manager/Staff, hidden for Admin) */}
             {showDepartment ? (
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700">
                   Department <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  className={`w-full border ${
-                    errors.department ? "border-red-500 bg-red-50" : "border-gray-300"
-                  } rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors`}
-                >
-                  <option value="">Select Department</option>
-                  <option value="engineering">Engineering</option>
-                  <option value="sales">Sales</option>
-                  <option value="marketing">Marketing</option>
-                  <option value="hr">Human Resources</option>
-                  <option value="finance">Finance</option>
-                </select>
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    className={`w-full border ${
+                      errors.department ? "border-red-500 bg-red-50" : "border-gray-300"
+                    } rounded-lg px-4 py-3`}
+                  >
+                    <option value="">Select Department</option>
+
+                    {isLoadingDepartments ? (
+                      <option disabled>Loading departments...</option>
+                    ) : (
+                      departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
                 {errors.department && (
                   <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -219,14 +286,11 @@ export default function EditEmployee() {
                 )}
               </div>
             ) : (
-              /* Empty div to maintain layout for Admin */
               <div></div>
             )}
           </div>
 
-          {/* Second row: Name and Email side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Name */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700">
                 Name <span className="text-red-500">*</span>
@@ -251,7 +315,6 @@ export default function EditEmployee() {
               )}
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700">
                 Email <span className="text-red-500">*</span>
@@ -277,9 +340,7 @@ export default function EditEmployee() {
             </div>
           </div>
 
-          {/* Third row: Phone and Password side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Phone */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700">
                 Phone Number <span className="text-red-500">*</span>
@@ -305,7 +366,6 @@ export default function EditEmployee() {
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700">
                 Password <span className="text-red-500">*</span>
@@ -343,14 +403,7 @@ export default function EditEmployee() {
                   </button>
                 </div>
               </div>
-              {errors.password && (
-                <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.password}
-                </p>
-              )}
+         
               <div className="flex justify-between text-xs text-gray-500 mt-2">
                 <div>{formData.password.length}/6 characters</div>
                 <div className={!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password) ? "text-red-500" : "text-green-500"}>
@@ -359,9 +412,35 @@ export default function EditEmployee() {
               </div>
             </div>
           </div>
+
+          {/* Status Checkbox - Added below the phone number field */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700">
+                Status
+              </label>
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      name="active"
+                      checked={formData.active}
+                      onChange={handleCheckboxChange}
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Active</span>
+                     
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div></div> {/* Empty div to maintain grid layout */}
+          </div>
         </div>
 
-        {/* Button */}
         <div className="flex justify-end mt-8 pt-6 border-t border-gray-200">
           <button
             onClick={handleSubmit}
@@ -376,10 +455,10 @@ export default function EditEmployee() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Adding...
+                Updating...
               </span>
             ) : (
-              'Add Employee'
+              'Update Employee'
             )}
           </button>
         </div>
