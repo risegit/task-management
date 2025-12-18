@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function AddEmployee() {
   const [formData, setFormData] = useState({
@@ -12,6 +12,9 @@ export default function AddEmployee() {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(false);
+
 
   // Generate random alphanumeric password
   const generatePassword = () => {
@@ -28,6 +31,34 @@ export default function AddEmployee() {
     navigator.clipboard.writeText(formData.password);
     alert("Password copied to clipboard!");
   };
+
+ useEffect(() => {
+  const fetchEMPDEPT = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/emp.php`
+      );
+
+      const result = await response.json();
+      console.log("EMP_Departments API:", result);
+
+      if (result.departments) {
+        setDepartments(result.departments); // ✅ FIXED
+      } else {
+        alert("No departments found");
+      }
+    } catch (error) {
+      console.error("Fetch Error:", error);
+      alert("Something went wrong while fetching departments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchEMPDEPT();
+}, []);
+
 
   const validate = () => {
     let newErrors = {};
@@ -80,73 +111,59 @@ export default function AddEmployee() {
     }
   };
 
-  // API call function
-  const callAPI = async (payload) => {
+  const handleSubmit = async () => {
+    if (!validate()) return;
+
+    const formDataObj = new FormData();
+
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value !== null) {
+        formDataObj.append(key, value);
+      }
+    });
+
+    console.log("Submitting form data...");
+    for (let pair of formDataObj.entries()) {
+      console.log(pair[0] + ": ", pair[1]);
+    }
+
     setIsSubmitting(true);
+
     try {
-      console.log("API Payload to http://localhost:5173/employee:", payload);
-      
-      // Uncomment this to make actual API call
-      // const response = await fetch("http://localhost:5173/employee", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(payload),
-      // });
-      
-      // const data = await response.json();
-      // console.log("API Response:", data);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("API Call Successful!");
-      return { success: true, message: "Employee added successfully" };
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/emp.php`,
+        {
+          method: "POST",
+          body: formDataObj,
+        }
+      );
+
+      const result = await response.json();
+      console.log("API Response:", result);
+
+      if (result.status === "success") {
+        alert("Employee added successfully!");
+
+        // Reset form
+        setFormData({
+          role: "assignee",
+          department: "",
+          name: "",
+          email: "",
+          phone: "",
+          password: "",
+        });
+      } else {
+        alert(result.message || "Failed to add employee");
+      }
     } catch (error) {
       console.error("API Error:", error);
-      return { success: false, message: "Failed to add employee" };
+      alert("Server error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
-    console.log("Final Submission - Employee Added:", formData);
-    
-    // Create final payload
-    const finalPayload = {
-      role: formData.role,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      password: formData.password,
-      ...(formData.department && { department: formData.department })
-    };
-
-    console.log("Sending to API:", finalPayload);
-    
-    // Call API only on submit
-    const result = await callAPI(finalPayload);
-    
-    if (result.success) {
-      alert("Employee Added Successfully! Check console for API payload.");
-      
-      // Reset form after successful submission
-      setFormData({
-        role: "assignee",
-        department: "",
-        name: "",
-        email: "",
-        phone: "",
-        password: "",
-      });
-    } else {
-      alert(result.message);
-    }
-  };
 
   // Check if role requires department (Manager and Staff only)
   const showDepartment = formData.role === "manager" || formData.role === "staff";
@@ -198,17 +215,20 @@ export default function AddEmployee() {
                   name="department"
                   value={formData.department}
                   onChange={handleChange}
+                  disabled={loading}
                   className={`w-full border ${
                     errors.department ? "border-red-500 bg-red-50" : "border-gray-300"
-                  } rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors`}
+                  } rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500`}
                 >
                   <option value="">Select Department</option>
-                  <option value="engineering">Engineering</option>
-                  <option value="sales">Sales</option>
-                  <option value="marketing">Marketing</option>
-                  <option value="hr">Human Resources</option>
-                  <option value="finance">Finance</option>
+
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
                 </select>
+
                 {errors.department && (
                   <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

@@ -16,7 +16,34 @@ const ManageDepartment = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 20;
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}api/department.php`
+        );
+
+        const result = await response.json();
+        console.log("Departments API:", result);
+
+        if (result.status === "success") {
+          setDepartments(result.data); // 👈 API data
+        } else {
+          alert(result.message || "Failed to load departments");
+        }
+      } catch (error) {
+        console.error("Fetch Error:", error);
+        alert("Something went wrong while fetching departments");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
 
   // Handle sorting
   const handleSort = (key) => {
