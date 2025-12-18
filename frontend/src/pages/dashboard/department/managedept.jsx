@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const ManageDepartment = () => {
@@ -13,6 +13,7 @@ const ManageDepartment = () => {
   const navigate = useNavigate();
   
   const [departments, setDepartments] = useState(departmentsData);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -21,21 +22,32 @@ const ManageDepartment = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}api/department.php`
-        );
+        const response = await fetch(`${import.meta.env.VITE_API_URL}api/department.php`);
 
         const result = await response.json();
         console.log("Departments API:", result);
 
         if (result.status === "success") {
-          setDepartments(result.data); // 👈 API data
+          // FIXED: Use result.departments instead of result.data
+          if (result.departments && Array.isArray(result.departments)) {
+            setDepartments(result.departments);
+          } else if (result.data && Array.isArray(result.data)) {
+            // Fallback to data if departments doesn't exist
+            setDepartments(result.data);
+          } else {
+            console.warn("Unexpected API response structure:", result);
+            // Keep the default data if API structure is unexpected
+            setDepartments(departmentsData);
+          }
         } else {
-          alert(result.message || "Failed to load departments");
+          console.warn("API returned error:", result.message);
+          // Keep the default data if API fails
+          setDepartments(departmentsData);
         }
       } catch (error) {
         console.error("Fetch Error:", error);
-        alert("Something went wrong while fetching departments");
+        // Keep the default data on error
+        setDepartments(departmentsData);
       } finally {
         setLoading(false);
       }
@@ -43,7 +55,6 @@ const ManageDepartment = () => {
 
     fetchDepartments();
   }, []);
-
 
   // Handle sorting
   const handleSort = (key) => {
@@ -107,15 +118,30 @@ const ManageDepartment = () => {
   const clearSearch = () => setSearchQuery("");
   
   // Navigate to edit department page
-  const handleEdit = (id) => {
-    navigate(`/department/edit-dept/${id}`);
-    // If you want to pass state data along with navigation:
-    // navigate(`/department/edit-dept/${id}`, { state: { departmentId: id } });
-  };
+const handleEdit = (id) => {
+  console.log("Attempting to navigate to:", `/dashboard/department/edit-dept/${id}`);
+  console.log("Current routes available?");
+  navigate(`/dashboard/department/edit-dept/${id}`);
+};
   
   const goToPage = (page) => setCurrentPage(page);
   const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen bg-gray-100 mt-10 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <h3 className="text-lg font-medium text-gray-800">Loading departments...</h3>
+            <p className="text-gray-600 mt-2">Please wait while we fetch your data</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-gray-100 mt-10">
@@ -148,7 +174,13 @@ const ManageDepartment = () => {
         <div className="p-6">
           {currentDepartments.length === 0 ? (
             <div className="text-center py-12">
+              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               <p className="text-gray-500 text-lg">No departments found</p>
+              {searchQuery && (
+                <p className="text-gray-400 mt-2">Try adjusting your search query</p>
+              )}
             </div>
           ) : (
             <>
@@ -193,15 +225,15 @@ const ManageDepartment = () => {
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-bold">{dept.name.charAt(0)}</span>
+                              <span className="text-blue-600 font-bold">{dept.name ? dept.name.charAt(0) : "?"}</span>
                             </div>
-                            <span className="font-medium text-gray-800">{dept.name}</span>
+                            <span className="font-medium text-gray-800">{dept.name || "Unnamed"}</span>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-gray-700">{dept.description}</td>
+                        <td className="py-4 px-4 text-gray-700">{dept.description || "No description"}</td>
                         <td className="py-4 px-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${dept.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                            {dept.status === "active" ? "Active" : "Inactive"}
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${(dept.status === "active" || dept.status === 1) ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                            {(dept.status === "active" || dept.status === 1) ? "Active" : "Inactive"}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-right">
@@ -224,16 +256,16 @@ const ManageDepartment = () => {
                   <div key={dept.id} className="border border-gray-200 rounded-xl p-4 bg-white">
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-blue-600 font-bold text-lg">{dept.name.charAt(0)}</span>
+                        <span className="text-blue-600 font-bold text-lg">{dept.name ? dept.name.charAt(0) : "?"}</span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-800 text-lg">{dept.name}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${dept.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                          {dept.status === "active" ? "Active" : "Inactive"}
+                        <h3 className="font-semibold text-gray-800 text-lg">{dept.name || "Unnamed"}</h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${(dept.status === "active" || dept.status === 1) ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                          {(dept.status === "active" || dept.status === 1) ? "Active" : "Inactive"}
                         </span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">{dept.description}</p>
+                    <p className="text-sm text-gray-600 mb-4">{dept.description || "No description"}</p>
                     <button 
                       onClick={() => handleEdit(dept.id)} 
                       className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"

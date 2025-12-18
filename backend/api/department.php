@@ -56,8 +56,24 @@ switch ($method) {
          if ($conn->query($sql)) {
             echo json_encode(["status" => "success", "message" => "Department Created Successfully"]);
          }else{
-            echo json_encode(["status" => "error", "message" => $conn->error."===".$sql]);
+            echo json_encode(["status" => "error", "message" => $conn->error]);
          }
+
+        break;
+
+    case 'PUT':
+        $id = $_POST['id'] ?? ''; 
+        $name = $_POST['name'] ?? '';
+        $description = $_POST['description'] ?? '';
+        $status = $_POST['status'] ?? '';
+        $userstatus = filter_var($status, FILTER_VALIDATE_BOOLEAN) ? 'active' : 'inactive';
+
+        $sql = "UPDATE `departments` SET `name`='$name', `description`='$description', `status`='$userstatus', `updated_by`='$userId', `created_date`='$date', `created_time`='$time' WHERE id='$id'";
+        if ($conn->query($sql)) {
+        echo json_encode(["status" => "success", "message" => "Department Updated Successfully".$sql]);
+        }else{
+        echo json_encode(["status" => "error", "message" => $conn->error."===".$sql]);
+        }
 
         break;
 
