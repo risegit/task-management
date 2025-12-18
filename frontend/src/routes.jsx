@@ -18,12 +18,14 @@ import {
 
 import AddUser from "@/pages/dashboard/employee/adduser";
 import ViewUser from "@/pages/dashboard/employee/viewuser";
-import EditUserForm from "@/pages/dashboard/employee/edituser";
+import Edituser from "@/pages/dashboard/employee/edituser";
 import Createusertask from "@/pages/dashboard/task-management/createtask"
 import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
 import Profile from "@/pages/dashboard/profile";
 import Adddept from "@/pages/dashboard/department/adddept";
 import Managedept from "@/pages/dashboard/department/managedept";
+import Editdept from "@/pages/dashboard/department/editdept";
+
 
 import { SignIn, SignUp } from "@/pages/auth";
 import LogoutButton from "./Components/LogoutButton";
@@ -49,18 +51,18 @@ const routes = [
         collapse: [
           {
             name: "Add Employee",
-            path: "/users/add",
+            path: "/users/add-user",
             element: <AddUser />,
           },
           {
             name: "Manage Employees",
-            path: "/users/viewusers",
+            path: "/users/view-users",
             element: <ViewUser />,
           },
           {
             name: "Edit Employee",
-            path: "/users/edituser/:id",
-            element: <EditUserForm />,
+            path: "/employee/edit-user",
+            element: <Edituser/>,
             hidden: true,
           },
         ],
@@ -79,6 +81,13 @@ const routes = [
             path: "/department/managedept",
             element: <Managedept />,
           },
+           {
+            name: "Edit Deptartments",
+            path: "/department/edit-dept",
+            element: <Editdept />,
+            hidden: true,
+          },
+          
         ],
       },
       
@@ -96,12 +105,7 @@ const routes = [
             path: "/users/viewtask",
             element: <ViewUsertask />,
           },
-          {
-            name: "Edit Employee",
-            path: "/users/edituser/:id",
-            element: <EditUserForm />,
-            hidden: true,
-          },
+    
         ],
       },
          {

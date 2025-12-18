@@ -8,7 +8,6 @@ export default function AddItemTable() {
   });
 
   const [errors, setErrors] = useState({});
-  const user = JSON.parse(localStorage.getItem("user"));
 
   const validate = () => {
     let newErrors = {};
@@ -44,58 +43,30 @@ export default function AddItemTable() {
     setFormData({ ...formData, active: checked });
   };
 
-  const handleSubmit = async () => {
-  if (!validate()) return;
+  const handleSubmit = () => {
+    if (!validate()) return;
 
-  try {
-    const form = new FormData();
+    // Convert boolean to string for display
+    const submissionData = {
+      ...formData,
+      status: formData.active ? "active" : "inactive"
+    };
 
-    form.append("name", formData.name);
-    form.append("description", formData.description);
-    form.append("status", formData.active ? "active" : "inactive");
-
-    // 🔍 Debug: log form data before sending
-    console.log("Submitting form data:");
-    for (let pair of form.entries()) {
-      console.log(pair[0] + ":", pair[1]);
-    }
-
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}api/department.php?id=${user?.id}`,
-      {
-        method: "POST",
-        body: form,
-      }
-    );
-
-    const result = await response.json();
-    console.log("API Response:", result);
-
-    if (result.status === "success") {
-      alert(result.message || "Item added successfully!");
-
-      // 🔄 Reset form
-      setFormData({
-        name: "",
-        description: "",
-        active: true,
-      });
-
-      setErrors({});
-    } else {
-      alert(result.message || "Failed to add item");
-    }
-  } catch (error) {
-    console.error("Submit Error:", error);
-    alert("Something went wrong while submitting!");
-  }
-};
-
+    console.log("Item Added:", submissionData);
+    alert("Item Added Successfully!");
+    
+    // Reset form after successful submission
+    setFormData({
+      name: "",
+      description: "",
+      active: true,
+    });
+  };
 
   return (
     <div className="w-full flex justify-center py-10 bg-gray-100">
       <div className="w-full bg-white rounded-2xl shadow-lg p-6 md:p-8">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Add Department</h2>
+        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Edit Department</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column */}

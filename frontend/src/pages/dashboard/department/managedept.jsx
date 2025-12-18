@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const ManageDepartment = () => {
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const departmentsData = [
+    { id: 1, name: "Engineering", description: "Product development team", status: "active" },
+    { id: 2, name: "Human Resources", description: "Employee management", status: "active" },
+    { id: 3, name: "Marketing", description: "Brand promotion", status: "inactive" },
+    { id: 4, name: "Sales", description: "Client acquisition", status: "active" },
+    { id: 5, name: "Finance", description: "Budget management", status: "active" },
+  ];
 
+  const navigate = useNavigate();
+  
+  const [departments, setDepartments] = useState(departmentsData);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,9 +105,14 @@ const ManageDepartment = () => {
   };
   
   const clearSearch = () => setSearchQuery("");
-  const handleEdit = (userId) => {
-    navigate(`/dashboard/department/editdept/${userId}`);
+  
+  // Navigate to edit department page
+  const handleEdit = (id) => {
+    navigate(`/department/edit-dept/${id}`);
+    // If you want to pass state data along with navigation:
+    // navigate(`/department/edit-dept/${id}`, { state: { departmentId: id } });
   };
+  
   const goToPage = (page) => setCurrentPage(page);
   const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
@@ -193,7 +205,10 @@ const ManageDepartment = () => {
                           </span>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <button onClick={() => handleEdit(dept.id)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+                          <button 
+                            onClick={() => handleEdit(dept.id)} 
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                          >
                             Edit
                           </button>
                         </td>
@@ -219,7 +234,10 @@ const ManageDepartment = () => {
                       </div>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">{dept.description}</p>
-                    <button onClick={() => handleEdit(dept.id)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+                    <button 
+                      onClick={() => handleEdit(dept.id)} 
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                    >
                       Edit
                     </button>
                   </div>
