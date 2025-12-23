@@ -1,63 +1,105 @@
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
+import axios from "axios";
+import { projectsData } from '@/data';
 
 const ProjectForm = () => {
   // Sample employee data - replace with your actual data source
-  const allEmployees = [
-    { value: 'emp1', label: 'John Doe' },
-    { value: 'emp2', label: 'Jane Smith' },
-    { value: 'emp3', label: 'Robert Johnson' },
-    { value: 'emp4', label: 'Emily Williams' },
-    { value: 'emp5', label: 'Michael Brown' },
-    { value: 'emp6', label: 'Sarah Davis' },
-    { value: 'emp7', label: 'David Wilson' },
-    { value: 'emp8', label: 'Lisa Miller' },
-  ];
+  // const employees = [
+  //   { value: 'emp1', label: 'John Doe' },
+  //   { value: 'emp2', label: 'Jane Smith' },
+  //   { value: 'emp3', label: 'Robert Johnson' },
+  //   { value: 'emp4', label: 'Emily Williams' },
+  //   { value: 'emp5', label: 'Michael Brown' },
+  //   { value: 'emp6', label: 'Sarah Davis' },
+  //   { value: 'emp7', label: 'David Wilson' },
+  //   { value: 'emp8', label: 'Lisa Miller' },
+  // ];
 
   // Form state
   const [formData, setFormData] = useState({
     projectName: '',
+    projectDescription: '',
     poc: [],
     otherEmployees: [],
-    startDate: '',
-    status: 'Active'
+    startDate: ''
   });
 
   // Filtered employees for "Other Employees" dropdown (excludes selected POCs)
-  const [filteredEmployees, setFilteredEmployees] = useState(allEmployees);
-  
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
   // Errors state
   const [errors, setErrors] = useState({
     projectName: '',
+    projectDescription: '',
     poc: '',
     otherEmployees: '',
-    startDate: '',
-    status: ''
+    startDate: ''
   });
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  useEffect(() => {
+    const fetchEMP = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/emp.php`
+        );
+
+        console.log("EMP API:", response.data);
+
+        if (response.data?.data) {
+           const formattedEmployees = response.data.data.map(emp => ({
+            value: emp.id,
+            label: `${emp.name} (${emp.role})`
+          }));
+          setEmployees(formattedEmployees); // ✅ same as fetch version
+          setFilteredEmployees(formattedEmployees);
+        } else {
+          alert("No employees found");
+        }
+      } catch (error) {
+        console.error("Fetch Error:", error);
+        alert("Something went wrong while fetching employees");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEMP();
+  }, []);
+
 
   // Update filtered employees when POC selection changes
   useEffect(() => {
-    if (formData.poc.length > 0) {
-      const pocValues = formData.poc.map(p => p.value);
-      const availableEmployees = allEmployees.filter(
-        emp => !pocValues.includes(emp.value)
-      );
-      setFilteredEmployees(availableEmployees);
-      
-      // Also filter out any selected other employees that are now POCs
-      const currentOtherEmps = formData.otherEmployees.filter(
-        emp => !pocValues.includes(emp.value)
-      );
-      if (currentOtherEmps.length !== formData.otherEmployees.length) {
-        setFormData(prev => ({
-          ...prev,
-          otherEmployees: currentOtherEmps
-        }));
-      }
-    } else {
-      setFilteredEmployees(allEmployees);
+  if (formData.poc && formData.poc.value) {
+    const pocValue = formData.poc.value;
+
+    // Remove POC from Other Employees options
+    const availableEmployees = employees.filter(
+      emp => emp.value !== pocValue
+    );
+    setFilteredEmployees(availableEmployees);
+
+    // Remove POC from already selected Other Employees
+    const cleanedOtherEmployees = formData.otherEmployees.filter(
+      emp => emp.value !== pocValue
+    );
+
+    if (cleanedOtherEmployees.length !== formData.otherEmployees.length) {
+      setFormData(prev => ({
+        ...prev,
+        otherEmployees: cleanedOtherEmployees
+      }));
     }
-  }, [formData.poc]);
+  } else {
+    // No POC selected → show all employees
+    setFilteredEmployees(employees);
+  }
+}, [formData.poc, employees]);
+
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -121,32 +163,61 @@ const ProjectForm = () => {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (validateForm()) {
-      // Prepare data for submission
-      const submissionData = {
-        ...formData,
-        poc: formData.poc.map(p => p.value),
-        otherEmployees: formData.otherEmployees.map(e => e.value)
-      };
-      
-      console.log('Form submitted:', submissionData);
-      // Add your API call here
-      
-      // Reset form after submission (optional)
-      // setFormData({
-      //   projectName: '',
-      //   poc: [],
-      //   otherEmployees: [],
-      //   startDate: '',
-      //   status: 'Active'
-      // });
-      
-      alert('Form submitted successfully!');
+
+    if (!validateForm()) return;
+
+    // Prepare payload
+    const payload = {
+      ...formData,
+      poc: formData.poc?.value || null, // convert Select object → ID
+      otherEmployees: formData.otherEmployees.map(e => e.value) // convert → IDs
+    };
+
+    console.log("Submitting Project Data:", payload);
+
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/project.php`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          params: { 
+            id: user.id , user_code: user.user_code 
+          }
+
+        }
+      );
+
+      console.log("API Response:", response.data);
+
+      if (response.data?.status === "success") {
+        alert("Project created successfully!");
+
+        // Optional: reset form
+        setFormData({
+          projectName: '',
+          projectDescription: '',
+          poc: null,
+          otherEmployees: [],
+          startDate: '',
+          status: 'Active'
+        });
+
+        setFilteredEmployees(employees);
+      } else {
+        alert(response.data?.message || "Failed to create project");
+      }
+
+    } catch (error) {
+      console.error("API Error:", error);
+      alert("Server error. Please try again.");
     }
   };
+
 
   return (
     <div className="w-full min-h-screen bg-gray-100 mt-10">
@@ -159,7 +230,7 @@ const ProjectForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 py-6 [&_input]:h-[42px] [&_select]:h-[42px]">
             
             {/* Project Name */}
-            <div className="flex flex-col md:col-span-2">
+            <div className="flex flex-col">
               <label className="mb-1 font-medium text-gray-700">
                 Project Name <span className="text-red-500">*</span>
               </label>
@@ -176,6 +247,24 @@ const ProjectForm = () => {
                 <span className="text-red-500 text-sm mt-1">{errors.projectName}</span>
               )}
             </div>
+
+            <div className="flex flex-col">
+              <label className="mb-1 font-medium text-gray-700">
+                Project Description <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="projectDescription"
+                value={formData.projectDescription}
+                onChange={handleInputChange}
+                placeholder="Enter project description"
+                className={`px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:outline-none transition 
+                  ${errors.projectDescription ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-blue-400"}`}
+              />
+              {errors.projectDescription && (
+                <span className="text-red-500 text-sm mt-1">{errors.projectDescription}</span>
+              )}
+            </div>
             
             {/* Select POC - Multiple Select Dropdown */}
             <div className="flex flex-col">
@@ -183,8 +272,7 @@ const ProjectForm = () => {
                 Select POC <span className="text-red-500">*</span>
               </label>
               <Select
-                isMulti
-                options={allEmployees}
+                options={employees}
                 value={formData.poc}
                 placeholder="Select POC..."
                 classNamePrefix="react-select"
@@ -251,36 +339,6 @@ const ProjectForm = () => {
               />
               {errors.startDate && (
                 <span className="text-red-500 text-sm mt-1">{errors.startDate}</span>
-              )}
-            </div>
-       {/* Status - Checkbox Style */}
-            <div className="flex flex-col">
-              <label className="mb-1 font-medium text-gray-700">
-                Status <span className="text-red-500">*</span>
-              </label>
-              <div className="flex items-center space-x-4 mt-2">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"                                                                                                                     
-                    checked={formData.status === 'Active'}
-                    onChange={() => setFormData(prev => ({ ...prev, status: 'Active' }))}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">Active</span>
-                </label>
-
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.status === 'Inactive'}
-                    onChange={() => setFormData(prev => ({ ...prev, status: 'Inactive' }))}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">Inactive</span>
-                </label>
-              </div>
-              {errors.status && (
-                <span className="text-red-500 text-sm mt-1">{errors.status}</span>
               )}
             </div>
           </div>
