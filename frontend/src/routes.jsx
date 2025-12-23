@@ -8,7 +8,10 @@ import {
   MapPinIcon,
   ServerStackIcon,
   ArrowRightOnRectangleIcon,
-  EyeIcon
+  EyeIcon,
+  BuildingOfficeIcon, 
+  ClipboardDocumentCheckIcon,
+  UserGroupIcon 
 } from "@heroicons/react/24/solid";
 
 import {
@@ -25,6 +28,9 @@ import Profile from "@/pages/dashboard/profile";
 import Adddept from "@/pages/dashboard/department/adddept";
 import Managedept from "@/pages/dashboard/department/managedept";
 import Editdept from "@/pages/dashboard/department/editdept";
+import Addproject from "@/pages/dashboard/projects/addproject";
+import Manageprojects from "@/pages/dashboard/projects/manageprojects";
+import Editproject from "@/pages/dashboard/projects/editproject";
 
 
 import { SignIn, SignUp } from "@/pages/auth";
@@ -68,7 +74,7 @@ const routes = [
         ],
       },
        {
-        icon: <UsersIcon {...icon} />,
+        icon: <BuildingOfficeIcon {...icon} />,
         name: "Departments",
         collapse: [
           {
@@ -92,7 +98,7 @@ const routes = [
       },
       
       {
-        icon: <UsersIcon {...icon} />,
+        icon: <ClipboardDocumentCheckIcon {...icon} />,
         name: "Task Management",
         collapse: [
           {
@@ -105,10 +111,33 @@ const routes = [
             path: "/users/viewtask",
             element: <ViewUsertask />,
           },
+          
     
         ],
       },
+
+     {
+       icon: <UserGroupIcon {...icon} />,
+       name: "Projects",
+       collapse: [
          {
+           name: "Add Project",
+           path: "/projects/add-project",
+           element: <Addproject />,
+         },
+          {
+           name: "Manage Project",
+           path: "/projects/manage-project",
+           element: <Manageprojects />,
+         },
+           {
+           name: "Edit Project",
+           path: "/projects/edit-project",
+           element: <Editproject />,
+         },
+       ],
+     },
+        {
         icon: <IdentificationIcon {...icon} />,
         name: "Profile",
         element: <Profile />,

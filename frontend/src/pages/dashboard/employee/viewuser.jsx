@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function ViewEmployeesStyled() {
   const [employees, setEmployees] = useState([]);
@@ -11,41 +12,89 @@ export default function ViewEmployeesStyled() {
   
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}api/emp.php`
-        );
+  // useEffect(() => {
+  //   const fetchEmployees = async () => {
+  //     try {
+  //       const response = await fetch(
+  //         `${import.meta.env.VITE_API_URL}api/emp.php`
+  //       );
 
-        const result = await response.json();
-        console.log("API Response:", result);
+  //       const result = await response.json();
+  //       console.log("API Response:", result);
 
-        if (result.status === "success") {
-          if (result.departments && Array.isArray(result.departments)) {
-            setEmployees(result.departments);
-          } else if (result.data && Array.isArray(result.data)) {
-            setEmployees(result.data);
-          } else {
-            console.warn("Unexpected API response structure:", result);
-            setEmployees([]);
-          }
-        } else {
-          console.warn("API returned error:", result.message);
-          setEmployees([]);
-        }
-      } catch (error) {
-        console.error("Fetch Error:", error);
-        setEmployees([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  //       if (result.status === "success") {
+  //         if (result.departments && Array.isArray(result.departments)) {
+  //           setEmployees(result.departments);
+  //         } else if (result.data && Array.isArray(result.data)) {
+  //           setEmployees(result.data);
+  //         } else {
+  //           console.warn("Unexpected API response structure:", result);
+  //           setEmployees([]);
+  //         }
+  //       } else {
+  //         console.warn("API returned error:", result.message);
+  //         setEmployees([]);
+  //       }
+  //     } catch (error) {
+  //       console.error("Fetch Error:", error);
+  //       setEmployees([]);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchEmployees();
-  }, []);
+  //   fetchEmployees();
+  // }, []);
 
   // Search functionality - now includes dept_name
+
+ useEffect(() => {
+  const fetchEmployees = async () => {
+    try {
+      // 🔹 Call API using axios (GET request)
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/emp.php`
+      );
+
+      // 🔹 Axios automatically converts response to JSON
+      const result = response.data;
+      console.log("API Response:", result);
+
+      // 🔹 Check API status
+      if (result.status === "success") {
+
+        // 🔹 API sometimes returns data in "departments"
+        if (Array.isArray(result.departments)) {
+          setEmployees(result.departments);
+
+        // 🔹 Or sometimes in "data"
+        } else if (Array.isArray(result.data)) {
+          setEmployees(result.data);
+
+        // 🔹 If structure is not what we expect
+        } else {
+          console.warn("Unexpected API response structure:", result);
+          setEmployees([]);
+        }
+
+      } else {
+        // 🔹 API responded but status is not success
+        console.warn("API returned error:", result.message);
+        setEmployees([]);
+      }
+    } catch (error) {
+      // 🔹 Axios throws error automatically for 4xx / 5xx
+      console.error("Axios Error:", error);
+      setEmployees([]);
+    } finally {
+      // 🔹 Stop loader no matter what happens
+      setLoading(false);
+    }
+  };
+
+  fetchEmployees();
+}, []);
+
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+
 
 export default function EditDepartment() {
   const { id } = useParams(); // Get department ID from URL
@@ -18,41 +20,76 @@ export default function EditDepartment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ✅ Fixed: Removed any duplicate or old useEffect
-  // Fetch department data based on ID
-useEffect(() => {
-  if (!id) return;
 
-  const fetchDepartment = async () => {
+  // with fetch
+// useEffect(() => {
+//   if (!id) return;
+
+//   const fetchDepartment = async () => {
+//     setLoading(true);
+
+//     try {
+//       const response = await fetch(
+//         `${import.meta.env.VITE_API_URL}api/department.php?id=${id}`
+//       );
+
+//       const result = await response.json();
+
+//       if (result.status === "success" && result.data?.length > 0) {
+//         const departmentData = result.data[0];
+
+//         setFormData({
+//           name: departmentData.name || "",
+//           description: departmentData.description || "",
+//           status: departmentData.status === "active", // ✅ string → boolean
+//         });
+//       } else {
+//         alert("Department not found!");
+//       }
+//     } catch (error) {
+//       console.error("Fetch error:", error);
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   fetchDepartment();
+// }, [id]);
+
+useEffect(()=>{
+  if(!id) return;
+
+  const fetchDepartment = async () =>{
     setLoading(true);
 
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/department.php?id=${id}`
+    try{
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/department.php`,
+        {
+          params: {id}, 
+        }
       );
+      const result = response.data;
 
-      const result = await response.json();
-
-      if (result.status === "success" && result.data?.length > 0) {
+      if(result.status === "success" && result.data?.length>0){
         const departmentData = result.data[0];
 
         setFormData({
-          name: departmentData.name || "",
-          description: departmentData.description || "",
-          status: departmentData.status === "active", // ✅ string → boolean
+          name:departmentData.name || "",
+          description:departmentData.description || "",
+          status: departmentData.status === "active",
         });
       } else {
         alert("Department not found!");
       }
-    } catch (error) {
-      console.error("Fetch error:", error);
-    } finally {
-      setLoading(false);
+    } catch(error){
+      console.error("Axios error:" ,error);
+    } finally{
+      setLoading(false)
     }
   };
-
   fetchDepartment();
-}, [id]);
-
+},[id]);
 
 
   const validate = () => {
