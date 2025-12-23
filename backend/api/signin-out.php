@@ -34,7 +34,7 @@ switch ($method) {
         break;
     
     case 'POST':
-        $singinout=$_POST['singin'] ?? '';
+        $singinout=$_POST['signin'] ?? '';
         if(empty($singinout)){
             $name = $_POST['username'] ?? '';
             $email = $_POST['email'] ?? '';

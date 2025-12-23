@@ -36,7 +36,7 @@ export function SignIn() {
       const formData = new FormData();
       formData.append("username", username);
       formData.append("password", password);
-      formData.append("singin", "signin");
+      formData.append("signin", "signin");
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}api/signin-out.php`, {
         method: "POST",
