@@ -1,5 +1,6 @@
 import React from "react";
 import { useEffect, useState } from "react";
+import AnalogClock from "@/Components/AnalogClock";
 
 
 const Card = ({ title, children, icon }) => (
@@ -66,9 +67,7 @@ const Home = () => {
 
         <Card title="Time" icon="⏰">
           <div className="flex items-center justify-center h-full">
-            <div className="w-32 h-32 rounded-full border-4 border-teal-500 flex items-center justify-center text-lg font-semibold">
-              12:45
-            </div>
+            <AnalogClock />
           </div>
         </Card>
 
