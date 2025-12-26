@@ -150,7 +150,7 @@ const handleEdit = (id) => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">Manage Departments</h2>
-            <p className="text-sm text-gray-600">View and manage all departments</p>
+            <p clfssName="text-sm text-gray-600">View and manage all departments</p>
           </div>
           <div className="mt-3 sm:mt-0 w-full sm:w-1/3 relative">
             <input
@@ -194,7 +194,7 @@ const handleEdit = (id) => {
                         onClick={() => handleSort('name')}
                       >
                         <div className="flex items-center">
-                          Name
+                          Department Name
                           <SortArrow columnKey="name" />
                         </div>
                       </th>
