@@ -8,6 +8,7 @@ export default function AddEmployee() {
     email: "",
     phone: "",
     password: "",
+    active: true, // Default to active (checked)
   });
 
   const [errors, setErrors] = useState({});
@@ -25,6 +26,13 @@ export default function AddEmployee() {
     }
     setFormData({ ...formData, password });
   };
+
+const handleCheckboxChange = (e) => {
+  const { checked } = e.target;
+  // Set to 'active' or 'inactive' string instead of boolean
+  setFormData({ ...formData, status: checked ? 'active' : 'inactive' });
+};
+
 
   // Copy password to clipboard
   const copyPassword = () => {
@@ -152,6 +160,7 @@ export default function AddEmployee() {
           email: "",
           phone: "",
           password: "",
+          status: "active"
         });
       } else {
         alert(result.message || "Failed to add employee");
@@ -380,7 +389,21 @@ export default function AddEmployee() {
             </div>
           </div>
         </div>
-
+        <div className="space-y-2">
+              <div className="flex items-center">
+  <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+    <input
+      type="checkbox"
+      name="status"
+      checked={formData.status === 'active'}
+      onChange={handleCheckboxChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+    />
+    <span className="text-sm font-medium text-gray-700">Active</span>
+  </label>
+</div>
+                {/* Alternative: Toggle switch approach */}
+              </div>              
         {/* Button */}
         <div className="flex justify-end mt-8 pt-6 border-t border-gray-200">
           <button

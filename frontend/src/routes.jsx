@@ -134,6 +134,7 @@ const routes = [
            name: "Edit Project",
            path: "/projects/edit-project",
            element: <Editproject />,
+           hidden:'true'
          },
        ],
      },

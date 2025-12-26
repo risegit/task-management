@@ -74,7 +74,7 @@ switch ($method) {
             exit;
         }
 
-        $sql = "INSERT INTO `users`(`name`, `email`, `phone`, `password`, `role`, `date`, `time`, `department_id`) VALUES ('$name','$email','$phone','$password_hash','$role','$date','$time','$department_id')";
+        $sql = "INSERT INTO `users`(`name`, `email`, `phone`, `password`, `role`, `department_id`) VALUES ('$name','$email','$phone','$password_hash','$role','$department_id')";
 
         if ($conn->query($sql)) {
             $user_id = $conn->insert_id;
@@ -97,6 +97,53 @@ switch ($method) {
         }
 
         break;
+
+        case 'POST':
+    $name = $_POST['name'] ?? '';
+    $email = $_POST['email'] ?? '';
+    $department_id = $_POST['department'] ?? '';
+    $phone = $_POST['phone'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $role = $_POST['role'] ?? '';
+    $status = $_POST['status'] ?? 'active'; // Default to 'active' if not provided
+    
+    // Secure password hashing
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+    $checkEmail = $conn->query("SELECT id FROM users WHERE email = '$email' LIMIT 1");
+    if ($checkEmail->num_rows > 0) {
+        echo json_encode([
+            "status" => "error",
+            "message" => "Email already exists"
+        ]);
+        exit;
+    }
+
+    // Add status to the INSERT query
+    $sql = "INSERT INTO `users`(`name`, `email`, `phone`, `password`, `role`, `department_id`, `status`) VALUES ('$name','$email','$phone','$password_hash','$role','$department_id','$status')";
+
+    if ($conn->query($sql)) {
+        $user_id = $conn->insert_id;
+        $roleLower = strtolower(trim($role)); 
+        $prefix = '';
+
+        if ($roleLower === 'manager') $prefix = 'MN';
+        elseif ($roleLower === 'admin') $prefix = 'AD';
+        elseif ($roleLower === 'technician') $prefix = 'TC';
+        else $prefix = 'OT'; // default prefix
+        
+        $user_code = $prefix . str_pad($user_id, 4, '0', STR_PAD_LEFT);
+        
+        $sql1 = "UPDATE users SET user_code = '$user_code' WHERE id = '$user_id'";
+        if ($conn->query($sql1)) {
+            echo json_encode(["status" => "success", "message" => "Employee Added Successfully"]);
+        }else{
+            echo json_encode(["status" => "error", "message" => $conn->error]);
+        }
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
+    break;
 
     case 'PUT':
         $user_id = $_POST['id'] ?? null;
