@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-export default function ViewEmployeesStyled() {
+export default function ViewEmployeesStyled() { 
   const [employees, setEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
@@ -94,6 +94,8 @@ export default function ViewEmployeesStyled() {
 
   fetchEmployees();
 }, []);
+
+
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
