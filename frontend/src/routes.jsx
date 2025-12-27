@@ -26,6 +26,7 @@ import ViewEmployee from "@/pages/dashboard/employee/manage-employee";
 import EditEmployee from "@/pages/dashboard/employee/edit-employee";
 import Createusertask from "@/pages/dashboard/task-management/createtask"
 import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
+import EditTask from "@/pages/dashboard/task-management/edit-task";
 import Profile from "@/pages/dashboard/profile";
 import OthersActivities from "@/pages/dashboard/otheractivities";
 
@@ -132,13 +133,19 @@ const routes = [
         collapse: [
           {
             name: "Create Task",
-            path: "/users/create-task",
+            path: "/task-management/create-task",
             element: <Createusertask />,
           },
           {
             name: "Manage Task",
-            path: "/users/viewtask",
+            path: "/task-management/viewtask",
             element: <ViewUsertask />,
+          },
+          {
+            name: "Manage Task",
+            path: "/task-management/edit-task/:id",
+            element: <EditTask />,
+            hidden:'true'
           },
           
     
