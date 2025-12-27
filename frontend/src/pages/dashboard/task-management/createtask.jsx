@@ -11,11 +11,19 @@ export default function CreateTask() {
   const user = JSON.parse(localStorage.getItem("user"));
   const userId = user?.id;
 
+  // Priority options for dropdown
+  const priorityOptions = [
+    { value: "low", label: "Low", color: "#10b981" }, // Green
+    { value: "medium", label: "Medium", color: "#f59e0b" }, // Amber
+    { value: "high", label: "High", color: "#ef4444" }, // Red
+  ];
+
   const [taskData, setTaskData] = useState({
     name: "",
     assignedTo: [],
     deadline: "",
     remarks: "",
+    priority: "", // New priority field
   });
 
   const handleChange = (e) => {
@@ -35,7 +43,7 @@ export default function CreateTask() {
     }
   };
 
-  // Validation function
+  // Validation function - Updated to include priority
   const validate = () => {
     let newErrors = {};
 
@@ -51,6 +59,11 @@ export default function CreateTask() {
     // Assigned To validation
     if (taskData.assignedTo.length === 0) {
       newErrors.assignedTo = "Please select at least one assignee";
+    }
+
+    // Priority validation
+    if (!taskData.priority) {
+      newErrors.priority = "Priority is required";
     }
 
     // Deadline validation
@@ -132,6 +145,7 @@ export default function CreateTask() {
       );
       form.append("deadline", taskData.deadline);
       form.append("remarks", taskData.remarks);
+      form.append("priority", taskData.priority.value); // Add priority to form data
 
       console.log("Submitting form data...");
       for (let pair of form.entries()) {
@@ -164,6 +178,7 @@ export default function CreateTask() {
           assignedTo: [],
           deadline: "",
           remarks: "",
+          priority: "", // Reset priority
         });
         setErrors({});
       } else {
@@ -188,6 +203,58 @@ export default function CreateTask() {
       setIsSubmitting(false);
     }
   };
+
+  // Custom styles for priority dropdown
+  const priorityCustomStyles = {
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? state.data.color + '20' : 'white',
+      color: state.data.color,
+      fontWeight: '500',
+      borderLeft: state.isSelected ? `4px solid ${state.data.color}` : '4px solid transparent',
+      '&:hover': {
+        backgroundColor: state.data.color + '10',
+      },
+    }),
+    singleValue: (provided, state) => ({
+      ...provided,
+      color: state.data.color,
+      fontWeight: '600',
+      display: 'flex',
+      alignItems: 'center',
+    }),
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${errors.priority ? '#fca5a5' : state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: errors.priority ? '#fef2f2' : 'white',
+      minHeight: '52px',
+      boxShadow: state.isFocused ? (errors.priority ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+      "&:hover": {
+        borderColor: errors.priority ? '#f87171' : '#94a3b8',
+      },
+    }),
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+  };
+
+  // Custom format option label for priority
+  const formatOptionLabel = ({ value, label, color }) => (
+    <div className="flex items-center gap-3">
+      <div 
+        className="w-3 h-3 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span>{label}</span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
@@ -318,52 +385,81 @@ export default function CreateTask() {
                   </div>
                 </div>
 
-                {/* Deadline */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    Deadline
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      name="deadline"
-                      value={taskData.deadline}
-                      onChange={handleChange}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
-                        errors.deadline 
-                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                      } focus:ring-4 outline-none transition-all`}
+                {/* Third Row: Priority and Deadline */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Priority Field */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      Priority
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      options={priorityOptions}
+                      value={taskData.priority}
+                      onChange={(selected) => handleSelectChange("priority", selected)}
+                      classNamePrefix="react-select"
+                      styles={priorityCustomStyles}
+                      formatOptionLabel={formatOptionLabel}
+                      placeholder="Select priority..."
+                      isSearchable={false}
                     />
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg
-                        className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
+                    {errors.priority && (
+                      <p className="text-red-500 text-sm flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.priority}
+                      </p>
+                    )}
                   </div>
-                  {errors.deadline ? (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.deadline}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-500">Cannot select past dates</p>
-                  )}
+
+                  {/* Deadline */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      Deadline
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="deadline"
+                        value={taskData.deadline}
+                        onChange={handleChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                          errors.deadline 
+                            ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                            : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                        } focus:ring-4 outline-none transition-all`}
+                      />
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg
+                          className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    {errors.deadline ? (
+                      <p className="text-red-500 text-sm flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.deadline}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500">Cannot select past dates</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -411,6 +507,7 @@ export default function CreateTask() {
                     assignedTo: [],
                     deadline: "",
                     remarks: "",
+                    priority: "", // Reset priority
                   });
                   setErrors({});
                 }}

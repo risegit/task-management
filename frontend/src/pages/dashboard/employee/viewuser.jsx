@@ -290,12 +290,12 @@ export default function ViewEmployeesStyled() {
                             )}
                           </td>
                           <td className="py-4 px-4">
-                            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700 capitalize inline-block">
-                              {emp.role || emp.position || 'Staff'}
-                            </span>
+                          <span className="px-3 py-1.5 w-20 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700 capitalize inline-flex items-center justify-center">
+                        {emp.role || emp.position || 'Staff'}
+                         </span>
                           </td>
                           <td className="py-4 px-4">
-                            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700 capitalize inline-block">
+                            <span className="px-3 py-1.5 w-40 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700 capitalize inline-flex items-center justify-center">
                               {emp.dept_name || emp.department || 'No Department'}
                             </span>
                           </td>

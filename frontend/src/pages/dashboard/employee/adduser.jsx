@@ -166,12 +166,8 @@ export default function AddEmployee() {
     }
   };
 
-  const showDepartment = formData.role === "admin" || formData.role === "manager" || formData.role === "staff";
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
-      {/* Header */}
-
       {/* Main Form Card */}
       <div className=" mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -209,7 +205,7 @@ export default function AddEmployee() {
                         : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
                     } focus:ring-4 outline-none transition-all bg-white`}
                   >
-                    <option value="assignee">Select Role</option>
+                    <option value="assignee" disabled>Select Role</option>
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
                     <option value="staff">Staff</option>
@@ -224,45 +220,41 @@ export default function AddEmployee() {
                   )}
                 </div>
 
-                {/* Department */}
-                {showDepartment ? (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Department
-                      {(formData.role === "manager" || formData.role === "staff") && (
-                        <span className="text-red-500">*</span>
-                      )}
-                    </label>
-                    <select
-                      name="department"
-                      value={formData.department}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className={`w-full px-4 py-3 rounded-xl border-2 ${
-                        errors.department 
-                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                      } focus:ring-4 outline-none transition-all bg-white disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <option value="">Select Department</option>
-                      {departments.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.department && (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.department}
-                      </p>
+                {/* Department - ALWAYS SHOWN */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Department
+                    {(formData.role === "manager" || formData.role === "staff" || formData.role === "admin") && (
+                      <span className="text-red-500">*</span>
                     )}
-                  </div>
-                ) : (
-                  <div></div>
-                )}
+                  </label>
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className={`w-full px-4 py-3 rounded-xl border-2 ${
+                      errors.department 
+                        ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                        : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                    } focus:ring-4 outline-none transition-all bg-white disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <option value="" disabled>Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.department && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.department}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Second Row: Name and Email */}

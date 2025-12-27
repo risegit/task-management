@@ -14,3 +14,4 @@ export * from "@/pages/dashboard/department/editdept";
 export * from "@/pages/dashboard/projects/addproject";
 export * from "@/pages/dashboard/projects/manageprojects";  
 export * from "@/pages/dashboard/projects/editproject";
+export * from "@/pages/dashboard/task-management/edittask";
