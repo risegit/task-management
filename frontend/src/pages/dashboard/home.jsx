@@ -1,254 +1,150 @@
-import React, { useEffect, useState } from "react";
-import {
-  Typography,
-} from "@material-tailwind/react";
+import React from "react";
+import { useEffect, useState } from "react";
+import AnalogClock from "@/Components/AnalogClock";
 
-import { StatisticsCard } from "@/widgets/cards";
-import { statisticsCardsData as defaultCardData } from "@/data";
 
-export function Home() {
-  const [cardData, setCardData] = useState(defaultCardData);
+const Card = ({ title, children, icon }) => (
+  <div className="bg-white rounded-xl shadow p-4 h-full">
+    <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+      <span className="text-teal-600">{icon}</span>
+      {title}
+    </div>
+    {children}
+  </div>
+);
 
-  // useEffect(() => {
-  //   const fetchDashboardData = async () => {
-  //     try {
-  //       const res = await fetch(`${import.meta.env.VITE_API_URL}api/dashboard.php`);
-  //       const data = await res.json();
-  //       console.log("Dashboard data:", data);
-  //       if (data.status === "success") {
-  //         const stats = data.data[0];
-  //         // Create updated version of statisticsCardsData
-  //         const updatedCards = [...defaultCardData];
+// const currentAnnouncements = sortedDepartments.slice(indexOfFirstItem, indexOfLastItem);
 
-  //         updatedCards[0].value = stats.today_scheduled;
-  //         updatedCards[1].value = stats.active_amc;
-  //         updatedCards[1].footer.value = stats.expired_amc;
-  //         updatedCards[2].value = stats.active_customers;
-  //         updatedCards[3].value = `₹${stats.monthly_visits}`;
+const Home = () => {
 
-  //         setCardData(updatedCards);
-  //       }
-  //     } catch (err) {
-  //       console.error("Dashboard fetch error:", err);
-  //     }
-  //   };
+  const [currentAnnouncements, setCurrentAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  //   fetchDashboardData();
-  // }, []);
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}api/announcement.php`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch announcements");
+        }
+
+        const data = await response.json();
+        console.log("data=", data.data);
+        // Ensure API response is an array
+        setCurrentAnnouncements(data.data);
+      } catch (err) {
+        console.error("Error fetching announcements:", err);
+        setError("Unable to load announcements");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
+
 
   return (
-    <div className="mt-12">
-      <div className="mb-12 grid gap-y-10 gap-x-6 md:grid-cols-2 xl:grid-cols-4">
+    <div className="min-h-screen bg-gray-100 p-6">
+      {/* Top Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <Card title="Today's Thought" icon="💬">
+          <p className="text-sm text-gray-600 italic">
+            “If you aspire to the highest place, it is no disgrace to stop at
+            the second or even the third place.”
+          </p>
+        </Card>
 
+        <Card title="Birthday" icon="🎂">
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            No One’s Birthday Today
+          </div>
+        </Card>
 
-<div/>
-</div>
-      
-      {/* <div className="mb-6 grid grid-cols-1 gap-y-12 gap-x-6 md:grid-cols-2 xl:grid-cols-3">
-        {statisticsChartsData.map((props) => (
-          <StatisticsChart
-            key={props.title}
-            {...props}
-            footer={
-              <Typography
-                variant="small"
-                className="flex items-center font-normal text-blue-gray-600"
+        <Card title="Time" icon="⏰">
+          <div className="flex items-center justify-center h-full">
+            <AnalogClock />
+          </div>
+        </Card>
+
+        <Card title="Work Anniversary" icon="🎉">
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            No Work Anniversary Today
+          </div>
+        </Card>
+      </div>
+
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Calendar */}
+        <div className="xl:col-span-1 bg-white rounded-xl shadow p-4">
+          <div className="text-sm font-semibold text-gray-700 mb-3">
+            📅 Calendar
+          </div>
+
+          <div className="grid grid-cols-7 gap-3 text-center text-sm text-gray-600">
+            {Array.from({ length: 31 }, (_, i) => (
+              <div
+                key={i}
+                className={`rounded-full w-8 h-8 flex items-center justify-center ${i === 23
+                  ? "bg-green-500 text-white"
+                  : "hover:bg-gray-200"
+                  }`}
               >
-                <ClockIcon strokeWidth={2} className="h-4 w-4 text-blue-gray-400" />
-                &nbsp;{props.footer}
-              </Typography>
-            }
-          />
-        ))}
-      </div> */}
-      {/* <div className="mb-4 grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card className="overflow-hidden xl:col-span-2 border border-blue-gray-100 shadow-sm">
-          <CardHeader
-            floated={false}
-            shadow={false}
-            color="transparent"
-            className="m-0 flex items-center justify-between p-6"
-          >
-            <div>
-              <Typography variant="h6" color="blue-gray" className="mb-1">
-                Projects
-              </Typography>
-              <Typography
-                variant="small"
-                className="flex items-center gap-1 font-normal text-blue-gray-600"
-              >
-                <CheckCircleIcon strokeWidth={3} className="h-4 w-4 text-blue-gray-200" />
-                <strong>30 done</strong> this month
-              </Typography>
+                {i + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Corporate Guidelines */}
+        <Card title="Corporate Guidelines" icon="📘">
+          <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+            Details Not Available
+          </div>
+        </Card>
+
+        {/* Events & Announcements */}
+        {/* <Card title="Events and Announcements" icon="📢">
+          {currentAnnouncements.map((announce) => (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+              <p className="text-sm text-gray-600 mb-4">{announce.name || "No name"}</p>
+              <p className="text-sm text-gray-600 mb-4">{announce.description || "No description"}</p>
             </div>
-            <Menu placement="left-start">
-              <MenuHandler>
-                <IconButton size="sm" variant="text" color="blue-gray">
-                  <EllipsisVerticalIcon
-                    strokeWidth={3}
-                    fill="currenColor"
-                    className="h-6 w-6"
-                  />
-                </IconButton>
-              </MenuHandler>
-              <MenuList>
-                <MenuItem>Action</MenuItem>
-                <MenuItem>Another Action</MenuItem>
-                <MenuItem>Something else here</MenuItem>
-              </MenuList>
-            </Menu>
-          </CardHeader>
-          <CardBody className="overflow-x-scroll px-0 pt-0 pb-2">
-            <table className="w-full min-w-[640px] table-auto">
-              <thead>
-                <tr>
-                  {["companies", "members", "budget", "completion"].map(
-                    (el) => (
-                      <th
-                        key={el}
-                        className="border-b border-blue-gray-50 py-3 px-6 text-left"
-                      >
-                        <Typography
-                          variant="small"
-                          className="text-[11px] font-medium uppercase text-blue-gray-400"
-                        >
-                          {el}
-                        </Typography>
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {projectsTableData.map(
-                  ({ img, name, members, budget, completion }, key) => {
-                    const className = `py-3 px-5 ${
-                      key === projectsTableData.length - 1
-                        ? ""
-                        : "border-b border-blue-gray-50"
-                    }`;
-
-                    return (
-                      <tr key={name}>
-                        <td className={className}>
-                          <div className="flex items-center gap-4">
-                            <Avatar src={img} alt={name} size="sm" />
-                            <Typography
-                              variant="small"
-                              color="blue-gray"
-                              className="font-bold"
-                            >
-                              {name}
-                            </Typography>
-                          </div>
-                        </td>
-                        <td className={className}>
-                          {members.map(({ img, name }, key) => (
-                            <Tooltip key={name} content={name}>
-                              <Avatar
-                                src={img}
-                                alt={name}
-                                size="xs"
-                                variant="circular"
-                                className={`cursor-pointer border-2 border-white ${
-                                  key === 0 ? "" : "-ml-2.5"
-                                }`}
-                              />
-                            </Tooltip>
-                          ))}
-                        </td>
-                        <td className={className}>
-                          <Typography
-                            variant="small"
-                            className="text-xs font-medium text-blue-gray-600"
-                          >
-                            {budget}
-                          </Typography>
-                        </td>
-                        <td className={className}>
-                          <div className="w-10/12">
-                            <Typography
-                              variant="small"
-                              className="mb-1 block text-xs font-medium text-blue-gray-600"
-                            >
-                              {completion}%
-                            </Typography>
-                            <Progress
-                              value={completion}
-                              variant="gradient"
-                              color={completion === 100 ? "green" : "blue"}
-                              className="h-1"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-                )}
-              </tbody>
-            </table>
-          </CardBody>
+          ))}
+        </Card> */}
+        <Card title="Events and Announcements" icon="📢">
+          {loading ? (
+            <p className="text-gray-400 text-sm text-center">Loading...</p>
+          ) : error ? (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          ) : currentAnnouncements.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center">
+              No announcements found
+            </p>
+          ) : (
+            currentAnnouncements.map((announce) => (
+              <div
+                key={announce.id}
+                className="flex flex-col items-center justify-center h-48 text-sm"
+              >
+                <p className="text-gray-700 font-medium mb-2">
+                  {announce.name || "No name"}
+                </p>
+                <p className="text-gray-600 text-center">
+                  {announce.description || "No description"}
+                </p>
+              </div>
+            ))
+          )}
         </Card>
-        <Card className="border border-blue-gray-100 shadow-sm">
-          <CardHeader
-            floated={false}
-            shadow={false}
-            color="transparent"
-            className="m-0 p-6"
-          >
-            <Typography variant="h6" color="blue-gray" className="mb-2">
-              Orders Overview
-            </Typography>
-            <Typography
-              variant="small"
-              className="flex items-center gap-1 font-normal text-blue-gray-600"
-            >
-              <ArrowUpIcon
-                strokeWidth={3}
-                className="h-3.5 w-3.5 text-green-500"
-              />
-              <strong>24%</strong> this month
-            </Typography>
-          </CardHeader>
-          <CardBody className="pt-0">
-            {ordersOverviewData.map(
-              ({ icon, color, title, description }, key) => (
-                <div key={title} className="flex items-start gap-4 py-3">
-                  <div
-                    className={`relative p-1 after:absolute after:-bottom-6 after:left-2/4 after:w-0.5 after:-translate-x-2/4 after:bg-blue-gray-50 after:content-[''] ${
-                      key === ordersOverviewData.length - 1
-                        ? "after:h-0"
-                        : "after:h-4/6"
-                    }`}
-                  >
-                    {React.createElement(icon, {
-                      className: `!w-5 !h-5 ${color}`,
-                    })}
-                  </div>
-                  <div>
-                    <Typography
-                      variant="small"
-                      color="blue-gray"
-                      className="block font-medium"
-                    >
-                      {title}
-                    </Typography>
-                    <Typography
-                      as="span"
-                      variant="small"
-                      className="text-xs font-medium text-blue-gray-500"
-                    >
-                      {description}
-                    </Typography>
-                  </div>
-                </div>
-              )
-            )}
-          </CardBody>
-        </Card>
-      </div> */}
+      </div>
     </div>
   );
-}
+};
 
 export default Home;

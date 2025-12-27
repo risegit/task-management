@@ -11,20 +11,24 @@ import {
   EyeIcon,
   BuildingOfficeIcon, 
   ClipboardDocumentCheckIcon,
-  UserGroupIcon 
+  UserGroupIcon, 
+  SpeakerWaveIcon
 } from "@heroicons/react/24/solid";
 
 import {
-  Home,
-  User,
+  User
 } from "@/pages/dashboard";
 
+
+import Home from "@/pages/dashboard/home";
 import AddUser from "@/pages/dashboard/employee/adduser";
 import ViewUser from "@/pages/dashboard/employee/viewuser";
 import Edituser from "@/pages/dashboard/employee/edituser";
 import Createusertask from "@/pages/dashboard/task-management/createtask"
 import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
 import Profile from "@/pages/dashboard/profile";
+import OthersActivities from "@/pages/dashboard/otheractivities";
+
 import Adddept from "@/pages/dashboard/department/adddept";
 import Managedept from "@/pages/dashboard/department/managedept";
 import Editdept from "@/pages/dashboard/department/editdept";
@@ -36,6 +40,7 @@ import Editproject from "@/pages/dashboard/projects/editproject";
 import { SignIn, SignUp } from "@/pages/auth";
 import LogoutButton from "./Components/LogoutButton";
 import { element } from "prop-types";
+import { SpeakerIcon } from "lucide-react";
 
 
 const icon = { className: "w-5 h-5 text-inherit" };
@@ -141,7 +146,15 @@ const routes = [
       },
 
    
+        
         {
+        icon: <SpeakerWaveIcon {...icon} />,
+        name: "Announcements",
+        element: <OthersActivities />,
+        path: "/otheractivities",
+       
+      },
+      {
         icon: <IdentificationIcon {...icon} />,
         name: "Profile",
         element: <Profile />,
