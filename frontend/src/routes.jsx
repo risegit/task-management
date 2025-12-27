@@ -21,20 +21,20 @@ import {
 
 
 import Home from "@/pages/dashboard/home";
-import AddUser from "@/pages/dashboard/employee/adduser";
-import ViewUser from "@/pages/dashboard/employee/viewuser";
-import Edituser from "@/pages/dashboard/employee/edituser";
+import AddEmployee from "@/pages/dashboard/employee/add-employee";
+import ViewEmployee from "@/pages/dashboard/employee/manage-employee";
+import EditEmployee from "@/pages/dashboard/employee/edit-employee";
 import Createusertask from "@/pages/dashboard/task-management/createtask"
 import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
 import Profile from "@/pages/dashboard/profile";
 import OthersActivities from "@/pages/dashboard/otheractivities";
 
-import Adddept from "@/pages/dashboard/department/adddept";
-import Managedept from "@/pages/dashboard/department/managedept";
-import Editdept from "@/pages/dashboard/department/editdept";
-import Addproject from "@/pages/dashboard/projects/addproject";
-import Manageprojects from "@/pages/dashboard/projects/manageprojects";
-import Editproject from "@/pages/dashboard/projects/editproject";
+import Adddept from "@/pages/dashboard/department/add-deptartment";
+import Managedept from "@/pages/dashboard/department/manage-deptartment";
+import Editdept from "@/pages/dashboard/department/edit-deptartment";
+import Addproject from "@/pages/dashboard/projects/add-project";
+import Manageprojects from "@/pages/dashboard/projects/manage-projects";
+import Editproject from "@/pages/dashboard/projects/edit-project";
 
 
 import { SignIn, SignUp } from "@/pages/auth";
@@ -67,12 +67,12 @@ const routes = [
           },
           {
             name: "Manage Deptartments",
-            path: "/department/managedept",
+            path: "/department/manage-deptartment",
             element: <Managedept />,
           },
            {
             name: "Edit Deptartments",
-            path: "/department/edit-dept/:id",
+            path: "/department/edit-deptartment/:id",
             element: <Editdept />,
             hidden: true,
           },
@@ -85,18 +85,18 @@ const routes = [
         collapse: [
           {
             name: "Add Employee",
-            path: "/users/add-user",
-            element: <AddUser />,
+            path: "/employee/add-employee",
+            element: <AddEmployee />,
           },
           {
             name: "Manage Employees",
-            path: "/users/view-users",
-            element: <ViewUser />,
+            path: "/employee/view-employee",
+            element: <ViewEmployee />,
           },
           {
             name: "Edit Employee",
-            path: "/employee/edit-user/:id",
-            element: <Edituser/>,
+            path: "/employee/edit-employee/:id",
+            element: <EditEmployee/>,
             hidden: true,
           },
         ],
@@ -118,7 +118,7 @@ const routes = [
          },
            {
            name: "Edit Project",
-           path: "/projects/edit-project",
+           path: "/projects/edit-project/:id",
            element: <Editproject />,
            hidden:'true'
          },

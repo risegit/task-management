@@ -9,6 +9,7 @@ include('../inc/config.php');
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $emailId = $_GET['email'] ?? null;
+$status = $_GET['status'] ?? null;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
@@ -33,7 +34,8 @@ switch ($method) {
                 "data" => $data
             ]);
         }else{
-            $sql1 = "SELECT * FROM departments order by id desc";
+            $where = !empty($status) ? "WHERE status='$status'" : "";
+            $sql1 = "SELECT * FROM departments $where order by id desc";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
