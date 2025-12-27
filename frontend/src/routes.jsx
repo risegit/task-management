@@ -26,25 +26,16 @@ import ViewEmployee from "@/pages/dashboard/employee/manage-employee";
 import EditEmployee from "@/pages/dashboard/employee/edit-employee";
 import Createusertask from "@/pages/dashboard/task-management/createtask"
 import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
+import EditTask from "@/pages/dashboard/task-management/edit-task";
 import Profile from "@/pages/dashboard/profile";
 import OthersActivities from "@/pages/dashboard/otheractivities";
 
-<<<<<<< HEAD
-import Adddept from "@/pages/dashboard/department/adddept";
-import Managedept from "@/pages/dashboard/department/managedept";
-import Editdept from "@/pages/dashboard/department/editdept";
-import Addproject from "@/pages/dashboard/projects/addproject";
-import Manageprojects from "@/pages/dashboard/projects/manageprojects";
-import Editproject from "@/pages/dashboard/projects/editproject";
-import Edittask from "@/pages/dashboard/task-management/edittask";
-=======
 import Adddept from "@/pages/dashboard/department/add-deptartment";
 import Managedept from "@/pages/dashboard/department/manage-deptartment";
 import Editdept from "@/pages/dashboard/department/edit-deptartment";
 import Addproject from "@/pages/dashboard/projects/add-project";
 import Manageprojects from "@/pages/dashboard/projects/manage-projects";
 import Editproject from "@/pages/dashboard/projects/edit-project";
->>>>>>> main
 
 
 import { SignIn, SignUp } from "@/pages/auth";
@@ -150,10 +141,10 @@ const routes = [
             path: "/task-management/viewtask",
             element: <ViewUsertask />,
           },
-             {
-            name: "Edit Task",
+          {
+            name: "Manage Task",
             path: "/task-management/edit-task/:id",
-            element: <Edittask />,
+            element: <EditTask />,
             hidden:'true'
           },
           

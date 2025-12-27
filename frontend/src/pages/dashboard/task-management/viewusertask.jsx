@@ -1089,7 +1089,7 @@ const ManageDepartment = () => {
                             <div className="flex items-center justify-end gap-2">
                               <button 
                                 onClick={handleCreateTaskModal} 
-                                className="px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 bg-gradient-to-r from-blue-600 to-indigo-600 text-black rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-slate-200 hover:scale-105 transition-all flex items-center gap-2"
+                                className="px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-slate-200 hover:scale-105 transition-all flex items-center gap-2"
                                 title="View Details"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
