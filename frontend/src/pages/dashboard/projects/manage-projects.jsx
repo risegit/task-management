@@ -1,30 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const ProjectsTable = () => {
-  // Sample data - replace with your actual data
-  const initialProjects = [
-    { id: 1, projectName: 'Website Redesign', poc: ['John Doe', 'Jane Smith'], startDate: '2024-01-15', status: 'Active' },
-    { id: 2, projectName: 'Mobile App Development', poc: ['Robert Johnson'], startDate: '2024-02-01', status: 'Active' },
-    { id: 3, projectName: 'CRM Implementation', poc: ['Emily Williams', 'Michael Brown'], startDate: '2023-12-10', status: 'Inactive' },
-    { id: 4, projectName: 'Cloud Migration', poc: ['Sarah Davis'], startDate: '2024-03-05', status: 'Active' },
-    { id: 5, projectName: 'Data Analytics Platform', poc: ['David Wilson', 'Lisa Miller'], startDate: '2024-01-30', status: 'Active' },
-    { id: 6, projectName: 'E-commerce Integration', poc: ['John Doe'], startDate: '2023-11-20', status: 'Inactive' },
-    { id: 7, projectName: 'Security Audit', poc: ['Michael Brown'], startDate: '2024-02-28', status: 'Active' },
-    { id: 8, projectName: 'API Gateway Setup', poc: ['Jane Smith', 'Robert Johnson'], startDate: '2024-03-10', status: 'Active' },
-  ];
 
   const navigate = useNavigate();
 
   // State management
-  const [projects, setProjects] = useState(initialProjects);
+  const [projects, setProjects] = useState([]);
+  const [project_assign, setProjectAssign] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
 
   // Sort Arrow Component
   const SortArrow = ({ columnKey }) => {
@@ -41,6 +32,52 @@ const ProjectsTable = () => {
       </svg>
     );
   };
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setLoading(true);
+
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/project.php`
+        );
+
+        const result = response.data;
+        console.log("API Response:", result);
+
+        if (result.status === "success") {
+
+          const normalizedProjects = result.project.map((item, index) => {
+            
+            return {
+              id: item.client_id,        // used for routing
+              projectIndex: String(index + 1), // used for mapping
+              projectName: item.client_name,
+              description: item.description,
+              startDate: item.start_date,
+              status: item.status === "active" ? "Active" : "Inactive",
+              poc: item.poc_employee,
+              other_employees: item.other_employees
+            };
+          });
+
+          setProjects(normalizedProjects);
+        } else {
+          setProjects([]);
+        }
+      } catch (error) {
+        console.error("Axios Error:", error);
+        setProjects([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, []);
+
+
+
 
   // Handle sorting
   const handleSort = (key) => {
@@ -71,7 +108,7 @@ const ProjectsTable = () => {
 
   // Handle edit
   const handleEdit = (id) => {
-    navigate(`/dashboard/project/edit-project/${id}`);
+    navigate(`/dashboard/projects/edit-project/${id}`);
   };
 
   // Filter projects
@@ -239,6 +276,15 @@ const ProjectsTable = () => {
                         </th>
                         <th 
                           className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleSort("poc")}
+                        >
+                          <div className="flex items-center gap-2">
+                            Others
+                            <SortArrow columnKey="poc" />
+                          </div>
+                        </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
                           onClick={() => handleSort("startDate")}
                         >
                           <div className="flex items-center gap-2">
@@ -273,21 +319,27 @@ const ProjectsTable = () => {
                               </div>
                               <div>
                                 <span className="font-semibold text-slate-900 block">
-                                  {project.projectName || "Unnamed Project"}
+                                  {project.projectName}
                                 </span>
                               </div>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
-                              {project.poc.map((person, index) => (
                                 <span 
-                                  key={index}
                                   className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
                                 >
-                                  {person}
+                                  {project.poc || "N/A"}
                                 </span>
-                              ))}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                                <span 
+                                  className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+                                >
+                                  {project.other_employees || "N/A"}
+                                </span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
@@ -358,14 +410,11 @@ const ProjectsTable = () => {
                           <div>
                             <span className="text-sm font-medium text-slate-700">Point of Contact:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {project.poc.map((person, index) => (
                                 <span 
-                                  key={index}
                                   className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
                                 >
-                                  {person}
+                                  {project.poc || "N/A"}
                                 </span>
-                              ))}
                             </div>
                           </div>
                         </div>

@@ -148,16 +148,16 @@ export default function EditDepartment() {
         Swal.fire({
           icon: 'success',
           title: 'Department Updated Successfully!',
-          text: result.message || 'Department has been updated successfully.',
+          text: 'Department has been updated successfully.',
           timer: 2000,
           showConfirmButton: false,
           timerProgressBar: true,
         });
         
         // Navigate back after success
-        setTimeout(() => {
-          navigate("/dashboard/department/manage");
-        }, 2000);
+        // setTimeout(() => {
+        //   navigate("/dashboard/department/manage");
+        // }, 2000);
       } else {
         Swal.fire({
           icon: 'error',
@@ -344,7 +344,7 @@ export default function EditDepartment() {
               <button 
                 type="button"
                 className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-all"
-                onClick={() => navigate("/dashboard/department/manage")}
+                onClick={() => navigate("/dashboard/department/managedept")}
               >
                 Cancel
               </button>

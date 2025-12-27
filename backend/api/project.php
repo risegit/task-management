@@ -15,60 +15,57 @@ if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
 
-$data = json_decode(file_get_contents("php://input"), true);
-if (!$data) {
-    echo json_encode(["status" => "error", "message" => "Invalid JSON data"]);
-    exit;
-}
-
 $date = date("Y-m-d");
 $time = date("H:i:s");
 
 switch ($method) { 
 
     case 'GET':
-        if($userId){
-            $sql1 = "SELECT u.id,u.name,u.phone,u.role,u.email,u.status,dept.name dept_name FROM users u INNER JOIN departments dept ON u.department_id = dept.id WHERE u.id='$userId' order by u.id desc";
+        if($id){
+            $sql1 = "SELECT client_code,name,description,start_date,status FROM clients WHERE id='$id'";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
                 $data[] = $row;
             }
 
-            $sql2 = "SELECT * FROM departments";
+            $sql2 = "SELECT u.id,u.name,u.role,u.email,u.status,dept.name dept_name FROM users u INNER JOIN departments dept ON u.department_id = dept.id order by u.id desc;";
             $result2 = $conn->query($sql2);
-            $department = [];
+            $employee = [];
             while ($row = $result2->fetch_assoc()) {
-                $department[] = $row;
+                $employee[] = $row;
+            }
+
+            $sql3 = "SELECT * FROM client_users WHERE client_id='$id'";
+            $result3 = $conn->query($sql3);
+            $assigned_emp = [];
+            while ($row = $result3->fetch_assoc()) {
+                $assigned_emp[] = $row;
             }
 
             echo json_encode([
                 "status" => "success",
                 "data" => $data,
-                "departments" => $department
+                "employee" => $employee,
+                "assigned_emp" => $assigned_emp
             ]);
         }else{
-            $sql1 = "SELECT u.id,u.name,u.role,u.email,u.status,dept.name dept_name FROM users u INNER JOIN departments dept ON u.department_id = dept.id order by u.id desc;";
+            $sql1 = "SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( CASE WHEN cu.is_poc = 1 THEN u.name END SEPARATOR ', ' ) AS poc_employee, GROUP_CONCAT( CASE WHEN cu.is_poc = 0 THEN u.name END SEPARATOR ', ' ) AS other_employees FROM clients c LEFT JOIN client_users cu ON c.id = cu.client_id LEFT JOIN users u ON cu.emp_id = u.id GROUP BY c.id ORDER BY c.id DESC";
             $result = $conn->query($sql1);
-            $data = [];
+            $project = [];
             while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
+                $project[] = $row;
             }
 
             echo json_encode([
                 "status" => "success",
-                "data" => $data
+                "project" => $project
+
             ]);
         }
         break;
     
     case 'POST':
-        $data = json_decode(file_get_contents("php://input"), true);
-
-        if (!$data) {
-            echo json_encode(["status" => "error", "message" => "Invalid JSON"]);
-            exit;
-        }
         $projectName = trim($data['projectName'] ?? '');
         $projectDescription = trim($data['projectDescription'] ?? '');
         $startDate = $data['startDate'] ?? '';
@@ -81,6 +78,8 @@ switch ($method) {
             INSERT PROJECT (clients)
             ------------------------------*/
             $sqlProject = "INSERT INTO clients (name, description, start_date, created_by, created_date, created_time) VALUES (?, ?, ?, ?, ?, ?)";
+
+            // echo json_encode(["status" => "success", "message" => $sqlProject.'='.$projectName.'-'.$projectDescription.'-'.$startDate.'-'.$id.'-'.$date.'-'.$time]);
 
             $stmtProject = $conn->prepare($sqlProject);
             $stmtProject->bind_param("sssiss", $projectName, $projectDescription, $startDate, $id,$date, $time);
