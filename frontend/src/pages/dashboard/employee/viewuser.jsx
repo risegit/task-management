@@ -12,102 +12,49 @@ export default function ViewEmployeesStyled() {
   
   const navigate = useNavigate();
 
-  // useEffect(() => {
-  //   const fetchEmployees = async () => {
-  //     try {
-  //       const response = await fetch(
-  //         `${import.meta.env.VITE_API_URL}api/emp.php`
-  //       );
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/emp.php`
+        );
 
-  //       const result = await response.json();
-  //       console.log("API Response:", result);
+        const result = response.data;
+        console.log("API Response:", result);
 
-  //       if (result.status === "success") {
-  //         if (result.departments && Array.isArray(result.departments)) {
-  //           setEmployees(result.departments);
-  //         } else if (result.data && Array.isArray(result.data)) {
-  //           setEmployees(result.data);
-  //         } else {
-  //           console.warn("Unexpected API response structure:", result);
-  //           setEmployees([]);
-  //         }
-  //       } else {
-  //         console.warn("API returned error:", result.message);
-  //         setEmployees([]);
-  //       }
-  //     } catch (error) {
-  //       console.error("Fetch Error:", error);
-  //       setEmployees([]);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   fetchEmployees();
-  // }, []);
-
-  // Search functionality - now includes dept_name
-
- useEffect(() => {
-  const fetchEmployees = async () => {
-    try {
-      // 🔹 Call API using axios (GET request)
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}api/emp.php`
-      );
-
-      // 🔹 Axios automatically converts response to JSON
-      const result = response.data;
-      console.log("API Response:", result);
-
-      // 🔹 Check API status
-      if (result.status === "success") {
-
-        // 🔹 API sometimes returns data in "departments"
-        if (Array.isArray(result.departments)) {
-          setEmployees(result.departments);
-
-        // 🔹 Or sometimes in "data"
-        } else if (Array.isArray(result.data)) {
-          setEmployees(result.data);
-
-        // 🔹 If structure is not what we expect
+        if (result.status === "success") {
+          if (Array.isArray(result.departments)) {
+            setEmployees(result.departments);
+          } else if (Array.isArray(result.data)) {
+            setEmployees(result.data);
+          } else {
+            console.warn("Unexpected API response structure:", result);
+            setEmployees([]);
+          }
         } else {
-          console.warn("Unexpected API response structure:", result);
+          console.warn("API returned error:", result.message);
           setEmployees([]);
         }
-
-      } else {
-        // 🔹 API responded but status is not success
-        console.warn("API returned error:", result.message);
+      } catch (error) {
+        console.error("Axios Error:", error);
         setEmployees([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      // 🔹 Axios throws error automatically for 4xx / 5xx
-      console.error("Axios Error:", error);
-      setEmployees([]);
-    } finally {
-      // 🔹 Stop loader no matter what happens
-      setLoading(false);
-    }
-  };
+    };
 
-  fetchEmployees();
-}, []);
-
-
+    fetchEmployees();
+  }, []);
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
   };
 
-  // Clear search
   const clearSearch = () => {
     setSearchQuery("");
   };
 
-  // Filter employees based on search query - includes dept_name
   const filteredEmployees = employees.filter((emp) => {
     const searchLower = searchQuery.toLowerCase();
     return (
@@ -119,7 +66,6 @@ export default function ViewEmployeesStyled() {
     );
   });
 
-  // Sorting functionality
   const handleSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -128,25 +74,27 @@ export default function ViewEmployeesStyled() {
     setSortConfig({ key, direction });
   };
 
-  // Sort arrow component
   const SortArrow = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) return null;
+    if (sortConfig.key !== columnKey) {
+      return (
+        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
     return (
-      <span className="ml-1">
-        {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-      </span>
+      <svg className={`w-4 h-4 text-blue-600 ${sortConfig.direction === 'descending' ? 'rotate-180' : ''} transition-transform`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
     );
   };
 
-  // Sort the filtered employees
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
-    // Handle dept_name for sorting
     let aValue = a[sortConfig.key];
     let bValue = b[sortConfig.key];
     
-    // For department sorting, use dept_name if available
     if (sortConfig.key === 'department') {
       aValue = a.dept_name || a.department || '';
       bValue = b.dept_name || b.department || '';
@@ -161,7 +109,6 @@ export default function ViewEmployeesStyled() {
     return 0;
   });
 
-  // Pagination logic
   const indexOfLastEmployee = currentPage * itemsPerPage;
   const indexOfFirstEmployee = indexOfLastEmployee - itemsPerPage;
   const currentEmployees = sortedEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
@@ -175,280 +122,311 @@ export default function ViewEmployeesStyled() {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
-  // Handle edit
   const handleEdit = (id) => {
     navigate(`/dashboard/employee/edit-user/${id}`);
   };
 
-  // Handle view details
-  const handleView = (id) => {
-    console.log('View employee:', id);
-    // You can implement view functionality here
-  };
-
   if (loading) {
     return (
-      <div className="w-full min-h-screen bg-gray-100 mt-10 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading employees...</p>
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+          </div>
+          <p className="mt-6 text-slate-600 font-medium">Loading employees...</p>
+          <p className="mt-2 text-sm text-slate-500">Please wait while we fetch the data</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-100 mt-10">
-      <div className="mx-auto bg-white rounded-2xl shadow-xl p-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 py-4 border-b">
-          <div>
-            <h2 className="text-2xl font-bold mb-2 text-gray-800">Employee Management</h2>
-            <p className="text-sm text-gray-600">View and manage all employees</p>
-          </div>
-          <div className="mt-3 sm:mt-0 w-full sm:w-1/3 relative">
-            <input
-              type="text"
-              placeholder="Search by name, department, email or role..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            />
-            {searchQuery && (
-              <button 
-                onClick={clearSearch} 
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
+      {/* Header */}
+   
 
-        {/* Table */}
-        <div className="p-6">
-          {currentEmployees.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+      {/* Main Card */}
+      <div className=" mx-auto">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+          {/* Card Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
+                  Employee Directory
+                </h2>
+                <p className="text-blue-100 mt-2">View and manage all employees in your organization</p>
               </div>
-              <p className="text-gray-500 text-lg mb-2">No employees found</p>
-              <p className="text-gray-400 text-sm">
-                {searchQuery ? 'Try a different search term' : 'No employees available in the system'}
-              </p>
+              
+              {/* Search Box */}
+              <div className="w-full lg:w-96">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search by name, department, email or role..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
+                  />
+                  <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {searchQuery && (
+                    <button 
+                      onClick={clearSearch} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="overflow-x-auto hidden lg:block">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th 
-                        className="py-4 px-4 font-medium text-gray-700 w-[20%] cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('name')}
-                      >
-                        <div className="flex items-center">
-                          Name
-                          <SortArrow columnKey="name" />
-                        </div>
-                      </th>
-                      <th 
-                        className="py-4 px-4 font-medium text-gray-700 w-[25%] cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('email')}
-                      >
-                        <div className="flex items-center">
-                          Email
-                          <SortArrow columnKey="email" />
-                        </div>
-                      </th>
-                      <th 
-                        className="py-4 px-4 font-medium text-gray-700 w-[15%] cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('role')}
-                      >
-                        <div className="flex items-center">
-                          Role
-                          <SortArrow columnKey="role" />
-                        </div>
-                      </th>
-                      <th 
-                        className="py-4 px-4 font-medium text-gray-700 w-[20%] cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('department')}
-                      >
-                        <div className="flex items-center">
-                          Department
-                          <SortArrow columnKey="department" />
-                        </div>
-                      </th>
-                      <th className="py-4 px-4 font-medium text-gray-700 w-[20%] text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentEmployees.map((emp) => (
-                      <tr key={emp.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-bold">
-                                {emp.name ? emp.name.charAt(0).toUpperCase() : 'N/A'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-800 block">
-                                {emp.name || 'No Name'}
-                              </span>
-                      
-                            </div>
+          </div>
+
+          {/* Table Content */}
+          <div className="p-6">
+            {currentEmployees.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                <p className="text-slate-600 text-lg font-semibold mb-2">No employees found</p>
+                <p className="text-slate-500 text-sm">
+                  {searchQuery ? 'Try adjusting your search terms' : 'No employees available in the system'}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table */}
+                <div className="overflow-x-auto hidden lg:block">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b-2 border-slate-200">
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group rounded-tl-xl"
+                          onClick={() => handleSort('name')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Name
+                            <SortArrow columnKey="name" />
                           </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          {emp.email ? (
-                            <a 
-                              href={`mailto:${emp.email}`} 
-                              className="text-blue-600 hover:underline truncate block"
-                              title={emp.email}
-                            >
-                              {emp.email}
-                            </a>
-                          ) : (
-                            <span className="text-gray-400 italic">No email</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 capitalize inline-block">
-                            {emp.role || emp.position || 'Employee'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 capitalize">
-                            {emp.dept_name || emp.department || 'No Department'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          <div className="flex justify-end gap-2">
+                        </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleSort('email')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Email
+                            <SortArrow columnKey="email" />
+                          </div>
+                        </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleSort('role')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Role
+                            <SortArrow columnKey="role" />
+                          </div>
+                        </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleSort('department')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Department
+                            <SortArrow columnKey="department" />
+                          </div>
+                        </th>
+                        <th className="py-4 px-4 text-right font-semibold text-slate-700 rounded-tr-xl">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentEmployees.map((emp, index) => (
+                        <tr 
+                          key={emp.id || emp.emp_id} 
+                          className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-md ring-4 ring-blue-50 group-hover:ring-blue-100 transition-all">
+                                <span className="text-white font-bold text-sm">
+                                  {emp.name ? emp.name.charAt(0).toUpperCase() : 'N'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-slate-900 block">
+                                  {emp.name || 'No Name'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            {emp.email ? (
+                              <a 
+                                href={`mailto:${emp.email}`} 
+                                className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                                title={emp.email}
+                              >
+                                {emp.email}
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 italic">No email</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700 capitalize inline-block">
+                              {emp.role || emp.position || 'Staff'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700 capitalize inline-block">
+                              {emp.dept_name || emp.department || 'No Department'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-right">
                             <button 
                               onClick={() => handleEdit(emp.id || emp.emp_id)} 
-                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors duration-200 flex items-center gap-1"
+                              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2 ml-auto"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
                               Edit
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Mobile View */}
-              <div className="block lg:hidden space-y-4">
-                {currentEmployees.map((emp) => (
-                  <div key={emp.id || emp.emp_id} className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-blue-600 font-bold text-lg">
-                          {emp.name ? emp.name.charAt(0).toUpperCase() : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-semibold text-gray-800 text-lg">
-                              {emp.name || 'No Name'}
-                            </h3>
-                        
-
-                          </div>
-                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 capitalize">
-                            {emp.role || emp.position || 'Employee'}
+                {/* Mobile Cards */}
+                <div className="block lg:hidden space-y-4">
+                  {currentEmployees.map((emp) => (
+                    <div key={emp.id || emp.emp_id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg ring-4 ring-blue-50">
+                          <span className="text-white font-bold text-lg">
+                            {emp.name ? emp.name.charAt(0).toUpperCase() : 'N'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-slate-900 text-lg mb-1">
+                            {emp.name || 'No Name'}
+                          </h3>
+                          <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700 capitalize inline-block">
+                            {emp.role || emp.position || 'Staff'}
                           </span>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-3 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1 font-medium">Email:</p>
-                        {emp.email ? (
-                          <a 
-                            href={`mailto:${emp.email}`} 
-                            className="text-blue-600 hover:underline text-sm block truncate"
-                            title={emp.email}
-                          >
-                            {emp.email}
-                          </a>
-                        ) : (
-                          <span className="text-gray-400 italic text-sm">No email</span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1 font-medium">Department:</p>
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
-                          {emp.dept_name || emp.department || 'No Department'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <button 
                       
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-2"
+                      <div className="space-y-3 mb-4">
+                        <div className="flex items-start gap-2">
+                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          {emp.email ? (
+                            <a 
+                              href={`mailto:${emp.email}`} 
+                              className="text-blue-600 hover:underline text-sm flex-1"
+                              title={emp.email}
+                            >
+                              {emp.email}
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic text-sm">No email</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700">
+                            {emp.dept_name || emp.department || 'No Department'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleEdit(emp.id || emp.emp_id)}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
-                        Edit
+                        Edit Employee
                       </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
-        {/* Pagination */}
-        {sortedEmployees.length > 0 && (
-          <div className="px-5 py-4 border-t bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-gray-600">
-                Showing {indexOfFirstEmployee + 1} to {Math.min(indexOfLastEmployee, sortedEmployees.length)} of {sortedEmployees.length} employees
-              </p>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={goToPrevious} 
-                  disabled={currentPage === 1} 
-                  className={`px-3 py-2 rounded-lg transition-colors duration-200 ${currentPage === 1 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"}`}
-                >
-                  Previous
-                </button>
-                {[...Array(totalPages)].map((_, index) => (
+          {/* Pagination */}
+          {sortedEmployees.length > 0 && (
+            <div className="px-6 py-5 border-t-2 border-slate-200 bg-slate-50">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-sm text-slate-600 font-medium">
+                  Showing <span className="font-bold text-slate-900">{indexOfFirstEmployee + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastEmployee, sortedEmployees.length)}</span> of <span className="font-bold text-slate-900">{sortedEmployees.length}</span> employees
+                </p>
+                <div className="flex items-center gap-2">
                   <button 
-                    key={index + 1} 
-                    onClick={() => goToPage(index + 1)} 
-                    className={`px-3 py-2 rounded-lg transition-colors duration-200 ${currentPage === index + 1 ? "bg-blue-500 text-white" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                    onClick={goToPrevious} 
+                    disabled={currentPage === 1} 
+                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                      currentPage === 1 
+                        ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                        : "bg-white text-slate-700 hover:bg-slate-100 shadow-sm border-2 border-slate-200"
+                    }`}
                   >
-                    {index + 1}
+                    Previous
                   </button>
-                ))}
-                <button 
-                  onClick={goToNext} 
-                  disabled={currentPage === totalPages} 
-                  className={`px-3 py-2 rounded-lg transition-colors duration-200 ${currentPage === totalPages ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"}`}
-                >
-                  Next
-                </button>
+                  {[...Array(totalPages)].map((_, index) => (
+                    <button 
+                      key={index + 1} 
+                      onClick={() => goToPage(index + 1)} 
+                      className={`w-10 h-10 rounded-xl font-semibold transition-all ${
+                        currentPage === index + 1 
+                          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200" 
+                          : "bg-white text-slate-700 hover:bg-slate-100 shadow-sm border-2 border-slate-200"
+                      }`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={goToNext} 
+                    disabled={currentPage === totalPages} 
+                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                      currentPage === totalPages 
+                        ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                        : "bg-white text-slate-700 hover:bg-slate-100 shadow-sm border-2 border-slate-200"
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
