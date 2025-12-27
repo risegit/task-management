@@ -173,12 +173,13 @@ export default function AddEmployee() {
     }
   };
 
+<<<<<<< HEAD:frontend/src/pages/dashboard/employee/adduser.jsx
+=======
   // const showDepartment = formData.role === "admin" || formData.role === "manager" || formData.role === "staff";
 
+>>>>>>> main:frontend/src/pages/dashboard/employee/add-employee.jsx
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
-      {/* Header */}
-
       {/* Main Form Card */}
       <div className=" mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -216,7 +217,7 @@ export default function AddEmployee() {
                         : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
                     } focus:ring-4 outline-none transition-all bg-white`}
                   >
-                    <option value="assignee">Select Role</option>
+                    <option value="assignee" disabled>Select Role</option>
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
                     <option value="staff">Staff</option>
@@ -231,19 +232,39 @@ export default function AddEmployee() {
                   )}
                 </div>
 
+<<<<<<< HEAD:frontend/src/pages/dashboard/employee/adduser.jsx
+                {/* Department - ALWAYS SHOWN */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Department
+                    {(formData.role === "manager" || formData.role === "staff" || formData.role === "admin") && (
+                      <span className="text-red-500">*</span>
+                    )}
+                  </label>
+=======
                 {/* Department */}
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-700">
                     Department <span className="text-red-500">*</span>
                   </label>
 
+>>>>>>> main:frontend/src/pages/dashboard/employee/add-employee.jsx
                   <select
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
+<<<<<<< HEAD:frontend/src/pages/dashboard/employee/adduser.jsx
+                    disabled={loading}
+                    className={`w-full px-4 py-3 rounded-xl border-2 ${
+                      errors.department 
+                        ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                        : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                    } focus:ring-4 outline-none transition-all bg-white disabled:opacity-50 disabled:cursor-not-allowed`}
+=======
                     className={`w-full border ${
                       errors.department ? "border-red-500 bg-red-50" : "border-gray-300"
                     } rounded-lg px-4 py-3`}
+>>>>>>> main:frontend/src/pages/dashboard/employee/add-employee.jsx
                   >
                     <option value="" disabled>Select Department</option>
                     {departments.map((dept) => (
@@ -252,9 +273,19 @@ export default function AddEmployee() {
                       </option>
                     ))}
                   </select>
+<<<<<<< HEAD:frontend/src/pages/dashboard/employee/adduser.jsx
+                  {errors.department && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.department}
+                    </p>
+=======
 
                   {errors.department && (
                     <p className="text-red-500 text-sm mt-2">{errors.department}</p>
+>>>>>>> main:frontend/src/pages/dashboard/employee/add-employee.jsx
                   )}
                 </div>
               </div>

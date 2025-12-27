@@ -8,9 +8,19 @@ export * from "@/pages/dashboard/employee/add-employee";
 export * from "@/pages/dashboard/employee/edit-employee";
 export * from "@/pages/dashboard/task-management/createusertask"
 export * from "@/pages/dashboard/task-management/viewusertask"
+<<<<<<< HEAD
+export * from "@/pages/dashboard/department/adddept";
+export * from "@/pages/dashboard/department/managedept";
+export * from "@/pages/dashboard/department/editdept";
+export * from "@/pages/dashboard/projects/addproject";
+export * from "@/pages/dashboard/projects/manageprojects";  
+export * from "@/pages/dashboard/projects/editproject";
+export * from "@/pages/dashboard/task-management/edittask";
+=======
 export * from "@/pages/dashboard/department/add-deptartment";
 export * from "@/pages/dashboard/department/manage-deptartment";
 export * from "@/pages/dashboard/department/edit-deptartment";
 export * from "@/pages/dashboard/projects/add-project";
 export * from "@/pages/dashboard/projects/manage-projects";  
 export * from "@/pages/dashboard/projects/edit-project";
+>>>>>>> main

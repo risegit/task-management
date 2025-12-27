@@ -113,7 +113,12 @@ const ManageDepartment = () => {
   
   // Navigate to edit department page
   const handleEdit = (id) => {
+<<<<<<< HEAD:frontend/src/pages/dashboard/department/managedept.jsx
+    console.log("Attempting to navigate to:", `/dashboard/department/edit-dept/${id}`);
+    navigate(`/dashboard/department//${id}`);
+=======
     navigate(`/dashboard/department/edit-deptartment/${id}`);
+>>>>>>> main:frontend/src/pages/dashboard/department/manage-deptartment.jsx
   };
   
   const goToPage = (page) => setCurrentPage(page);
