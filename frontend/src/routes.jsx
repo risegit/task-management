@@ -56,29 +56,7 @@ const routes = [
         path: "/home",
         element: <Home />,
       },
-      {
-        icon: <UserCircleIcon {...icon} />,
-        name: "Employee",
-        collapse: [
-          {
-            name: "Add Employee",
-            path: "/users/add-user",
-            element: <AddUser />,
-          },
-          {
-            name: "Manage Employees",
-            path: "/users/view-users",
-            element: <ViewUser />,
-          },
-          {
-            name: "Edit Employee",
-            path: "/employee/edit-user/:id",
-            element: <Edituser/>,
-            hidden: true,
-          },
-        ],
-      },
-       {
+        {
         icon: <BuildingOfficeIcon {...icon} />,
         name: "Departments",
         collapse: [
@@ -101,27 +79,30 @@ const routes = [
           
         ],
       },
-      
       {
-        icon: <ClipboardDocumentCheckIcon {...icon} />,
-        name: "Task Management",
+        icon: <UserCircleIcon {...icon} />,
+        name: "Employee",
         collapse: [
           {
-            name: "Create Task",
-            path: "/users/create-task",
-            element: <Createusertask />,
+            name: "Add Employee",
+            path: "/users/add-user",
+            element: <AddUser />,
           },
           {
-            name: "Manage Task",
-            path: "/users/viewtask",
-            element: <ViewUsertask />,
+            name: "Manage Employees",
+            path: "/users/view-users",
+            element: <ViewUser />,
           },
-          
-    
+          {
+            name: "Edit Employee",
+            path: "/employee/edit-user/:id",
+            element: <Edituser/>,
+            hidden: true,
+          },
         ],
       },
 
-     {
+        {
        icon: <UserGroupIcon {...icon} />,
        name: "Projects",
        collapse: [
@@ -143,6 +124,28 @@ const routes = [
          },
        ],
      },
+     
+      
+      {
+        icon: <ClipboardDocumentCheckIcon {...icon} />,
+        name: "Task Management",
+        collapse: [
+          {
+            name: "Create Task",
+            path: "/users/create-task",
+            element: <Createusertask />,
+          },
+          {
+            name: "Manage Task",
+            path: "/users/viewtask",
+            element: <ViewUsertask />,
+          },
+          
+    
+        ],
+      },
+
+   
         
         {
         icon: <SpeakerWaveIcon {...icon} />,

@@ -37,12 +37,6 @@ export function Sidenav({ brandImg, brandName, routes }) {
     console.warn("Sidenav: failed to parse user", e);
   }
 
-  const sidenavTypes = {
-    dark: "bg-gradient-to-br from-blue-800 to-blue-900",
-    white: "bg-white shadow-sm",
-    transparent: "bg-transparent",
-  };
-
   const handleToggle = (name) => {
     setOpenDropdown(openDropdown === name ? null : name);
   };
@@ -57,7 +51,6 @@ export function Sidenav({ brandImg, brandName, routes }) {
         const reader = new FileReader();
         reader.onload = (event) => {
           setProfileImage(event.target.result);
-          // Optionally save to localStorage
           localStorage.setItem('profileImage', event.target.result);
         };
         reader.readAsDataURL(file);
@@ -143,188 +136,173 @@ export function Sidenav({ brandImg, brandName, routes }) {
 
   return (
     <aside
-      className={`${sidenavTypes[sidenavType]} ${openSidenav ? "translate-x-0" : "-translate-x-80"
-        } fixed inset-0 z-50 my-4 ml-4 h-[calc(100vh-32px)] w-72 rounded-xl transition-transform duration-300 xl:translate-x-0 border border-blue-500`}
+      className={`${openSidenav ? "translate-x-0" : "-translate-x-80"
+        } fixed inset-0 z-50 my-4 ml-4 h-[calc(100vh-32px)] w-72 rounded-2xl transition-transform duration-300 xl:translate-x-0 bg-white shadow-xl border border-slate-200`}
     >
-      {/* Logo */}
-      <div>
+      {/* Logo Section */}
+      <div className="border-b border-slate-200 p-6">
         <NavLink
           to="/dashboard/home"
-          className="py-2 px-8 flex flex-col items-center justify-center gap-2"
+          className="flex items-center gap-3 mb-6"
           onClick={handleMobileClose}
         >
-          <img
-            src={`${import.meta.env.BASE_URL}img/rise-it-Logo.png`}
-            alt="Riseit Logo"
-            className="h-20 w-auto object-contain"
-          />
-
-          {/* Profile and Role Section */}
-      <div className="flex items-center gap-4 mt-4 w-full">
-  {/* Profile Picture Placeholder - Increased size */}
-  <div className="relative">
-    {profileImage ? (
-      <div
-        className="h-16 w-16 rounded-full bg-cover bg-center shadow-lg border-3 border-white cursor-pointer"
-        style={{ backgroundImage: `url(${profileImage})` }}
-        onClick={handleProfileClick}
-      />
-    ) : (
-      <div
-        className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg border-3 border-white cursor-pointer hover:opacity-90 transition-opacity"
-        onClick={handleProfileClick}
-      >
-        {username ? username.charAt(0).toUpperCase() : "U"}
-      </div>
-    )}
-
-    {/* Change Profile Picture Button - Slightly larger */}
-    <button
-      className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 flex items-center justify-center text-white text-xs transition-colors shadow-md"
-      onClick={handleProfileClick}
-      title="Change profile picture"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-4 w-4"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-      >
-        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-      </svg>
-    </button>
-  </div>
-
-  {/* Role and Username */}
-  <div className="flex-1 min-w-0">
-    {role ? (
-      <div className="text-left">
-        <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 truncate capitalize">
-          {username || "User"}
-        </p>
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
-          Role: <span className="text-blue-600 dark:text-blue-400 font-bold">{role}</span>
-        </p>
-      </div>
-    ) : (
-      <p className="text-base font-medium text-red-400">Role: (none)</p>
-    )}
-  </div>
-</div>  
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              RISE
+            </h1>
+            <p className="text-xs text-slate-500">Project Hub</p>
+          </div>
         </NavLink>
 
+        {/* Close button for mobile */}
         <IconButton
           variant="text"
-          color="white"
           size="sm"
           ripple={false}
-          className="absolute right-3 top-3 grid rounded-br-none rounded-tl-none xl:hidden"
+          className="absolute right-3 top-3 xl:hidden rounded-lg hover:bg-slate-100"
           onClick={() => setOpenSidenav(dispatch, false)}
         >
-          <XMarkIcon strokeWidth={2.5} className="h-7 w-7 text-black" />
+          <XMarkIcon strokeWidth={2.5} className="h-6 w-6 text-slate-600" />
         </IconButton>
       </div>
 
-      {/* Route List */}
-      <div className="m-4">
-        {filteredRoutes.map(({ layout, title, pages }, key) => (
-          <ul key={key} className="mb-4 flex flex-col gap-1">
-            {title && (
-              <li className="mx-3.5 mt-4 mb-2">
-                <Typography
-                  variant="small"
-                  color={sidenavType === "dark" ? "white" : "blue-gray"}
-                  className="font-black uppercase opacity-75"
-                >
-                  {title}
-                </Typography>
-              </li>
+      {/* Profile Section */}
+      <div className="p-4 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            {profileImage ? (
+              <div
+                className="h-12 w-12 rounded-full bg-cover bg-center shadow-lg ring-4 ring-purple-100 cursor-pointer transition-all group-hover:ring-purple-200"
+                style={{ backgroundImage: `url(${profileImage})` }}
+                onClick={handleProfileClick}
+              />
+            ) : (
+              <div
+                className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold shadow-lg ring-4 ring-purple-100 cursor-pointer transition-all group-hover:ring-purple-200"
+                onClick={handleProfileClick}
+              >
+                {username ? username.charAt(0).toUpperCase() : "U"}
+              </div>
             )}
 
-            {pages.map(({ icon, name, path, collapse }) => (
-              <li key={name}>
-                {/* Dropdown Group */}
-                {collapse && collapse.length > 0 ? (
-                  <>
-                    <Button
-                      variant={openDropdown === name ? "gradient" : "text"}
-                      color="blue"
-                      className={`flex items-center justify-between gap-2 px-2 capitalize w-full text-left ${openDropdown === name
-                          ? "bg-blue-00 text-white"
-                          : "text-blue-700 hover:bg-blue-300/30"
+            {/* Edit indicator */}
+            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-white shadow-md flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3 w-3 text-blue-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-900 truncate">
+              {username || "User"}
+            </p>
+            <p className="text-xs text-blue-600 font-medium capitalize">
+              {role || "No Role"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {filteredRoutes.map(({ layout, title, pages }, key) => (
+          <div key={key} className="mb-6">
+            {title && (
+              <p className="text-xs font-semibold text-slate-500 mb-3 px-3 uppercase">
+                {title}
+              </p>
+            )}
+
+            <ul className="space-y-2">
+              {pages.map(({ icon, name, path, collapse }) => (
+                <li key={name}>
+                  {/* Dropdown Group */}
+                  {collapse && collapse.length > 0 ? (
+                    <>
+                      <button
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-3 rounded-xl transition-all font-medium ${
+                          openDropdown === name
+                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200"
+                            : "text-slate-600 hover:bg-slate-100"
                         }`}
-                      fullWidth
-                      onClick={() => handleToggle(name)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {icon}
-                        <Typography color="inherit" className="font-medium capitalize">
-                          {name}
-                        </Typography>
-                      </div>
-
-                      {openDropdown === name ? (
-                        <ChevronUpIcon className="h-4 w-4" />
-                      ) : (
-                        <ChevronDownIcon className="h-4 w-4" />
-                      )}
-                    </Button>
-
-                    {/* Collapsed Items */}
-                    <Collapse open={openDropdown === name}>
-                      <ul className="ml-5 mt-1 flex flex-col gap-1 border-l border-blue-400 pl-3">
-                        {collapse.map(({ name: subName, path: subPath }) => (
-                          <li key={subName}>
-                            <NavLink
-                              to={`/${layout}${subPath}`}
-                              onClick={handleMobileClose}
-                            >
-                              {({ isActive }) => (
-                                <Button
-                                  variant={isActive ? "gradient" : "text"}
-                                  color="blue"
-                                  className={`flex items-center gap-2 px-2 text-sm capitalize ${isActive
-                                      ? "bg-blue-500 text-white"
-                                      : "text-blue-700 hover:bg-blue-700/30"
-                                    }`}
-                                  fullWidth
-                                >
-                                  <Typography color="inherit">{subName}</Typography>
-                                </Button>
-                              )}
-                            </NavLink>
-                          </li>
-                        ))}
-                      </ul>
-                    </Collapse>
-                  </>
-                ) : (
-                  // Normal Route Button
-                  <NavLink
-                    to={`/${layout}${path}`}
-                    onClick={handleMobileClose}
-                  >
-                    {({ isActive }) => (
-                      <Button
-                        variant={isActive ? "gradient" : "text"}
-                        color="blue"
-                        className={`flex items-center gap-2 px-2 capitalize ${isActive
-                            ? "bg-blue-500 text-white"
-                            : "text-blue-700 hover:bg-blue-700/30"
-                          }`}
-                        fullWidth
+                        onClick={() => handleToggle(name)}
                       >
-                        {icon}
-                        <Typography color="inherit" className="font-medium capitalize">
-                          {name}
-                        </Typography>
-                      </Button>
-                    )}
-                  </NavLink>
-                )}
-              </li>
-            ))}
-          </ul>
+                        <div className="flex items-center gap-3">
+                          <span className="w-5 h-5 flex items-center justify-center">
+                            {icon}
+                          </span>
+                          <span className="capitalize">{name}</span>
+                        </div>
+                        {openDropdown === name ? (
+                          <ChevronUpIcon className="h-4 w-4" />
+                        ) : (
+                          <ChevronDownIcon className="h-4 w-4" />
+                        )}
+                      </button>
+
+                      {/* Collapsed Items */}
+                      <Collapse open={openDropdown === name}>
+                        <ul className="ml-8 mt-2 space-y-1 border-l-2 border-slate-200 pl-4">
+                          {collapse.map(({ name: subName, path: subPath }) => (
+                            <li key={subName}>
+                              <NavLink
+                                to={`/${layout}${subPath}`}
+                                onClick={handleMobileClose}
+                              >
+                                {({ isActive }) => (
+                                  <button
+                                    className={`w-full text-left px-3 py-2 rounded-lg transition-all text-sm font-medium ${
+                                      isActive
+                                        ? "bg-blue-50 text-blue-600"
+                                        : "text-slate-600 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    {subName}
+                                  </button>
+                                )}
+                              </NavLink>
+                            </li>
+                          ))}
+                        </ul>
+                      </Collapse>
+                    </>
+                  ) : (
+                    // Normal Route Button
+                    <NavLink
+                      to={`/${layout}${path}`}
+                      onClick={handleMobileClose}
+                    >
+                      {({ isActive }) => (
+                        <button
+                          className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all font-medium ${
+                            isActive
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span className="w-5 h-5 flex items-center justify-center">
+                            {icon}
+                          </span>
+                          <span className="capitalize">{name}</span>
+                        </button>
+                      )}
+                    </NavLink>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
       </div>
     </aside>
