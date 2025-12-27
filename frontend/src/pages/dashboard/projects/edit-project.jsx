@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from "react-router-dom";
 import Select from 'react-select';
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -11,13 +12,15 @@ const ProjectForm = () => {
     poc: null,
     otherEmployees: [],
     startDate: '',
-    status: 'Active'
+    status: ''
   });
 
   const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { id } = useParams();
+  const navigate = useNavigate();
   
   // Errors state
   const [errors, setErrors] = useState({});
@@ -25,35 +28,119 @@ const ProjectForm = () => {
   const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
-    const fetchEMP = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}api/emp.php`
+          `${import.meta.env.VITE_API_URL}api/project.php`,
+          {
+            params: { id }
+          }
         );
 
-        console.log("EMP API:", response.data);
+        console.log("API Response:", response.data);
 
-        if (response.data?.data) {
-           const formattedEmployees = response.data.data.map(emp => ({
+        // Process employees data for dropdown
+        if (response.data?.employee) {
+          const formattedEmployees = response.data.employee.map(emp => ({
             value: emp.id,
             label: `${emp.name} (${emp.role})`
           }));
           setEmployees(formattedEmployees);
           setFilteredEmployees(formattedEmployees);
         } else {
-          alert("No employees found");
+          console.warn("No employees found in response");
+        }
+
+        // If editing and project data exists, populate the form
+        if (id && response.data?.data?.[0]) {
+          const project = response.data.data[0];
+          console.log("Project data for editing:", project);
+          console.log("Assigned employees:", response.data.assigned_emp);
+          
+          // Initialize variables for POC and other employees
+          let pocEmployee = null;
+          let otherEmployeesList = [];
+          
+          // Process assigned_emp array to find POC and other employees
+          if (response.data.assigned_emp && response.data.assigned_emp.length > 0) {
+            // Find POC (where is_poc = '1')
+            const pocData = response.data.assigned_emp.find(emp => emp.is_poc === '1');
+            
+            if (pocData && response.data.employee) {
+              // Find the POC employee in the employee list
+              const pocEmployeeData = response.data.employee.find(
+                emp => emp.id.toString() === pocData.emp_id.toString()
+              );
+              
+              if (pocEmployeeData) {
+                pocEmployee = {
+                  value: pocEmployeeData.id,
+                  label: `${pocEmployeeData.name} (${pocEmployeeData.role})`
+                };
+              }
+            }
+            
+            // Find other employees (where is_poc = '0')
+            const otherEmployeesData = response.data.assigned_emp.filter(emp => emp.is_poc === '0');
+            
+            if (otherEmployeesData.length > 0 && response.data.employee) {
+              otherEmployeesList = otherEmployeesData
+                .map(data => {
+                  const empData = response.data.employee.find(
+                    emp => emp.id.toString() === data.emp_id.toString()
+                  );
+                  return empData ? {
+                    value: empData.id,
+                    label: `${empData.name} (${empData.role})`
+                  } : null;
+                })
+                .filter(emp => emp !== null); // Remove any null entries
+            }
+          }
+          
+          console.log("POC employee:", pocEmployee);
+          console.log("Other employees:", otherEmployeesList);
+
+          // If no assigned_emp data, fallback to old method using project data
+          if (!pocEmployee && project.poc_id) {
+            const fallbackPoc = response.data.employee
+              ?.map(emp => ({
+                value: emp.id,
+                label: `${emp.name} (${emp.role})`
+              }))
+              .find(emp => emp.value.toString() === project.poc_id.toString());
+            
+            if (fallbackPoc) {
+              pocEmployee = fallbackPoc;
+            }
+          }
+
+          setFormData({
+            projectName: project.name || '',
+            projectDescription: project.description || '',
+            poc: pocEmployee,
+            otherEmployees: otherEmployeesList,
+            startDate: project.start_date ? project.start_date.split(' ')[0] : '', // Get date part only if contains time
+            status: project.status
+          });
         }
       } catch (error) {
         console.error("Fetch Error:", error);
-        alert("Something went wrong while fetching employees");
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to load data. Please try again.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33',
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEMP();
-  }, []);
+    fetchData();
+  }, [id]);
 
   // Update filtered employees when POC selection changes
   useEffect(() => {
@@ -144,7 +231,7 @@ const ProjectForm = () => {
     // Start Date validation
     if (!formData.startDate) {
       newErrors.startDate = 'Start Date is required';
-    } else {
+    } else if (!id) { // Only check for new projects
       const selectedDate = new Date(formData.startDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -177,11 +264,18 @@ const ProjectForm = () => {
     setIsSubmitting(true);
 
     try {
-      // Prepare payload
+      // Prepare payload - match your API expected fields
       const payload = {
-        ...formData,
-        poc: formData.poc?.value || null,
-        otherEmployees: formData.otherEmployees.map(e => e.value)
+        name: formData.projectName,
+        description: formData.projectDescription,
+        poc_id: formData.poc?.value || null,
+        employee_ids: formData.otherEmployees.map(e => e.value),
+        start_date: formData.startDate,
+        status: formData.status,
+        // Include project ID for update
+        ...(id && { project_id: id }),
+        // Specify action
+        action: id ? 'update' : 'create'
       };
 
       console.log("Submitting Project Data:", payload);
@@ -205,29 +299,33 @@ const ProjectForm = () => {
       if (response.data?.status === "success") {
         Swal.fire({
           icon: 'success',
-          title: 'Project Created Successfully!',
-          text: response.data.message || 'Project has been created successfully.',
+          title: id ? 'Project Updated Successfully!' : 'Project Created Successfully!',
+          text: response.data.message || (id ? 'Project has been updated successfully.' : 'Project has been created successfully.'),
           timer: 2000,
           showConfirmButton: false,
           timerProgressBar: true,
+        }).then(() => {
+          if (id) {
+            navigate(-1); // Go back to previous page
+          } else {
+            // Reset form for new project
+            setFormData({
+              projectName: '',
+              projectDescription: '',
+              poc: null,
+              otherEmployees: [],
+              startDate: '',
+              status: 'Active'
+            });
+            setErrors({});
+            setFilteredEmployees(employees);
+          }
         });
-
-        // Reset form
-        setFormData({
-          projectName: '',
-          projectDescription: '',
-          poc: null,
-          otherEmployees: [],
-          startDate: '',
-          status: 'Active'
-        });
-        setErrors({});
-        setFilteredEmployees(employees);
       } else {
         Swal.fire({
           icon: 'error',
-          title: 'Failed to Create Project',
-          text: response.data?.message || "Failed to create project",
+          title: id ? 'Failed to Update Project' : 'Failed to Create Project',
+          text: response.data?.message || (id ? "Failed to update project" : "Failed to create project"),
           confirmButtonText: 'OK',
           confirmButtonColor: '#d33',
         });
@@ -237,7 +335,7 @@ const ProjectForm = () => {
       Swal.fire({
         icon: 'error',
         title: 'Something Went Wrong',
-        text: 'An error occurred while creating the project.',
+        text: error.response?.data?.message || `An error occurred while ${id ? 'updating' : 'creating'} the project.`,
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33',
       });
@@ -245,6 +343,25 @@ const ProjectForm = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleCheckboxChange = (e) => {
+    const { checked } = e.target;
+    setFormData({ 
+      ...formData, 
+      status: checked ? 'active' : 'inactive' 
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading {id ? 'project data' : 'form'}...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
@@ -259,9 +376,11 @@ const ProjectForm = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              Edit Project
+              {id ? 'Edit Project' : 'Create New Project'}
             </h2>
-            <p className="text-blue-100 mt-2">Fill in the details to edit a project</p>
+            <p className="text-blue-100 mt-2">
+              {id ? 'Update the project details below' : 'Fill in the details to create a new project'}
+            </p>
           </div>
 
           {/* Form Content */}
@@ -345,9 +464,6 @@ const ProjectForm = () => {
                     value={formData.poc}
                     onChange={(selected) => handleSelectChange(selected, 'poc')}
                     classNamePrefix="react-select"
-                    className={`react-select-container ${
-                      errors.poc ? 'error' : ''
-                    }`}
                     styles={{
                       menu: (provided) => ({ 
                         ...provided, 
@@ -389,6 +505,17 @@ const ProjectForm = () => {
                       {errors.poc}
                     </p>
                   )}
+                  {loading && !employees.length && (
+                    <p className="text-xs text-slate-500">Loading employees...</p>
+                  )}
+                  {/* {id && formData.poc && (
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      POC loaded from project data
+                    </p>
+                  )} */}
                 </div>
 
                 {/* Other Employees Selection */}
@@ -402,9 +529,6 @@ const ProjectForm = () => {
                     value={formData.otherEmployees}
                     onChange={(selected) => handleSelectChange(selected, 'otherEmployees')}
                     classNamePrefix="react-select"
-                    className={`react-select-container ${
-                      errors.otherEmployees ? 'error' : ''
-                    }`}
                     styles={{
                       menu: (provided) => ({ 
                         ...provided, 
@@ -448,7 +572,7 @@ const ProjectForm = () => {
                         },
                       }),
                     }}
-                    placeholder="Select other employees..."
+                    placeholder={loading ? "Loading employees..." : "Select other employees..."}
                     isDisabled={loading}
                   />
                   {errors.otherEmployees && (
@@ -459,58 +583,96 @@ const ProjectForm = () => {
                       {errors.otherEmployees}
                     </p>
                   )}
-                  <div className="text-xs text-slate-500 mt-1">
-                    {formData.otherEmployees.length} employee(s) selected
+                  <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+                    <span>{formData.otherEmployees.length} employee(s) selected</span>
+                    {/* {id && formData.otherEmployees.length > 0 && (
+                      <span className="text-green-600 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Loaded from project data
+                      </span>
+                    )} */}
                   </div>
                 </div>
               </div>
 
-              {/* Start Date */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                  Start Date
-                  <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
-                      errors.startDate 
-                        ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                        : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                    } focus:ring-4 outline-none transition-all`}
-                  />
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg
-                      className={`w-5 h-5 ${errors.startDate ? 'text-red-500' : 'text-blue-500'}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
+              {/* Third Row: Start Date and Status */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Start Date */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Start Date
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      min={id ? undefined : new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                        errors.startDate 
+                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                      } focus:ring-4 outline-none transition-all`}
+                    />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg
+                        className={`w-5 h-5 ${errors.startDate ? 'text-red-500' : 'text-blue-500'}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
                   </div>
+                  {errors.startDate ? (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.startDate}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      {id ? 'Project start date' : 'Cannot select past dates for new projects'}
+                    </p>
+                  )}
                 </div>
-                {errors.startDate ? (
-                  <p className="text-red-500 text-sm flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {errors.startDate}
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500">Cannot select past dates</p>
-                )}
+
+                {/* Status */}
+                <div className="pt-6">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        name="status"
+                        checked={formData.status === 'active'} // Compare with 'Active' string
+                        onChange={handleCheckboxChange}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 transition-all"></div>
+                      <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 block">
+                        Active Status
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {formData.status === 'Active' ? 'Project is currently active' : 'Project is currently inactive'}
+                      </span>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -520,19 +682,23 @@ const ProjectForm = () => {
                 type="button"
                 className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-all"
                 onClick={() => {
-                  setFormData({
-                    projectName: '',
-                    projectDescription: '',
-                    poc: null,
-                    otherEmployees: [],
-                    startDate: '',
-                    status: 'Active'
-                  });
-                  setErrors({});
-                  setFilteredEmployees(employees);
+                  if (id) {
+                    navigate(-1);
+                  } else {
+                    setFormData({
+                      projectName: '',
+                      projectDescription: '',
+                      poc: null,
+                      otherEmployees: [],
+                      startDate: '',
+                      status: 'Active'
+                    });
+                    setErrors({});
+                    setFilteredEmployees(employees);
+                  }
                 }}
               >
-                Cancel
+                {id ? 'Back' : 'Cancel'}
               </button>
               <button
                 type="button"
@@ -550,14 +716,14 @@ const ProjectForm = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Creating Project...
+                    {id ? 'Updating...' : 'Creating...'}
                   </>
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Edit Project
+                    {id ? 'Update Project' : 'Create Project'}
                   </>
                 )}
               </button>

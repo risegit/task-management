@@ -1,22 +1,77 @@
 import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 
-export default function AddEmployee() {
+export default function EditEmployee() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     role: "assignee",
-    department: "",
+    department: null,
     name: "",
     email: "",
     phone: "",
     password: "",
-    status: "active",
+    active: true,
   });
 
+  const [departments, setDepartments] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
 
-  // Generate random alphanumeric password
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchEmployeeAndDepartments = async () => {
+      try {
+        setIsLoading(true);
+        setIsLoadingDepartments(true);
+
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}api/emp.php?id=${id}`
+        );
+
+        const result = await response.json();
+        console.log("API result:", result);
+
+        if (result.status === "success") {
+          const employee = result.data?.[0];
+          const deptList = result.departments || [];
+
+          setDepartments(deptList);
+
+          if (employee) {
+            const matchedDept = deptList.find(
+              (dept) => dept.name === employee.dept_name
+            );
+
+            setFormData({
+              role: employee.role || "assignee",
+              department: matchedDept ? matchedDept.id : "",
+              name: employee.name || "",
+              email: employee.email || "",
+              phone: employee.phone || "",
+              password: "",
+              active:
+                employee.status === "active" ||
+                employee.active === true ||
+                employee.status === "1",
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+      } finally {
+        setIsLoading(false);
+        setIsLoadingDepartments(false);
+      }
+    };
+
+    fetchEmployeeAndDepartments();
+  }, [id]);
+
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
@@ -26,43 +81,10 @@ export default function AddEmployee() {
     setFormData({ ...formData, password });
   };
 
-  const handleCheckboxChange = (e) => {
-    const { checked } = e.target;
-    setFormData({ ...formData, status: checked ? 'active' : 'inactive' });
-  };
-
-  // Copy password to clipboard
   const copyPassword = () => {
     navigator.clipboard.writeText(formData.password);
     alert("Password copied to clipboard!");
   };
-
-  useEffect(() => {
-    const fetchEMPDEPT = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}api/department.php`
-        );
-
-        const result = await response.json();
-        console.log("EMP_Departments API:", result);
-
-        if (result.data) {
-          setDepartments(result.data);
-        } else {
-          alert("No departments found");
-        }
-      } catch (error) {
-        console.error("Fetch Error:", error);
-        alert("Something went wrong while fetching departments");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEMPDEPT();
-  }, []);
 
   const validate = () => {
     let newErrors = {};
@@ -75,9 +97,7 @@ export default function AddEmployee() {
       newErrors.department = "Department is required";
     }
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
+    if (!formData.name.trim()) newErrors.name = "Name is required";
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
@@ -91,14 +111,6 @@ export default function AddEmployee() {
       newErrors.phone = "Enter a valid 10-digit phone number";
     }
 
-    if (!formData.password.trim()) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    } else if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password)) {
-      newErrors.password = "Password must be alphanumeric (letters and numbers)";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -106,68 +118,90 @@ export default function AddEmployee() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: "" });
-    }
+    if (errors[name]) setErrors({ ...errors, [name]: "" });
+  };
+
+  const handleCheckboxChange = (e) => {
+    const { checked } = e.target;
+    setFormData({ ...formData, active: checked });
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    const formDataObj = new FormData();
-
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value !== null) {
-        formDataObj.append(key, value);
-      }
-    });
-
-    console.log("Submitting form data...");
-    for (let pair of formDataObj.entries()) {
-      console.log(pair[0] + ": ", pair[1]);
-    }
-
     setIsSubmitting(true);
-
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/emp.php`,
-        {
-          method: "POST",
-          body: formDataObj,
-        }
-      );
+      console.log("Updating employee ID:", id);
+      console.log("Update Payload:", formData);
+      
+      const form = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+          if (value !== null) form.append(key, value);
+      });
+
+      form.append('id', id);
+      form.append('_method', 'PUT');
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/emp.php`, {
+        method: 'POST',
+        body: form,
+      });
 
       const result = await response.json();
-      console.log("API Response:", result);
-
+      
       if (result.status === "success") {
-        alert("Employee added successfully!");
-
-        setFormData({
-          role: "assignee",
-          department: "",
-          name: "",
-          email: "",
-          phone: "",
-          password: "",
-          status: "active"
-        });
-        setErrors({});
+        alert("Employee Updated Successfully!");
+        navigate('/dashboard/employee/view-user');
       } else {
-        alert(result.message || "Failed to add employee");
+        alert(result.message || "Failed to update employee");
       }
     } catch (error) {
-      console.error("API Error:", error);
-      alert("Server error. Please try again.");
+      console.error("Update Error:", error);
+      alert("Failed to update employee");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const showDepartment = formData.role === "manager" || formData.role === "staff" || formData.role === "admin";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+          </div>
+          <p className="mt-6 text-slate-600 font-medium">Loading employee data...</p>
+          <p className="mt-2 text-sm text-slate-500">Please wait while we fetch the information</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
+      {/* Header */}
+      <header className="mb-8">
+        <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+          <span>Dashboard</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <span>Users</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="text-slate-900 font-medium">Edit Employee</span>
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900">Edit Employee</h1>
+      </header>
+
       {/* Main Form Card */}
       <div className=" mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -176,12 +210,12 @@ export default function AddEmployee() {
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </div>
-              Add Employee
+              Update Employee Information
             </h2>
-            <p className="text-blue-100 mt-2">Fill in the details to add a new employee to the system</p>
+            <p className="text-blue-100 mt-2">Modify the employee details and save changes</p>
           </div>
 
           {/* Form Content */}
@@ -205,7 +239,7 @@ export default function AddEmployee() {
                         : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
                     } focus:ring-4 outline-none transition-all bg-white`}
                   >
-                    <option value="assignee" disabled>Select Role</option>
+                    <option value="assignee">Select Role</option>
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
                     <option value="staff">Staff</option>
@@ -220,41 +254,49 @@ export default function AddEmployee() {
                   )}
                 </div>
 
-                {/* Department - ALWAYS SHOWN */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    Department
-                    {(formData.role === "manager" || formData.role === "staff" || formData.role === "admin") && (
-                      <span className="text-red-500">*</span>
+                {/* Department */}
+                {showDepartment ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      Department
+                      {(formData.role === "manager" || formData.role === "staff") && (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </label>
+                    <select
+                      name="department"
+                      value={formData.department}
+                      onChange={handleChange}
+                      disabled={isLoadingDepartments}
+                      className={`w-full px-4 py-3 rounded-xl border-2 ${
+                        errors.department 
+                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                      } focus:ring-4 outline-none transition-all bg-white disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <option value="">Select Department</option>
+                      {isLoadingDepartments ? (
+                        <option disabled>Loading departments...</option>
+                      ) : (
+                        departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    {errors.department && (
+                      <p className="text-red-500 text-sm flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.department}
+                      </p>
                     )}
-                  </label>
-                  <select
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    disabled={loading}
-                    className={`w-full px-4 py-3 rounded-xl border-2 ${
-                      errors.department 
-                        ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                        : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                    } focus:ring-4 outline-none transition-all bg-white disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    <option value="" disabled>Select Department</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.department && (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.department}
-                    </p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div></div>
+                )}
               </div>
 
               {/* Second Row: Name and Email */}
@@ -351,7 +393,7 @@ export default function AddEmployee() {
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     Password
-                    <span className="text-red-500">*</span>
+                    <span className="text-slate-400 text-xs font-normal">(Leave blank to keep current)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -364,7 +406,7 @@ export default function AddEmployee() {
                           ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
                           : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
                       } focus:ring-4 outline-none transition-all`}
-                      placeholder="Enter or generate password"
+                      placeholder="Enter new password or generate"
                     />
                     <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                       {formData.password && (
@@ -388,17 +430,9 @@ export default function AddEmployee() {
                       </button>
                     </div>
                   </div>
-                  {errors.password && (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.password}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">{formData.password.length}/6 characters</span>
-                    {formData.password && (
+                  {formData.password && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">{formData.password.length}/6 characters</span>
                       <span className={
                         /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password) 
                           ? "text-green-600 font-medium" 
@@ -409,8 +443,8 @@ export default function AddEmployee() {
                           : "Needs letters & numbers"
                         }
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -420,17 +454,22 @@ export default function AddEmployee() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      name="status"
-                      checked={formData.status === 'active'}
+                      name="active"
+                      checked={formData.active}
                       onChange={handleCheckboxChange}
                       className="sr-only peer"
                     />
-                      <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 bg-gradient-to-r from-blue-300 to-indigo-300 transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
+                    <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 transition-all"></div>
                     <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">
-                    Active Status
-                  </span>
+                  <div>
+                    <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 block">
+                      Active Status
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {formData.active ? 'Employee is currently active' : 'Employee is currently inactive'}
+                    </span>
+                  </div>
                 </label>
               </div>
             </div>
@@ -439,19 +478,8 @@ export default function AddEmployee() {
             <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-slate-200">
               <button 
                 type="button"
+                onClick={() => navigate('/dashboard/employee/view-employee')}
                 className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-all"
-                onClick={() => {
-                  setFormData({
-                    role: "assignee",
-                    department: "",
-                    name: "",
-                    email: "",
-                    phone: "",
-                    password: "",
-                    status: "active"
-                  });
-                  setErrors({});
-                }}
               >
                 Cancel
               </button>
@@ -471,14 +499,14 @@ export default function AddEmployee() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Adding Employee...
+                    Updating Employee...
                   </>
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Add Employee
+                    Update Employee
                   </>
                 )}
               </button>
