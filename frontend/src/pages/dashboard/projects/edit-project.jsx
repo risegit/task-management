@@ -210,8 +210,8 @@ const ProjectForm = () => {
       newErrors.projectName = 'Project Name is required';
     } else if (formData.projectName.trim().length < 3) {
       newErrors.projectName = 'Project Name must be at least 3 characters';
-    } else if (formData.projectName.trim().length > 100) {
-      newErrors.projectName = 'Project Name cannot exceed 100 characters';
+    } else if (formData.projectName.trim().length > 50) {
+      newErrors.projectName = 'Project Name cannot exceed 50 characters';
     }
 
     // Project Description validation
@@ -219,8 +219,8 @@ const ProjectForm = () => {
       newErrors.projectDescription = 'Project Description is required';
     } else if (formData.projectDescription.trim().length < 10) {
       newErrors.projectDescription = 'Project Description must be at least 10 characters';
-    } else if (formData.projectDescription.trim().length > 500) {
-      newErrors.projectDescription = 'Project Description cannot exceed 500 characters';
+    } else if (formData.projectDescription.trim().length > 200) {
+      newErrors.projectDescription = 'Project Description cannot exceed 200 characters';
     }
     
     // POC validation
@@ -254,7 +254,6 @@ const ProjectForm = () => {
           icon: 'error',
           title: 'Validation Error',
           text: firstError,
-          confirmButtonText: 'OK',
           confirmButtonColor: '#d33',
         });
       }
@@ -264,85 +263,75 @@ const ProjectForm = () => {
     setIsSubmitting(true);
 
     try {
-      // Prepare payload - match your API expected fields
-      const payload = {
-        name: formData.projectName,
-        description: formData.projectDescription,
-        poc_id: formData.poc?.value || null,
-        employee_ids: formData.otherEmployees.map(e => e.value),
-        start_date: formData.startDate,
-        status: formData.status,
-        // Include project ID for update
-        ...(id && { project_id: id }),
-        // Specify action
-        action: id ? 'update' : 'create'
-      };
+      const form = new FormData();
 
-      console.log("Submitting Project Data:", payload);
+      form.append("projectName", formData.projectName);
+      form.append("projectDescription", formData.projectDescription);
+      form.append("startDate", formData.startDate);
+      form.append("status", formData.status);
+
+      // ✅ Convert Select values
+      form.append("poc", formData.poc?.value || "");
+      form.append(
+        "otherEmployees",
+        JSON.stringify(formData.otherEmployees.map(emp => emp.value))
+      );
+
+      // edit / create logic
+      if (id) {
+        form.append("project_id", id);
+        form.append("_method", "PUT");
+      }
+
+      // user info
+      form.append("id", user.id);
+      form.append("user_code", user.user_code);
+
+      console.log("Submitting Project Data:");
+      for (let pair of form.entries()) {
+        console.log(pair[0], pair[1]);
+      }
 
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}api/project.php`,
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json"
-          },
-          params: { 
-            id: user.id,
-            user_code: user.user_code 
-          }
-        }
+        form
       );
 
       console.log("API Response:", response.data);
 
       if (response.data?.status === "success") {
         Swal.fire({
-          icon: 'success',
-          title: id ? 'Project Updated Successfully!' : 'Project Created Successfully!',
-          text: response.data.message || (id ? 'Project has been updated successfully.' : 'Project has been created successfully.'),
+          icon: "success",
+          title: id ? "Project Updated Successfully!" : "Project Created Successfully!",
           timer: 2000,
-          showConfirmButton: false,
-          timerProgressBar: true,
+          showConfirmButton: false
         }).then(() => {
           if (id) {
-            navigate(-1); // Go back to previous page
+            // navigate(-1);
           } else {
-            // Reset form for new project
             setFormData({
-              projectName: '',
-              projectDescription: '',
+              projectName: "",
+              projectDescription: "",
               poc: null,
               otherEmployees: [],
-              startDate: '',
-              status: 'Active'
+              startDate: "",
+              status: "Active"
             });
-            setErrors({});
             setFilteredEmployees(employees);
           }
         });
       } else {
-        Swal.fire({
-          icon: 'error',
-          title: id ? 'Failed to Update Project' : 'Failed to Create Project',
-          text: response.data?.message || (id ? "Failed to update project" : "Failed to create project"),
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#d33',
-        });
+        Swal.fire("Error", response.data?.message || "Failed", "error");
       }
+
     } catch (error) {
       console.error("API Error:", error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Something Went Wrong',
-        text: error.response?.data?.message || `An error occurred while ${id ? 'updating' : 'creating'} the project.`,
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33',
-      });
+      Swal.fire("Error", "Server error", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   const handleCheckboxChange = (e) => {
     const { checked } = e.target;
@@ -414,7 +403,7 @@ const ProjectForm = () => {
                 )}
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">Required field</span>
-                  <span className="text-slate-500">{formData.projectName.length}/100 characters</span>
+                  <span className="text-slate-500">{formData.projectName.length}/50 characters</span>
                 </div>
               </div>
 
@@ -445,8 +434,8 @@ const ProjectForm = () => {
                   </p>
                 )}
                 <div className="flex items-center justify-end text-xs">
-                  <span className={formData.projectDescription.length > 500 ? "text-red-500" : "text-slate-500"}>
-                    {formData.projectDescription.length}/500 characters
+                  <span className={formData.projectDescription.length > 200 ? "text-red-500" : "text-slate-500"}>
+                    {formData.projectDescription.length}/200 characters
                   </span>
                 </div>
               </div>

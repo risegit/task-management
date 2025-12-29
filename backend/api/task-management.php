@@ -10,6 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $userCode = $_GET['user_code'] ?? null;
 $viewTask = $_GET['view-task'] ?? null;
+$project_id = isset($_GET['project_id']) ? intval($_GET['project_id']) : 0;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
@@ -47,30 +48,51 @@ switch ($method) {
             }
                         
             
-        }else{
-            $sql1 = "SELECT * FROM users WHERE status='active'";
+        }else if($project_id){
+            $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id WHERE c.id='$project_id'";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
                 $data[] = $row;
             }
 
-            echo json_encode(["status" => "success","data" => $userId ? ($data[0] ?? null) : $data]);
+            echo json_encode(["status" => "success","data" => $data]);
+
+        }else{
+            if (!empty($userCode)) {
+                if (str_starts_with($userCode, 'ST')) {
+                    $whereClause = "cu.emp_id='$userId' and";
+                } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
+                    $whereClause = '';
+                }
+            }
+
+            $sql1 = "SELECT c.id,c.name,c.status FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id WHERE $whereClause c.status='active' GROUP BY cu.client_id";
+            // echo json_encode(["status" => "success","query" => $sql1]);
+            $result = $conn->query($sql1);
+            $data = [];
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+
+            echo json_encode(["status" => "success","data" => $data]);
         }
         break;
     
     case 'POST':
+        $clientId=$_POST['project_id'] ?? '';
         $taskName=$_POST['task_name'] ?? '';
         $assignedBy = $_POST['assignedBy'] ?? '';
         $email = $_POST['email'] ?? '';
         $deadline = $_POST['deadline'] ?? '';
         $remarks = $_POST['remarks'] ?? '';
+        $priority = $_POST['priority'] ?? '';
         
         $jsonAssignedTo = isset($_POST['assignedTo']) ? $_POST['assignedTo'] : '';
         $assignedTos = json_decode($jsonAssignedTo, true);
         $query1='';
         $query2='';
-        $sql1 = "INSERT INTO `tasks`(`task_name`, `deadline`, `remarks`, `created_by`, `created_date`, `created_time`) VALUES ('$taskName','$deadline','$remarks','$userId','$date','$time')";
+        $sql1 = "INSERT INTO `tasks`(`client_id`,`task_name`, `deadline`, `remarks`, `created_by`, `created_date`, `created_time`) VALUES ('$clientId','$taskName','$deadline','$remarks','$userId','$date','$time')";
         if($conn->query($sql1)){
             $task_id = $conn->insert_id;
             foreach ($assignedTos as $assignedTo) {

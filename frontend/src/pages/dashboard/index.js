@@ -6,8 +6,8 @@ export * from "@/pages/dashboard/user";
 export * from "@/pages/dashboard/employee/manage-employee";
 export * from "@/pages/dashboard/employee/add-employee";  
 export * from "@/pages/dashboard/employee/edit-employee";
-export * from "@/pages/dashboard/task-management/createusertask"
-export * from "@/pages/dashboard/task-management/viewusertask"
+export * from "@/pages/dashboard/task-management/createtask"
+export * from "@/pages/dashboard/task-management/view-task"
 export * from "@/pages/dashboard/department/add-deptartment";
 export * from "@/pages/dashboard/department/manage-deptartment";
 export * from "@/pages/dashboard/department/edit-deptartment";

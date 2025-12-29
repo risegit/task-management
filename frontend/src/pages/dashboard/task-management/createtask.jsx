@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import Select from "react-select";
 import Swal from "sweetalert2";
+import axios from "axios";
 
 export default function CreateTask() {
   const [allAssignedTo, setAssignedTo] = useState([]);
+  const [allProjects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user"));
   const userId = user?.id;
@@ -90,119 +94,215 @@ export default function CreateTask() {
 
   // 🔹 Fetch data from backend API
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
-        const data = await response.json();
-
-        console.log("API response:", data);
-
-        // Assigned To = ALL users EXCEPT logged-in user
-        const assignedToUsers = data.data
-          .filter(user => user.id !== userId)
-          .map(user => ({
-            value: user.id,
-            label: user.name
-          }));
-
-        setAssignedTo(assignedToUsers);
-
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, [userId]);
-
-  const handleSubmit = async () => {
-    if (!validate()) {
-      const firstError = Object.values(errors)[0];
-      if (firstError) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Validation Error',
-          text: firstError,
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#d33',
-        });
-      }
-      return;
-    }
-
-    setIsSubmitting(true);
-
+  const fetchUsers = async () => {
     try {
-      const form = new FormData();
-
-      form.append("task_name", taskData.name);
-      form.append("assignedBy", userId);
-      form.append(
-        "assignedTo",
-        JSON.stringify(taskData.assignedTo.map(u => u.value))
-      );
-      form.append("deadline", taskData.deadline);
-      form.append("remarks", taskData.remarks);
-      form.append("priority", taskData.priority.value); // Add priority to form data
-
-      console.log("Submitting form data...");
-      for (let pair of form.entries()) {
-        console.log(`${pair[0]}:`, pair[1]);
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/task-management.php`,
         {
-          method: "POST",
-          body: form,
+          params: {
+            id: user?.id,
+            user_code: user?.user_code,
+          }
         }
       );
 
-      const result = await response.json();
-      console.log("API result:", result);
+      // Axios already parses JSON
+      const data = response.data;
 
-      if (result.status === "success") {
-        Swal.fire({
-          icon: 'success',
-          title: 'Task Created Successfully!',
-          text: result.message || 'Task has been created successfully.',
-          timer: 2000,
-          showConfirmButton: false,
-          timerProgressBar: true,
-        });
-    
-        // Reset form
-        setTaskData({
-          name: "",
-          assignedTo: [],
-          deadline: "",
-          remarks: "",
-          priority: "", // Reset priority
-        });
-        setErrors({});
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Failed to Create Task',
-          text: result.message || "Failed to create task",
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#d33',
-        });
-      }
+      console.log("API response:", data);
+
+      // Assigned To = ALL users EXCEPT logged-in user
+      // In your first useEffect (fetchUsers):
+      const projects = data.data
+        .filter(user => user.emp_id !== userId || user.id !== userId) // Check both emp_id and id
+        .map(user => ({
+          value: user.emp_id || user.id, // Use emp_id if available, otherwise id
+          label: user.name
+      }));
+
+      setProjects(projects);
+
     } catch (error) {
-      console.error("Submit Error:", error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Something Went Wrong',
-        text: 'An error occurred while creating the task.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33',
-      });
+      console.error(
+        "Error fetching team members:",
+        error.response?.data || error.message
+      );
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
+
+  fetchUsers();
+}, []);
+
+
+  // Fetch users when project changes
+  // Replace your current fetchProjectUsers effect with this:
+useEffect(() => {
+  if (!selectedProject) {
+    setAssignedTo([]);
+    return;
+  }
+
+  // Add a loading state for assigned users
+
+
+// Update your fetchProjectUsers function:
+const fetchProjectUsers = async () => {
+  if (!selectedProject) {
+    setAssignedTo([]);
+    return;
+  }
+
+  try {
+    setLoadingAssignedUsers(true); // Set loading for assigned users
+
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_URL}api/task-management.php`,
+      {
+        params: { project_id: selectedProject.value }
+      }
+    );
+
+    const users = response.data?.data || [];
+    const assignedUsers = users.map(user => ({
+      value: user.emp_id,
+      label: user.name + (user.is_poc == 1 ? " (POC)" : "")
+    }));
+
+    setAssignedTo(assignedUsers);
+    
+    // Filter out any previously selected users not in new list
+    const currentAssignedUserIds = taskData.assignedTo.map(u => u.value);
+    const availableUserIds = assignedUsers.map(u => u.value);
+    
+    const filteredAssignedTo = taskData.assignedTo.filter(user => 
+      availableUserIds.includes(user.value)
+    );
+    
+    if (filteredAssignedTo.length !== taskData.assignedTo.length) {
+      setTaskData(prev => ({ ...prev, assignedTo: filteredAssignedTo }));
+    }
+  } catch (error) {
+    console.error("Error fetching project team members:", error);
+    setAssignedTo([]);
+    setTaskData(prev => ({ ...prev, assignedTo: [] }));
+    
+    // Show error in dropdown
+    Swal.fire({
+      icon: 'error',
+      title: 'Failed to load team members',
+      text: 'Could not fetch team members for this project',
+      timer: 3000,
+      showConfirmButton: false
+    });
+  } finally {
+    setLoadingAssignedUsers(false);
+  }
+};
+
+  fetchProjectUsers();
+}, [selectedProject]);
+
+
+  const handleSubmit = async () => {
+  if (!validate()) {
+    const firstError = Object.values(errors)[0];
+    if (firstError) {
+      Swal.fire({
+        icon: "error",
+        title: "Validation Error",
+        text: firstError,
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
+      });
+    }
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const form = new FormData();
+    form.append("project_id", selectedProject.value);
+    form.append("task_name", taskData.name);
+    form.append("assignedBy", userId);
+    form.append(
+      "assignedTo",
+      JSON.stringify(taskData.assignedTo.map(u => u.value))
+    );
+    form.append("deadline", taskData.deadline);
+    form.append("remarks", taskData.remarks);
+    form.append("priority", taskData.priority.value);
+
+    console.log("Submitting form data...");
+    for (let pair of form.entries()) {
+      console.log(`${pair[0]}:`, pair[1]);
+    }
+
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}api/task-management.php`,
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        params: {
+            id: user?.id,
+            user_code: user?.user_code,
+          }
+      }
+    );
+
+    const result = response.data;
+    console.log("API result:", result);
+
+    if (result.status === "success") {
+      Swal.fire({
+        icon: "success",
+        title: "Task Created Successfully!",
+        text: result.message || "Task has been created successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+        timerProgressBar: true,
+      });
+
+      // Reset form
+      setTaskData({
+        name: "",
+        assignedTo: [],
+        deadline: "",
+        remarks: "",
+        priority: "",
+      });
+      setErrors({});
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "Failed to Create Task",
+        text: result.message || "Failed to create task",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
+      });
+    }
+  } catch (error) {
+    console.error(
+      "Submit Error:",
+      error.response?.data || error.message
+    );
+
+    Swal.fire({
+      icon: "error",
+      title: "Something Went Wrong",
+      text: "An error occurred while creating the task.",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#d33",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   // Custom styles for priority dropdown
   const priorityCustomStyles = {
@@ -277,6 +377,194 @@ export default function CreateTask() {
           {/* Form Content */}
           <div className="p-8">
             <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Assigned To */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Select Project
+                    <span className="text-red-500">*</span>
+                    {loading && (
+                      <span className="text-xs text-blue-500 font-normal animate-pulse">
+                        Loading...
+                      </span>
+                    )}
+                  </label>
+                  <Select
+                    options={allProjects}
+                    onChange={setSelectedProject}
+                    value={selectedProject}
+                    classNamePrefix="react-select"
+                    className={`react-select-container ${errors.poc ? 'error' : ''}`}
+                    styles={{
+                      menu: (provided) => ({ 
+                        ...provided, 
+                        zIndex: 9999,
+                        borderRadius: '0.75rem',
+                        marginTop: '4px',
+                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                      }),
+                      control: (provided, state) => ({
+                        ...provided,
+                        border: `2px solid ${errors.poc ? '#fca5a5' : state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+                        borderRadius: '0.75rem',
+                        padding: '8px 4px',
+                        backgroundColor: errors.poc ? '#fef2f2' : 'white',
+                        minHeight: '52px',
+                        boxShadow: state.isFocused ? (errors.poc ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                        "&:hover": {
+                          borderColor: errors.poc ? '#f87171' : '#94a3b8',
+                        },
+                      }),
+                      placeholder: (provided) => ({
+                        ...provided,
+                        color: '#94a3b8',
+                      }),
+                      singleValue: (provided) => ({
+                        ...provided,
+                        color: '#1e293b',
+                        fontWeight: '500',
+                      }),
+                    }}
+                    placeholder="Select Project..."
+                    isLoading={loading}
+                    loadingMessage={() => "Loading projects..."}
+                    isDisabled={loading}
+                  />
+                  {selectedProject && loadingAssignedUsers && (
+                    <p className="text-blue-500 text-sm flex items-center gap-1 animate-pulse">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Fetching team members for {selectedProject.label}...
+                    </p>
+                  )}
+                  {errors.poc && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.poc}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Assigned To
+                    <span className="text-red-500">*</span>
+                    {loadingAssignedUsers && (
+                      <span className="text-xs text-blue-500 font-normal animate-pulse">
+                        Loading...
+                      </span>
+                    )}
+                  </label>
+                  
+                  <Select
+                    isMulti
+                    options={allAssignedTo}
+                    value={taskData.assignedTo}
+                    onChange={(selected) => handleSelectChange("assignedTo", selected)}
+                    classNamePrefix="react-select"
+                    className={`react-select-container ${errors.assignedTo ? 'error' : ''}`}
+                    styles={{
+                      menu: (provided) => ({ 
+                        ...provided, 
+                        zIndex: 9999,
+                        borderRadius: '0.75rem',
+                        marginTop: '4px',
+                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                      }),
+                      control: (provided, state) => ({
+                        ...provided,
+                        border: `2px solid ${errors.assignedTo ? '#fca5a5' : state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+                        borderRadius: '0.75rem',
+                        padding: '8px 4px',
+                        backgroundColor: errors.assignedTo ? '#fef2f2' : 'white',
+                        minHeight: '52px',
+                        boxShadow: state.isFocused ? (errors.assignedTo ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                        "&:hover": {
+                          borderColor: errors.assignedTo ? '#f87171' : '#94a3b8',
+                        },
+                        opacity: loadingAssignedUsers ? 0.7 : 1,
+                      }),
+                      placeholder: (provided) => ({
+                        ...provided,
+                        color: loadingAssignedUsers ? '#94a3b8' : '#94a3b8',
+                      }),
+                      loadingIndicator: (provided) => ({
+                        ...provided,
+                        color: '#3b82f6',
+                      }),
+                      loadingMessage: (provided) => ({
+                        ...provided,
+                        color: '#64748b',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }),
+                      multiValue: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#e0f2fe',
+                        borderRadius: '0.5rem',
+                      }),
+                      multiValueLabel: (provided) => ({
+                        ...provided,
+                        color: '#0369a1',
+                        fontWeight: '500',
+                      }),
+                      multiValueRemove: (provided) => ({
+                        ...provided,
+                        color: '#0369a1',
+                        '&:hover': {
+                          backgroundColor: '#bae6fd',
+                          color: '#0c4a6e',
+                        },
+                      }),
+                    }}
+                    placeholder={
+                      loadingAssignedUsers 
+                        ? "Fetching team members..." 
+                        : allAssignedTo.length === 0 
+                          ? "No team members available" 
+                          : "Select multiple team members..."
+                    }
+                    isDisabled={loading || loadingAssignedUsers || allAssignedTo.length === 0}
+                    isLoading={loadingAssignedUsers}
+                    loadingMessage={() => (
+                      <div className="flex items-center justify-center gap-2 py-4">
+                        <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Loading team members...</span>
+                      </div>
+                    )}
+                    noOptionsMessage={() => 
+                      loadingAssignedUsers 
+                        ? "Loading team members..." 
+                        : "No team members available"
+                    }
+                    isClearable={true}
+                  />
+                  {errors.assignedTo && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.assignedTo}
+                    </p>
+                  )}
+                  <div className="text-xs text-slate-500 mt-1 flex justify-between">
+                    <span>
+                      {loadingAssignedUsers ? "Fetching team members..." : `${taskData.assignedTo.length} team member(s) selected`}
+                    </span>
+                    {allAssignedTo.length > 0 && (
+                      <span>{allAssignedTo.length} team member(s) available</span>
+                    )}
+                  </div>
+                </div>
+              </div>
               {/* Task Name */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -311,84 +599,7 @@ export default function CreateTask() {
 
               {/* Second Row: Assigned To and Deadline */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Assigned To */}
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    Assigned To
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    isMulti
-                    options={allAssignedTo}
-                    value={taskData.assignedTo}
-                    onChange={(selected) => handleSelectChange("assignedTo", selected)}
-                    classNamePrefix="react-select"
-                    className={`react-select-container ${
-                      errors.assignedTo ? 'error' : ''
-                    }`}
-                    styles={{
-                      menu: (provided) => ({ 
-                        ...provided, 
-                        zIndex: 9999,
-                        borderRadius: '0.75rem',
-                        marginTop: '4px',
-                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-                      }),
-                      control: (provided, state) => ({
-                        ...provided,
-                        border: `2px solid ${errors.assignedTo ? '#fca5a5' : state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
-                        borderRadius: '0.75rem',
-                        padding: '8px 4px',
-                        backgroundColor: errors.assignedTo ? '#fef2f2' : 'white',
-                        minHeight: '52px',
-                        boxShadow: state.isFocused ? (errors.assignedTo ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
-                        "&:hover": {
-                          borderColor: errors.assignedTo ? '#f87171' : '#94a3b8',
-                        },
-                      }),
-                      placeholder: (provided) => ({
-                        ...provided,
-                        color: '#94a3b8',
-                      }),
-                      multiValue: (provided) => ({
-                        ...provided,
-                        backgroundColor: '#e0f2fe',
-                        borderRadius: '0.5rem',
-                      }),
-                      multiValueLabel: (provided) => ({
-                        ...provided,
-                        color: '#0369a1',
-                        fontWeight: '500',
-                      }),
-                      multiValueRemove: (provided) => ({
-                        ...provided,
-                        color: '#0369a1',
-                        '&:hover': {
-                          backgroundColor: '#bae6fd',
-                          color: '#0c4a6e',
-                        },
-                      }),
-                    }}
-                    placeholder="Select multiple users..."
-                    isDisabled={loading}
-                  />
-                  {errors.assignedTo && (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.assignedTo}
-                    </p>
-                  )}
-                  <div className="text-xs text-slate-500 mt-1">
-                    {taskData.assignedTo.length} user(s) selected
-                  </div>
-                </div>
-
-                {/* Third Row: Priority and Deadline */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Priority Field */}
-                  <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       Priority
                       <span className="text-red-500">*</span>
@@ -412,7 +623,6 @@ export default function CreateTask() {
                       </p>
                     )}
                   </div>
-
                   {/* Deadline */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -460,7 +670,7 @@ export default function CreateTask() {
                       <p className="text-xs text-slate-500">Cannot select past dates</p>
                     )}
                   </div>
-                </div>
+                
               </div>
 
               {/* Remarks */}
