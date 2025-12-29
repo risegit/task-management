@@ -1,6 +1,6 @@
 <?php
 header("Access-Control-Allow-Origin: *"); // Allow requests from frontend
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
@@ -17,6 +17,8 @@ if ($method === 'POST' && isset($_POST['_method'])) {
 
 $date = date("Y-m-d");
 $time = date("H:i:s");
+
+$data = $_POST;
 
 switch ($method) { 
 
@@ -148,69 +150,78 @@ switch ($method) {
         break;
 
     case 'PUT':
-        $user_id = $_POST['id'] ?? null;
-        $name = $_POST['name'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $department_id = $_POST['department'] ?? '';
-        $phone = $_POST['phone'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $role = $_POST['role'] ?? '';
-        $status = $_POST['status'] ?? '';
-        
-        // Start building the SET clause dynamically
-        $setClauses = array();
-        
-        // Add fields to SET clause only if they are provided and not empty
-        if (!empty($name)) {
-            $setClauses[] = "`name` = '" . $conn->real_escape_string($name) . "'";
-        }
-        
-        if (!empty($email)) {
-            $setClauses[] = "`email` = '" . $conn->real_escape_string($email) . "'";
-        }
-        
-        if (!empty($department_id)) {
-            $setClauses[] = "`department_id` = '" . $conn->real_escape_string($department_id) . "'";
-        }
-        
-        if (!empty($phone)) {
-            $setClauses[] = "`phone` = '" . $conn->real_escape_string($phone) . "'";
-        }
-        
-        if (!empty($password)) {
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
-            $setClauses[] = "`password` = '" . $conn->real_escape_string($password_hash) . "'";
-        }
-        
-        if (!empty($role)) {
-            $setClauses[] = "`role` = '" . $conn->real_escape_string($role) . "'";
-        }
-        
-        if (!empty($status)) {
-            $userstatus = filter_var($status, FILTER_VALIDATE_BOOLEAN) ? 'active' : 'inactive';
-            $setClauses[] = "`status` = '" . $conn->real_escape_string($userstatus) . "'";
-        }
-        
-        // Always update the timestamp fields
-        $setClauses[] = "`updated_date` = '$date'";
-        $setClauses[] = "`updated_time` = '$time'";
-        
-        // If no fields to update (except timestamps), return error
-        if (count($setClauses) <= 2) { // Only timestamps
-            echo json_encode(["status" => "error", "message" => "No data provided to update"]);
+        $id = trim($data['id'] ?? null);
+        $projectId = (int)($data['project_id'] ?? 0);
+
+        if ($projectId <= 0) {
+            echo json_encode(["status" => "error", "message" => "Invalid project ID"]);
             exit;
         }
-        
-        // Build the final SQL query
-        $setClause = implode(', ', $setClauses);
-        $sql = "UPDATE `users` SET $setClause WHERE id='$user_id'";
-        
-        if ($conn->query($sql)) {
-            echo json_encode(["status" => "success", "message" => "Employee Updated Successfully"]);
-        } else {
-            echo json_encode(["status" => "error", "message" => $conn->error]);
+
+        $projectName = trim($data['projectName'] ?? '');
+        $projectDescription = trim($data['projectDescription'] ?? '');
+        $startDate = $data['startDate'] ?? '';
+        $poc = $data['poc'] ?? null;
+
+        $otherEmployees = [];
+        if (!empty($data['otherEmployees'])) {
+            $decoded = json_decode($data['otherEmployees'], true);
+            if (is_array($decoded)) {
+                $otherEmployees = $decoded;
+            }
+        }
+
+        $conn->begin_transaction();
+
+        try {
+            $stmt = $conn->prepare(
+                "UPDATE clients SET name=?, description=?, start_date=?, updated_by=?, updated_date=?, updated_time=? WHERE id=?"
+            );
+            $stmt->bind_param("sssissi", $projectName, $projectDescription, $startDate, $id, $date, $time, $projectId);
+            $stmt->execute();
+
+            $stmtDelPOC = $conn->prepare("DELETE FROM client_users WHERE client_id=? AND is_poc=1");
+            $stmtDelPOC->bind_param("i", $projectId);
+            $stmtDelPOC->execute();
+
+            if ($poc) {
+                $stmtPOC = $conn->prepare(
+                    "INSERT INTO client_users (client_id, emp_id, is_poc, created_date, created_time)
+                     VALUES (?, ?, 1, ?, ?)"
+                );
+                $stmtPOC->bind_param("iiss", $projectId, $poc, $date, $time);
+                $stmtPOC->execute();
+            }
+
+            $stmtDelEmp = $conn->prepare("DELETE FROM client_users WHERE client_id=? AND is_poc=0");
+            $stmtDelEmp->bind_param("i", $projectId);
+            $stmtDelEmp->execute();
+
+            if (!empty($otherEmployees)) {
+                $stmtEmp = $conn->prepare(
+                    "INSERT INTO client_users (client_id, emp_id, is_poc, created_date, created_time)
+                     VALUES (?, ?, 0, ?, ?)"
+                );
+                foreach ($otherEmployees as $empId) {
+                    $stmtEmp->bind_param("iiss", $projectId, $empId, $date, $time);
+                    $stmtEmp->execute();
+                }
+            }
+
+            $conn->commit();
+
+            echo json_encode([
+                "status" => "success",
+                "message" => "Project updated successfully",
+                "project_id" => $projectId
+            ]);
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(["status" => "error", "message" => $e->getMessage()]);
         }
         break;
+
 
 
     default:

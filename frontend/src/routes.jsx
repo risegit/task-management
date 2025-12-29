@@ -24,8 +24,8 @@ import Home from "@/pages/dashboard/home";
 import AddEmployee from "@/pages/dashboard/employee/add-employee";
 import ViewEmployee from "@/pages/dashboard/employee/manage-employee";
 import EditEmployee from "@/pages/dashboard/employee/edit-employee";
-import Createusertask from "@/pages/dashboard/task-management/createtask"
-import ViewUsertask from "@/pages/dashboard/task-management/viewusertask";
+import Createtask from "@/pages/dashboard/task-management/createtask"
+import Viewtask from "@/pages/dashboard/task-management/view-task";
 import EditTask from "@/pages/dashboard/task-management/edit-task";
 import Profile from "@/pages/dashboard/profile";
 import OthersActivities from "@/pages/dashboard/otheractivities";
@@ -134,12 +134,12 @@ const routes = [
           {
             name: "Create Task",
             path: "/task-management/create-task",
-            element: <Createusertask />,
+            element: <Createtask />,
           },
           {
             name: "Manage Task",
-            path: "/task-management/viewtask",
-            element: <ViewUsertask />,
+            path: "/task-management/view-task",
+            element: <Viewtask />,
           },
           {
             name: "Manage Task",

@@ -123,8 +123,8 @@ const ProjectForm = () => {
       newErrors.projectName = 'Project Name is required';
     } else if (formData.projectName.trim().length < 3) {
       newErrors.projectName = 'Project Name must be at least 3 characters';
-    } else if (formData.projectName.trim().length > 100) {
-      newErrors.projectName = 'Project Name cannot exceed 100 characters';
+    } else if (formData.projectName.trim().length > 50) {
+      newErrors.projectName = 'Project Name cannot exceed 50 characters';
     }
 
     // Project Description validation
@@ -132,8 +132,8 @@ const ProjectForm = () => {
       newErrors.projectDescription = 'Project Description is required';
     } else if (formData.projectDescription.trim().length < 10) {
       newErrors.projectDescription = 'Project Description must be at least 10 characters';
-    } else if (formData.projectDescription.trim().length > 500) {
-      newErrors.projectDescription = 'Project Description cannot exceed 500 characters';
+    } else if (formData.projectDescription.trim().length > 200) {
+      newErrors.projectDescription = 'Project Description cannot exceed 200 characters';
     }
     
     // POC validation
@@ -295,7 +295,7 @@ const ProjectForm = () => {
                 )}
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">Required field</span>
-                  <span className="text-slate-500">{formData.projectName.length}/100 characters</span>
+                  <span className="text-slate-500">{formData.projectName.length}/50 characters</span>
                 </div>
               </div>
 
@@ -326,8 +326,8 @@ const ProjectForm = () => {
                   </p>
                 )}
                 <div className="flex items-center justify-end text-xs">
-                  <span className={formData.projectDescription.length > 500 ? "text-red-500" : "text-slate-500"}>
-                    {formData.projectDescription.length}/500 characters
+                  <span className={formData.projectDescription.length > 200 ? "text-red-500" : "text-slate-500"}>
+                    {formData.projectDescription.length}/200 characters
                   </span>
                 </div>
               </div>
