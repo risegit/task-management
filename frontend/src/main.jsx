@@ -13,7 +13,7 @@ import "./global.css";
 
 // 👇 Dynamic base path for local and production
 const mode = import.meta.env.MODE;
-const base = mode === "development" ? "/" : "/growpro/";
+const base = mode === "development" ? "/" : "/"; 
 
 console.log("🌐 Environment Mode:", mode);
 console.log("🌍 Router Base Path:", base);
