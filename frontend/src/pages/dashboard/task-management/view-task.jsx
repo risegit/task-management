@@ -637,6 +637,7 @@ const ManageDepartment = () => {
           // Transform API data to match our component structure
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
+            client_name: task.client_name || "Unnamed Task",
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
@@ -784,6 +785,7 @@ const ManageDepartment = () => {
           
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
+            client_name: task.client_name || "Unnamed Task",
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
@@ -1103,11 +1105,11 @@ const ManageDepartment = () => {
                               </div> */}
                               <div>
                                 <span className="font-semibold text-slate-900 block">
-                                  {task.name || "Unnamed Task"}
+                                  {task.client_name || "Unnamed Task"}
                                 </span>
-                                {/* <span className="text-xs text-slate-500 mt-1 block">
-                                  {task.description || "No description"}
-                                </span> */}
+                                <span className="text-xs text-slate-500 mt-1 block">
+                                  {task.name || "No description"}
+                                </span>
                               </div>
                             </div>
                           </td>
