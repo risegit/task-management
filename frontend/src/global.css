@@ -54,3 +54,6 @@ aside{
     height: 3.2rem;
     margin-bottom: 3rem;
 }
+.swal2-actions .swal2-confirm{
+    background-color: #d33 !important;
+}

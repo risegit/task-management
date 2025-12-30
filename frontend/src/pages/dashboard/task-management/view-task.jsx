@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import Swal from "sweetalert2";
+import axios from "axios";
 
 // CreateTask Modal Component
 const CreateTask = ({ onClose, onSubmitSuccess }) => {
@@ -91,33 +92,33 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
   };
 
   // 🔹 Fetch data from backend API
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
-        const data = await response.json();
+  // useEffect(() => {
+  //   const fetchUsers = async () => {
+  //     try {
+  //       const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
+  //       const data = await response.json();
 
-        console.log("API response:", data);
+  //       console.log("API response:", data);
 
-        // Assigned To = ALL users EXCEPT logged-in user
-        const assignedToUsers = data.data
-          .filter(user => user.id !== userId)
-          .map(user => ({
-            value: user.id,
-            label: user.name
-          }));
+  //       // Assigned To = ALL users EXCEPT logged-in user
+  //       const assignedToUsers = data.data
+  //         .filter(user => user.id !== userId)
+  //         .map(user => ({
+  //           value: user.id,
+  //           label: user.name
+  //         }));
 
-        setAssignedTo(assignedToUsers);
+  //       setAssignedTo(assignedToUsers);
 
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  //     } catch (error) {
+  //       console.error("Error fetching users:", error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchUsers();
-  }, [userId]);
+  //   fetchUsers();
+  // }, [userId]);
 
   const handleSubmit = async () => {
     if (!validate()) {
@@ -621,12 +622,12 @@ const ManageDepartment = () => {
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
   
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}api/department.php`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
         const result = await response.json();
         console.log("Departments API:", result);
 
@@ -1089,7 +1090,7 @@ const ManageDepartment = () => {
                             <div className="flex items-center justify-end gap-2">
                               <button 
                                 onClick={handleCreateTaskModal} 
-                                className="px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-slate-200 hover:scale-105 transition-all flex items-center gap-2"
+                                className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
                                 title="View Details"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

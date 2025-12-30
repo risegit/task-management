@@ -193,19 +193,19 @@ export default function AddItemTable() {
                       onChange={handleCheckboxChange}
                       className="sr-only peer"
                     />
-                 <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600  transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
+                 <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 bg-gradient-to-r from-blue-300 to-indigo-300 transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
                     <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
                   </div>
                   <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">
                     Active Status
                   </span>
                 </label>
-                <p className="text-slate-500 text-sm mt-2 ml-14">
+                {/* <p className="text-slate-500 text-sm mt-2 ml-14">
                   {formData.active 
                     ? "Department will be active and visible in the system" 
                     : "Department will be inactive and hidden from selection"
                   }
-                </p>
+                </p> */}
               </div>
             </div>
 

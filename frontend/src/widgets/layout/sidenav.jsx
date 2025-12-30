@@ -146,16 +146,12 @@ export function Sidenav({ brandImg, brandName, routes }) {
           className="flex items-center gap-3 mb-6"
           onClick={handleMobileClose}
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              RISE
-            </h1>
-            <p className="text-xs text-slate-500">Project Hub</p>
+          <div className="w-48 h-12 flex items-center justify-center">
+            <img
+              src={brandImg}
+              alt={brandName}
+              className="h-full w-auto object-contain"
+            />
           </div>
         </NavLink>
 

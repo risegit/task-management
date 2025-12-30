@@ -214,7 +214,7 @@ const fetchProjectUsers = async () => {
         title: "Validation Error",
         text: firstError,
         confirmButtonText: "OK",
-        confirmButtonColor: "#d33",
+        confirmButtonColor: "#d33 !important"
       });
     }
     return;
@@ -282,7 +282,7 @@ const fetchProjectUsers = async () => {
         title: "Failed to Create Task",
         text: result.message || "Failed to create task",
         confirmButtonText: "OK",
-        confirmButtonColor: "#d33",
+        confirmButtonColor: "#d33 !important"
       });
     }
   } catch (error) {
@@ -296,7 +296,7 @@ const fetchProjectUsers = async () => {
       title: "Something Went Wrong",
       text: "An error occurred while creating the task.",
       confirmButtonText: "OK",
-      confirmButtonColor: "#d33",
+      confirmButtonColor: "#d33 !important"
     });
   } finally {
     setIsSubmitting(false);
