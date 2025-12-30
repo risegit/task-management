@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const ProjectsTable = () => {
@@ -11,7 +11,9 @@ const ProjectsTable = () => {
   const [project_assign, setProjectAssign] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const { id } = useParams();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
+  const user = JSON.parse(localStorage.getItem("user"));
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,7 +41,13 @@ const ProjectsTable = () => {
 
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}api/project.php`
+          `${import.meta.env.VITE_API_URL}api/project.php`,
+          {
+            params: { 
+              user_id: user.id,
+              user_code: user.user_code
+            }
+          }
         );
 
         const result = response.data;
