@@ -5,7 +5,7 @@ export default defineConfig(({ mode }) => {
   const isLocal = mode === "development";
 
   // ✅ Automatically use correct base path depending on environment
-  const base = isLocal ? "/" : "/growpro/";
+  const base = isLocal ? "/" : "/";
 
   console.log("----------------------------------------------------");
   console.log("🚀 VITE CONFIG LOADED");
