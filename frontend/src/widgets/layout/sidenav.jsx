@@ -146,6 +146,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
           className="flex items-center gap-3 mb-6"
           onClick={handleMobileClose}
         >
+          {/* Logo Image Container */}
           <div className="w-48 h-12 flex items-center justify-center">
             <img
               src={brandImg}
@@ -153,18 +154,18 @@ export function Sidenav({ brandImg, brandName, routes }) {
               className="h-full w-auto object-contain"
             />
           </div>
+          
+          {/* Close button for mobile */}
+          <IconButton
+            variant="text"
+            size="sm"
+            ripple={false}
+            className="absolute right-3 top-3 xl:hidden rounded-lg hover:bg-slate-100"
+            onClick={() => setOpenSidenav(dispatch, false)}
+          >
+            <XMarkIcon strokeWidth={2.5} className="h-6 w-6 text-slate-600" />
+          </IconButton>
         </NavLink>
-
-        {/* Close button for mobile */}
-        <IconButton
-          variant="text"
-          size="sm"
-          ripple={false}
-          className="absolute right-3 top-3 xl:hidden rounded-lg hover:bg-slate-100"
-          onClick={() => setOpenSidenav(dispatch, false)}
-        >
-          <XMarkIcon strokeWidth={2.5} className="h-6 w-6 text-slate-600" />
-        </IconButton>
       </div>
 
       {/* Profile Section */}
