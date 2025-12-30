@@ -912,7 +912,7 @@ const ManageDepartment = () => {
                           onClick={() => handleSort("name")}
                         >
                           <div className="flex items-center gap-2">
-                            Department Name
+                            Project
                             <SortArrow columnKey="name" />
                           </div>
                         </th>
