@@ -12,7 +12,6 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const userId = user?.id;
 
   // Priority options for dropdown
   const priorityOptions = [
@@ -91,34 +90,65 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🔹 Fetch data from backend API
-  // useEffect(() => {
-  //   const fetchUsers = async () => {
-  //     try {
-  //       const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
-  //       const data = await response.json();
+  // Fetch users for assignment
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: { 
+              id: user?.id,
+              user_code: user?.user_code,
+              view_task: true
+            }
+          }
+        );
 
-  //       console.log("API response:", data);
+        console.log("API response for users:", response.data);
 
-  //       // Assigned To = ALL users EXCEPT logged-in user
-  //       const assignedToUsers = data.data
-  //         .filter(user => user.id !== userId)
-  //         .map(user => ({
-  //           value: user.id,
-  //           label: user.name
-  //         }));
+        // Extract users from the API response
+        const data = response.data;
+        let usersList = [];
+        
+        if (data.status === "success") {
+          // Check different possible response structures
+          if (data.data && Array.isArray(data.data)) {
+            usersList = data.data;
+          } else if (data.data123 && Array.isArray(data.data123)) {
+            usersList = data.data123;
+          }
+          
+          // Filter out current user and map to select options
+          const assignedToUsers = usersList
+            .filter(taskUser => taskUser.id !== user?.id)
+            .map(taskUser => ({
+              value: taskUser.id,
+              label: taskUser.assigned_to_names || taskUser.name || `User ${taskUser.id}`
+            }));
 
-  //       setAssignedTo(assignedToUsers);
+          setAssignedTo(assignedToUsers);
+          console.log("Assigned to users:", assignedToUsers);
+        }
 
-  //     } catch (error) {
-  //       console.error("Error fetching users:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to load users. Please try again.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  //   fetchUsers();
-  // }, [userId]);
+    if (user?.id) {
+      fetchUsers();
+    }
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!validate()) {
@@ -141,7 +171,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       const form = new FormData();
 
       form.append("task_name", taskData.name);
-      form.append("assignedBy", userId);
+      form.append("assignedBy", user?.id);
       form.append(
         "assignedTo",
         JSON.stringify(taskData.assignedTo.map(u => u.value))
@@ -149,6 +179,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       form.append("deadline", taskData.deadline);
       form.append("remarks", taskData.remarks);
       form.append("priority", taskData.priority.value); // Add priority to form data
+      form.append("create_task", "true"); // Add flag for creating task
 
       console.log("Submitting form data...");
       for (let pair of form.entries()) {
@@ -181,7 +212,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
           assignedTo: [],
           deadline: "",
           remarks: "",
-          priority: "", // Reset priority
+          priority: "",
         });
         setErrors({});
         
@@ -549,7 +580,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  Update Task
+                  Create Task
                 </>
               )}
             </button>
@@ -562,98 +593,77 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
 
 // Main ManageDepartment Component
 const ManageDepartment = () => {
-  // Updated sample data with new columns
-  const departmentsData = [
-    { 
-      id: 2, 
-      name: "Human Resources", 
-      description: "Employee management", 
-      assignedBy: "Sarah Chen",
-      assignedTo: ["Mike Brown"],
-      deadline: "2024-11-15",
-      status: "active",
-      remark: "Recruitment drive ongoing",
-      taskStatus: "Not-Acknowledged" // Default status
-    },
-    { 
-      id: 3, 
-      name: "Marketing", 
-      description: "Brand promotion", 
-      assignedBy: "David Lee",
-      assignedTo: ["Emma Davis", "James Miller", "Lisa Taylor"],
-      deadline: "2024-10-30",
-      status: "inactive",
-      remark: "Campaign on hold",
-      taskStatus: "In-progress"
-    },
-    { 
-      id: 4, 
-      name: "Sales", 
-      description: "Client acquisition", 
-      assignedBy: "Robert King",
-      assignedTo: ["Sophia White"],
-      deadline: "2024-12-20",
-      status: "active",
-      remark: "Quarterly targets",
-      taskStatus: "Completed"
-    },
-    { 
-      id: 5, 
-      name: "Finance", 
-      description: "Budget management", 
-      assignedBy: "Maria Garcia",
-      assignedTo: ["Tom Anderson", "Chris Evans"],
-      deadline: "2024-11-30",
-      status: "active",
-      remark: "Annual audit preparation",
-      taskStatus: "Acknowledged"
-    },
-  ];
-
   const navigate = useNavigate();
   
-  const [departments, setDepartments] = useState(departmentsData);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
   const [currentPage, setCurrentPage] = useState(1);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
-  
+  const user = JSON.parse(localStorage.getItem("user"));
   const itemsPerPage = 10;
 
   useEffect(() => {
-    const fetchDepartments = async () => {
+    const fetchTasks = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php`);
-        const result = await response.json();
-        console.log("Departments API:", result);
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: { 
+              id: user?.id,
+              user_code: user?.user_code,
+              view_task: true
+            }
+          }
+        );
+        
+        const result = response.data;
+        console.log("Tasks API Response:", result);
 
         if (result.status === "success") {
-          if (result.departments && Array.isArray(result.departments)) {
-            setDepartments(result.departments);
-          } else if (result.data && Array.isArray(result.data)) {
-            setDepartments(result.data);
-          } else {
-            console.warn("Unexpected API response structure:", result);
-            setDepartments(departmentsData);
+          let tasksData = [];
+          
+          // Handle different response structures
+          if (result.data && Array.isArray(result.data)) {
+            tasksData = result.data;
+          } else if (result.data123 && Array.isArray(result.data123)) {
+            tasksData = result.data123;
           }
+          
+          // Transform API data to match our component structure
+          const transformedTasks = tasksData.map(task => ({
+            id: task.id,
+            name: task.task_name || "Unnamed Task",
+            description: task.remarks || "No description",
+            assignedBy: task.assigned_by_name || "Unknown",
+            assignedTo: task.assigned_to_names ? [task.assigned_to_names] : [],
+            deadline: task.deadline,
+            remark: task.remarks,
+            taskStatus: task.task_status || "not-acknowledge",
+            clientId: task.client_id,
+            createdBy: task.created_by
+          }));
+          
+          setTasks(transformedTasks);
+          console.log("Transformed tasks:", transformedTasks);
         } else {
           console.warn("API returned error:", result.message);
-          setDepartments(departmentsData);
+          setTasks([]);
         }
       } catch (error) {
         console.error("Fetch Error:", error);
-        setDepartments(departmentsData);
+        setTasks([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDepartments();
-  }, []);
+    fetchTasks();
+  }, [user]);
 
   // Handle sorting
   const handleSort = (key) => {
@@ -680,17 +690,17 @@ const ManageDepartment = () => {
     );
   };
 
-  // Filter departments
-  const filteredDepartments = departments.filter(dept =>
-    dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    dept.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (dept.assignedBy && dept.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (dept.remark && dept.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (dept.taskStatus && dept.taskStatus.toLowerCase().includes(searchQuery.toLowerCase()))
+  // Filter tasks
+  const filteredTasks = tasks.filter(task =>
+    task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Apply sorting to filtered results
-  const sortedDepartments = [...filteredDepartments].sort((a, b) => {
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
     const aValue = a[sortConfig.key];
@@ -708,8 +718,8 @@ const ManageDepartment = () => {
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentDepartments = sortedDepartments.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(sortedDepartments.length / itemsPerPage);
+  const currentTasks = sortedTasks.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedTasks.length / itemsPerPage);
 
   // Handlers
   const handleSearchChange = (e) => {
@@ -719,21 +729,21 @@ const ManageDepartment = () => {
   
   const clearSearch = () => setSearchQuery("");
   
-  // Navigate to edit department page
+  // Navigate to edit task page
   const handleEdit = (id) => {
     navigate(`/dashboard/task-management/edit-task/${id}`);
   };
   
   // Open view modal
-  const handleView = (department) => {
-    setSelectedDepartment(department);
+  const handleView = (task) => {
+    setSelectedTask(task);
     setShowViewModal(true);
   };
 
   // Close view modal
   const closeViewModal = () => {
     setShowViewModal(false);
-    setSelectedDepartment(null);
+    setSelectedTask(null);
   };
 
   // Open CreateTask modal (eye button click)
@@ -748,9 +758,60 @@ const ManageDepartment = () => {
 
   // Handle successful task creation
   const handleTaskCreated = () => {
-    // Refresh the departments list or show success message
-    console.log("Task created successfully!");
-    // You can add logic here to refresh the table data
+    // Refresh the tasks list
+    const fetchTasks = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: { 
+              id: user?.id,
+              user_code: user?.user_code,
+              view_task: true
+            }
+          }
+        );
+        
+        const result = response.data;
+        if (result.status === "success") {
+          let tasksData = [];
+          
+          if (result.data && Array.isArray(result.data)) {
+            tasksData = result.data;
+          } else if (result.data123 && Array.isArray(result.data123)) {
+            tasksData = result.data123;
+          }
+          
+          const transformedTasks = tasksData.map(task => ({
+            id: task.id,
+            name: task.task_name || "Unnamed Task",
+            description: task.remarks || "No description",
+            assignedBy: task.assigned_by_name || "Unknown",
+            assignedTo: task.assigned_to_names ? [task.assigned_to_names] : [],
+            deadline: task.deadline,
+            remark: task.remarks,
+            taskStatus: task.task_status || "not-acknowledge",
+            clientId: task.client_id,
+            createdBy: task.created_by
+          }));
+          
+          setTasks(transformedTasks);
+        }
+      } catch (error) {
+        console.error("Error refreshing tasks:", error);
+      }
+    };
+
+    fetchTasks();
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Success!',
+      text: 'Task created successfully!',
+      timer: 2000,
+      showConfirmButton: false,
+      timerProgressBar: true,
+    });
   };
 
   // Toggle status dropdown
@@ -759,20 +820,54 @@ const ManageDepartment = () => {
   };
 
   // Update task status
-  const updateTaskStatus = (departmentId, newStatus) => {
-    const updatedDepartments = departments.map(dept => 
-      dept.id === departmentId 
-        ? { ...dept, taskStatus: newStatus }
-        : dept
-    );
-    setDepartments(updatedDepartments);
-    setStatusDropdownOpen(null);
-    
-    // Here you would typically make an API call to update the backend
-    console.log(`Updated department ${departmentId} status to ${newStatus}`);
-    
-    // Show success message (you can add a toast notification here)
-    alert(`Task status updated to ${newStatus}!`);
+  const updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      const form = new FormData();
+      form.append("task_id", taskId);
+      form.append("task_status", newStatus);
+      form.append("update_status", "true");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.status === "success") {
+        // Update local state
+        const updatedTasks = tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, taskStatus: newStatus }
+            : task
+        );
+        setTasks(updatedTasks);
+        setStatusDropdownOpen(null);
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Status Updated!',
+          text: `Task status updated to ${newStatus}`,
+          timer: 1500,
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
+      } else {
+        throw new Error(result.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error updating task status:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: error.message || 'Failed to update task status',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33',
+      });
+    }
   };
   
   const goToPage = (page) => setCurrentPage(page);
@@ -805,17 +900,40 @@ const ManageDepartment = () => {
 
   // Get task status badge color
   const getTaskStatusBadge = (status) => {
-    switch(status) {
-      case "Not-Acknowledged":
+    const normalizedStatus = status ? status.toLowerCase() : '';
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+      case "not-acknowledged":
         return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
-      case "Acknowledged":
+      case "acknowledged":
         return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
-      case "In-progress":
+      case "in-progress":
         return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
-      case "Completed":
+      case "completed":
         return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200";
       default:
         return "bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200";
+    }
+  };
+
+  // Format task status for display
+  const formatTaskStatus = (status) => {
+    if (!status) return "Not-Acknowledged";
+    
+    const normalizedStatus = status.toLowerCase();
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "Not-Acknowledged";
+      case "acknowledged":
+        return "Acknowledged";
+      case "in-progress":
+        return "In-progress";
+      case "completed":
+        return "Completed";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -832,7 +950,7 @@ const ManageDepartment = () => {
               </svg>
             </div>
           </div>
-          <p className="mt-6 text-slate-600 font-medium">Loading departments...</p>
+          <p className="mt-6 text-slate-600 font-medium">Loading tasks...</p>
           <p className="mt-2 text-sm text-slate-500">Please wait while we fetch the data</p>
         </div>
       </div>
@@ -864,7 +982,7 @@ const ManageDepartment = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search by name, description, assigned by, or remark..."
+                    placeholder="Search by task name, assigned by, or status..."
                     value={searchQuery}
                     onChange={handleSearchChange}
                     className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
@@ -889,17 +1007,26 @@ const ManageDepartment = () => {
 
           {/* Table Content */}
           <div className="p-6">
-            {currentDepartments.length === 0 ? (
+            {currentTasks.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <p className="text-slate-600 text-lg font-semibold mb-2">No departments found</p>
+                <p className="text-slate-600 text-lg font-semibold mb-2">No tasks found</p>
                 <p className="text-slate-500 text-sm">
-                  {searchQuery ? "Try adjusting your search terms" : "No departments available in the system"}
+                  {searchQuery ? "Try adjusting your search terms" : "No tasks available in the system"}
                 </p>
+                <button 
+                  onClick={handleCreateTaskModal}
+                  className="mt-4 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create Your First Task
+                </button>
               </div>
             ) : (
               <>
@@ -913,7 +1040,7 @@ const ManageDepartment = () => {
                           onClick={() => handleSort("name")}
                         >
                           <div className="flex items-center gap-2">
-                            Project
+                            Task Name
                             <SortArrow columnKey="name" />
                           </div>
                         </th>
@@ -962,25 +1089,25 @@ const ManageDepartment = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentDepartments.map((dept) => (
+                      {currentTasks.map((task) => (
                         <tr 
-                          key={dept.id} 
+                          key={task.id} 
                           className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-md ring-4 ring-blue-50 group-hover:ring-blue-100 transition-all">
+                              {/* <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-md ring-4 ring-blue-50 group-hover:ring-blue-100 transition-all">
                                 <span className="text-white font-bold text-sm">
-                                  {dept.name ? dept.name.charAt(0).toUpperCase() : "D"}
+                                  {task.name ? task.name.charAt(0).toUpperCase() : "T"}
                                 </span>
-                              </div>
+                              </div> */}
                               <div>
                                 <span className="font-semibold text-slate-900 block">
-                                  {dept.name || "Unnamed Department"}
+                                  {task.name || "Unnamed Task"}
                                 </span>
-                                <span className="text-xs text-slate-500 mt-1 block">
-                                  {dept.description || "No description"}
-                                </span>
+                                {/* <span className="text-xs text-slate-500 mt-1 block">
+                                  {task.description || "No description"}
+                                </span> */}
                               </div>
                             </div>
                           </td>
@@ -992,14 +1119,14 @@ const ManageDepartment = () => {
                                 </svg>
                               </div>
                               <span className="font-medium text-slate-800">
-                                {dept.assignedBy || "N/A"}
+                                {task.assignedBy || "N/A"}
                               </span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
-                              {Array.isArray(dept.assignedTo) && dept.assignedTo.length > 0 ? (
-                                dept.assignedTo.slice(0, 2).map((person, index) => (
+                              {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
+                                task.assignedTo.slice(0, 2).map((person, index) => (
                                   <span 
                                     key={index}
                                     className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
@@ -1010,30 +1137,30 @@ const ManageDepartment = () => {
                               ) : (
                                 <span className="text-slate-500 text-sm">No assignments</span>
                               )}
-                              {Array.isArray(dept.assignedTo) && dept.assignedTo.length > 2 && (
+                              {Array.isArray(task.assignedTo) && task.assignedTo.length > 2 && (
                                 <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
-                                  +{dept.assignedTo.length - 2} more
+                                  +{task.assignedTo.length - 2} more
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <svg className={`w-4 h-4 ${getDeadlineStatus(dept.deadline)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className={`w-4 h-4 ${getDeadlineStatus(task.deadline)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              <span className={`${getDeadlineStatus(dept.deadline)}`}>
-                                {formatDate(dept.deadline)}
+                              <span className={`${getDeadlineStatus(task.deadline)}`}>
+                                {formatDate(task.deadline)}
                               </span>
                             </div>
                           </td>
                           <td className="py-4 px-4 relative">
                             <div className="flex items-center gap-2">
-                              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(dept.taskStatus)}`}>
-                                {dept.taskStatus || "Not-Acknowledged"}
+                              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(task.taskStatus)}`}>
+                                {formatTaskStatus(task.taskStatus)}
                               </span>
                               <button 
-                                onClick={() => toggleStatusDropdown(dept.id)}
+                                onClick={() => toggleStatusDropdown(task.id)}
                                 className="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
                                 title="Change Status"
                               >
@@ -1044,32 +1171,32 @@ const ManageDepartment = () => {
                             </div>
                             
                             {/* Status Dropdown */}
-                            {statusDropdownOpen === dept.id && (
+                            {statusDropdownOpen === task.id && (
                               <div className="absolute z-10 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
                                 <div className="py-1">
                                   <button 
-                                    onClick={() => updateTaskStatus(dept.id, "Not-Acknowledged")}
+                                    onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
                                     className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-slate-700 flex items-center gap-2"
                                   >
                                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
                                     Not-Acknowledged
                                   </button>
                                   <button 
-                                    onClick={() => updateTaskStatus(dept.id, "Acknowledged")}
+                                    onClick={() => updateTaskStatus(task.id, "acknowledged")}
                                     className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm font-medium text-slate-700 flex items-center gap-2"
                                   >
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                     Acknowledged
                                   </button>
                                   <button 
-                                    onClick={() => updateTaskStatus(dept.id, "In-progress")}
+                                    onClick={() => updateTaskStatus(task.id, "in-progress")}
                                     className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-sm font-medium text-slate-700 flex items-center gap-2"
                                   >
                                     <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                                     In-progress
                                   </button>
                                   <button 
-                                    onClick={() => updateTaskStatus(dept.id, "Completed")}
+                                    onClick={() => updateTaskStatus(task.id, "completed")}
                                     className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm font-medium text-slate-700 flex items-center gap-2"
                                   >
                                     <div className="w-2 h-2 rounded-full bg-green-500"></div>
@@ -1082,14 +1209,14 @@ const ManageDepartment = () => {
                           <td className="py-4 px-4">
                             <div className="max-w-xs">
                               <span className="text-sm text-slate-700 line-clamp-2">
-                                {dept.remark || "No remarks"}
+                                {task.remark || "No remarks"}
                               </span>
                             </div>
                           </td>
                           <td className="py-4 px-4 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
-                                onClick={handleCreateTaskModal} 
+                                onClick={() => handleView(task)} 
                                 className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
                                 title="View Details"
                               >
@@ -1099,9 +1226,9 @@ const ManageDepartment = () => {
                                 </svg>
                               </button>
                               <button 
-                                onClick={() => handleEdit(dept.id)} 
+                                onClick={() => handleEdit(task.id)} 
                                 className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
-                                title="Edit Department"
+                                title="Edit Task"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1117,28 +1244,28 @@ const ManageDepartment = () => {
 
                 {/* Mobile Cards */}
                 <div className="block lg:hidden space-y-4">
-                  {currentDepartments.map((dept) => (
-                    <div key={dept.id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
+                  {currentTasks.map((task) => (
+                    <div key={task.id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
                       <div className="flex items-start gap-4 mb-4">
                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg ring-4 ring-blue-50">
                           <span className="text-white font-bold text-lg">
-                            {dept.name ? dept.name.charAt(0).toUpperCase() : "D"}
+                            {task.name ? task.name.charAt(0).toUpperCase() : "T"}
                           </span>
                         </div>
                         <div className="flex-1">
                           <h3 className="font-bold text-slate-900 text-lg mb-1">
-                            {dept.name || "Unnamed Department"}
+                            {task.name || "Unnamed Task"}
                           </h3>
                           <div className="flex items-center gap-2 mb-2">
-                            <span className={`px-3 py-1 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(dept.taskStatus)}`}>
-                              {dept.taskStatus || "Not-Acknowledged"}
+                            <span className={`px-3 py-1 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(task.taskStatus)}`}>
+                              {formatTaskStatus(task.taskStatus)}
                             </span>
                             <div className="flex items-center gap-1 text-xs text-slate-500">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              <span className={`${getDeadlineStatus(dept.deadline)}`}>
-                                {formatDate(dept.deadline)}
+                              <span className={`${getDeadlineStatus(task.deadline)}`}>
+                                {formatDate(task.deadline)}
                               </span>
                             </div>
                           </div>
@@ -1152,7 +1279,7 @@ const ManageDepartment = () => {
                           </svg>
                           <div>
                             <span className="text-sm font-medium text-slate-700">Assigned By:</span>
-                            <span className="text-slate-800 font-medium ml-2">{dept.assignedBy || "N/A"}</span>
+                            <span className="text-slate-800 font-medium ml-2">{task.assignedBy || "N/A"}</span>
                           </div>
                         </div>
                         
@@ -1163,8 +1290,8 @@ const ManageDepartment = () => {
                           <div className="flex-1">
                             <span className="text-sm font-medium text-slate-700">Assigned To:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {Array.isArray(dept.assignedTo) && dept.assignedTo.length > 0 ? (
-                                dept.assignedTo.slice(0, 3).map((person, index) => (
+                              {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
+                                task.assignedTo.slice(0, 3).map((person, index) => (
                                   <span 
                                     key={index}
                                     className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
@@ -1186,7 +1313,7 @@ const ManageDepartment = () => {
                           <div>
                             <span className="text-sm font-medium text-slate-700">Description:</span>
                             <span className="text-slate-700 text-sm ml-2 block mt-1">
-                              {dept.description || "No description available"}
+                              {task.description || "No description available"}
                             </span>
                           </div>
                         </div>
@@ -1198,7 +1325,7 @@ const ManageDepartment = () => {
                           <div>
                             <span className="text-sm font-medium text-slate-700">Remark:</span>
                             <span className="text-slate-700 text-sm ml-2 block mt-1">
-                              {dept.remark || "No remarks"}
+                              {task.remark || "No remarks"}
                             </span>
                           </div>
                         </div>
@@ -1211,26 +1338,26 @@ const ManageDepartment = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <button 
-                            onClick={() => updateTaskStatus(dept.id, "Not-Acknowledged")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${dept.taskStatus === "Not-Acknowledged" ? "ring-2 ring-red-500" : ""} bg-red-50 text-red-700 border border-red-200`}
+                            onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "not-acknowledge" ? "ring-2 ring-red-500" : ""} bg-red-50 text-red-700 border border-red-200`}
                           >
                             Not-Acknowledged
                           </button>
                           <button 
-                            onClick={() => updateTaskStatus(dept.id, "Acknowledged")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${dept.taskStatus === "Acknowledged" ? "ring-2 ring-blue-500" : ""} bg-blue-50 text-blue-700 border border-blue-200`}
+                            onClick={() => updateTaskStatus(task.id, "acknowledged")}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "acknowledged" ? "ring-2 ring-blue-500" : ""} bg-blue-50 text-blue-700 border border-blue-200`}
                           >
                             Acknowledged
                           </button>
                           <button 
-                            onClick={() => updateTaskStatus(dept.id, "In-progress")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${dept.taskStatus === "In-progress" ? "ring-2 ring-amber-500" : ""} bg-amber-50 text-amber-700 border border-amber-200`}
+                            onClick={() => updateTaskStatus(task.id, "in-progress")}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "in-progress" ? "ring-2 ring-amber-500" : ""} bg-amber-50 text-amber-700 border border-amber-200`}
                           >
                             In-progress
                           </button>
                           <button 
-                            onClick={() => updateTaskStatus(dept.id, "Completed")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${dept.taskStatus === "Completed" ? "ring-2 ring-green-500" : ""} bg-green-50 text-green-700 border border-green-200`}
+                            onClick={() => updateTaskStatus(task.id, "completed")}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "completed" ? "ring-2 ring-green-500" : ""} bg-green-50 text-green-700 border border-green-200`}
                           >
                             Completed
                           </button>
@@ -1239,7 +1366,7 @@ const ManageDepartment = () => {
                       
                       <div className="flex items-center gap-2 pt-4 border-t border-slate-200">
                         <button 
-                          onClick={handleCreateTaskModal}
+                          onClick={() => handleView(task)}
                           className="flex-1 px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-slate-200 transition-all flex items-center justify-center gap-2"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1249,7 +1376,7 @@ const ManageDepartment = () => {
                           View
                         </button>
                         <button 
-                          onClick={() => handleEdit(dept.id)}
+                          onClick={() => handleEdit(task.id)}
                           className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1266,11 +1393,11 @@ const ManageDepartment = () => {
           </div>
 
           {/* Pagination */}
-          {sortedDepartments.length > 0 && (
+          {sortedTasks.length > 0 && (
             <div className="px-6 py-5 border-t-2 border-slate-200 bg-slate-50">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-slate-600 font-medium">
-                  Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedDepartments.length)}</span> of <span className="font-bold text-slate-900">{sortedDepartments.length}</span> departments
+                  Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedTasks.length)}</span> of <span className="font-bold text-slate-900">{sortedTasks.length}</span> tasks
                 </p>
                 <div className="flex items-center gap-2">
                   <button 
@@ -1315,10 +1442,107 @@ const ManageDepartment = () => {
         </div>
       </div>
 
-      {/* View Details Modal - Keep existing */}
-      {showViewModal && selectedDepartment && (
+      {/* View Details Modal */}
+      {showViewModal && selectedTask && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          {/* ... existing view modal content ... */}
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 sticky top-0 z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  Task Details
+                </h2>
+                <button 
+                  onClick={closeViewModal}
+                  className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors"
+                >
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                    <span className="text-white font-bold text-xl">
+                      {selectedTask.name ? selectedTask.name.charAt(0).toUpperCase() : "T"}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">{selectedTask.name}</h3>
+                    <p className="text-slate-600 mt-1">{selectedTask.description}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-500 mb-2">Assigned By</h4>
+                      <p className="text-slate-800 font-medium flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                          <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        {selectedTask.assignedBy}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-500 mb-2">Status</h4>
+                      <span className={`px-3 py-1.5 rounded-lg text-sm font-semibold inline-block ${getTaskStatusBadge(selectedTask.taskStatus)}`}>
+                        {formatTaskStatus(selectedTask.taskStatus)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-500 mb-2">Deadline</h4>
+                      <p className={`flex items-center gap-2 ${getDeadlineStatus(selectedTask.deadline)}`}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {formatDate(selectedTask.deadline)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-500 mb-2">Assigned To</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(selectedTask.assignedTo) && selectedTask.assignedTo.length > 0 ? (
+                          selectedTask.assignedTo.map((person, index) => (
+                            <span 
+                              key={index}
+                              className="px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-100"
+                            >
+                              {person}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-slate-500 text-sm">No assignments</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-500 mb-2">Remarks</h4>
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-slate-700">{selectedTask.remark || "No remarks"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

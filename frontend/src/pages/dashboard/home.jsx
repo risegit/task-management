@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle, Clock, TrendingUp, Lightbulb, Cake, Award, Megaphone, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from "react-router-dom";
 
 const Home = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -11,6 +12,9 @@ const Home = () => {
   const [todoPage, setTodoPage] = useState(1);
   const [inProgressPage, setInProgressPage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
+
+  const rawUsername = JSON.parse(localStorage.getItem("user"));
+  const username = rawUsername?.name;
   
   const itemsPerPage = 3; // Number of tasks to show per page
 
@@ -236,8 +240,7 @@ const Home = () => {
       <div className="mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome back Nimish! Here's what's happening today.</h1>
-      
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back   {username ? username: " "}!</h1>
         </div>
 
         {/* First Row - Task Management */}
@@ -255,15 +258,17 @@ const Home = () => {
             </div>
             <div className="space-y-3 flex-grow">
               {getPaginatedTasks(todoTasks, todoPage).map(task => (
-                <div key={task.id} className="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-700 font-medium">{task.title}</p>
-                    <span className={`text-xs ${task.priority === 'high' ? 'text-red-900' : task.priority === 'medium' ? 'text-purple-900' : 'text-green-500'}`}>
-                      {task.priority.toUpperCase()}
-                    </span>
+                <Link to="/dashboard/task-management/view-task" key={task.id}>
+                  <div className="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-700 font-medium">{task.title}</p>
+                      <span className={`text-xs ${task.priority === 'high' ? 'text-red-900' : task.priority === 'medium' ? 'text-purple-900' : 'text-green-500'}`}>
+                        {task.priority.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             <PaginationControls

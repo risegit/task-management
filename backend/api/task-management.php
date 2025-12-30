@@ -9,7 +9,8 @@ include('../inc/config.php');
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $userCode = $_GET['user_code'] ?? null;
-$viewTask = $_GET['view-task'] ?? null;
+$viewTaskOld = $_GET['view_task_old'] ?? null;
+$viewTask = $_GET['view_task'] ?? null;
 $project_id = isset($_GET['project_id']) ? intval($_GET['project_id']) : 0;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
@@ -22,7 +23,7 @@ $time = date("H:i:s");
 switch ($method) { 
 
     case 'GET':
-        if($viewTask){
+        if($viewTaskOld){
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
                     $sql1 = "SELECT t.id, t.task_name, t.remarks, t.deadline, COALESCE(ta.status, ta.status) AS status, t.created_by, ta.user_id AS assigned_to, ab.id AS assignedby, ab.name AS assignedby_name , ua.id AS assignedto, ua.name AS assignedto_name FROM tasks t LEFT JOIN task_assignees ta ON t.id = ta.task_id LEFT JOIN users ab ON t.created_by = ab.id LEFT JOIN users ua ON ta.user_id = ua.id WHERE t.created_by = '$userId' OR ta.user_id = '$userId'";
@@ -48,6 +49,23 @@ switch ($method) {
             }
                         
             
+        }else if($viewTask){
+            if (!empty($userCode)) {
+                if (str_starts_with($userCode, 'ST')) {
+                    $whereClause = "WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId'";
+                } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
+                    $whereClause = '';
+                }
+            }
+            $sql1 = "SELECT t.id, t.client_id, t.task_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, GROUP_CONCAT(DISTINCT ta.status ORDER BY ta.status SEPARATOR ', ') AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id WHERE t.id IN ( SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id $whereClause ) GROUP BY t.id ORDER BY t.id DESC;";
+            $result = $conn->query($sql1);
+            $data = [];
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+
+            echo json_encode(["status" => "success","data" => $data]);
+
         }else if($project_id){
             $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id WHERE c.id='$project_id'";
             $result = $conn->query($sql1);
