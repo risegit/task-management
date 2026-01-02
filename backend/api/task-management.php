@@ -9,7 +9,7 @@ include('../inc/config.php');
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $userCode = $_GET['user_code'] ?? null;
-$viewTaskOld = $_GET['view_task_old'] ?? null;
+$editTask = $_GET['edit-task'] ?? null;
 $viewTask = $_GET['view_task'] ?? null;
 $project_id = isset($_GET['project_id']) ? intval($_GET['project_id']) : 0;
 
@@ -23,31 +23,39 @@ $time = date("H:i:s");
 switch ($method) { 
 
     case 'GET':
-        if($viewTaskOld){
-            if (!empty($userCode)) {
-                if (str_starts_with($userCode, 'ST')) {
-                    $sql1 = "SELECT t.id, t.task_name, t.remarks, t.deadline, COALESCE(ta.status, ta.status) AS status, t.created_by, ta.user_id AS assigned_to, ab.id AS assignedby, ab.name AS assignedby_name , ua.id AS assignedto, ua.name AS assignedto_name FROM tasks t LEFT JOIN task_assignees ta ON t.id = ta.task_id LEFT JOIN users ab ON t.created_by = ab.id LEFT JOIN users ua ON ta.user_id = ua.id WHERE t.created_by = '$userId' OR ta.user_id = '$userId'";
-                } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
-                    $sql1 = "SELECT t.id,t.task_name,t.remarks,t.deadline, ta.status, ab.id assignedby, ab.name assignedby_name, at.id assignedto, at.name assignedto_name FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users at ON ta.user_id=at.id INNER JOIN users ab ON t.created_by=ab.id ORDER BY t.id DESC";
-                }
-                $result = $conn->query($sql1);
+        if($editTask){
+            // if (!empty($userCode)) {
+            //     if (str_starts_with($userCode, 'ST')) {
+            //         $sql1 = "SELECT t.id, t.task_name, t.remarks, t.deadline, COALESCE(ta.status, ta.status) AS status, t.created_by, ta.user_id AS assigned_to, ab.id AS assignedby, ab.name AS assignedby_name , ua.id AS assignedto, ua.name AS assignedto_name FROM tasks t LEFT JOIN task_assignees ta ON t.id = ta.task_id LEFT JOIN users ab ON t.created_by = ab.id LEFT JOIN users ua ON ta.user_id = ua.id WHERE t.created_by = '$userId' OR ta.user_id = '$userId'";
+            //     } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
+            //         $sql1 = "SELECT t.id,t.task_name,t.remarks,t.deadline, ta.status, ab.id assignedby, ab.name assignedby_name, at.id assignedto, at.name assignedto_name FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users at ON ta.user_id=at.id INNER JOIN users ab ON t.created_by=ab.id ORDER BY t.id DESC";
+            //     }
+            //     $result = $conn->query($sql1);
+            // $data = [];
+            // while ($row = $result->fetch_assoc()) {
+            //     $data[] = $row;
+            // }
+
+            // $sql2 = "SELECT * FROM users WHERE status='active'";
+            // $result2 = $conn->query($sql2);
+            // $staff = [];
+            // while ($row2 = $result2->fetch_assoc()) {
+            //     $staff[] = $row2;
+            // }
+
+            // echo json_encode(["status" => "success","data" => $data, 'staff' => $staff]);
+            // }else{
+            //     echo json_encode(["status" => "error", "data" => "Something went wrong"]);
+            // }
+            $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, GROUP_CONCAT(DISTINCT ta.status ORDER BY ta.status SEPARATOR ', ') AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id=t.client_id WHERE t.id IN ( SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId' ) GROUP BY t.id ORDER BY t.id DESC;";
+            // echo json_encode(["status" => "success","query" => $sql1]);
+            $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
                 $data[] = $row;
             }
 
-            $sql2 = "SELECT * FROM users WHERE status='active'";
-            $result2 = $conn->query($sql2);
-            $staff = [];
-            while ($row2 = $result2->fetch_assoc()) {
-                $staff[] = $row2;
-            }
-
-            echo json_encode(["status" => "success","data" => $data, 'staff' => $staff]);
-            }else{
-                echo json_encode(["status" => "error", "data" => "Something went wrong"]);
-            }
-                        
+            echo json_encode(["status" => "success","data123" => $data]);            
             
         }else if($viewTask){
             if (!empty($userCode)) {

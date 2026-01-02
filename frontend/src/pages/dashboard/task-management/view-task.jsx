@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import Swal from "sweetalert2";
@@ -604,18 +604,43 @@ const ManageDepartment = () => {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
-  const user = JSON.parse(localStorage.getItem("user"));
+  
+  // Memoize user to prevent unnecessary re-renders
+  const user = useMemo(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
+  
+  // Get stable primitive values for dependencies
+  const userId = user?.id;
+  const userCode = user?.user_code;
+  
+  // Use ref to track if data has been fetched
+  const hasFetched = useRef(false);
+  
   const itemsPerPage = 10;
 
   useEffect(() => {
+    // Prevent multiple API calls
+    if (hasFetched.current) return;
+    
     const fetchTasks = async () => {
+      if (!userId || !userCode) {
+        setLoading(false);
+        return;
+      }
+      
       try {
+        setLoading(true);
+        hasFetched.current = true; // Mark as fetched
+        
+        console.log("Fetching tasks...");
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}api/task-management.php`,
           {
             params: { 
-              id: user?.id,
-              user_code: user?.user_code,
+              id: userId,
+              user_code: userCode,
               view_task: true
             }
           }
@@ -637,7 +662,7 @@ const ManageDepartment = () => {
           // Transform API data to match our component structure
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
-            client_name: task.client_name || "Unnamed Task",
+            clientName: task.client_name || "Unknown Client",
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
@@ -664,7 +689,7 @@ const ManageDepartment = () => {
     };
 
     fetchTasks();
-  }, [user]);
+  }, [userId, userCode]); // Only depend on primitive values
 
   // Handle sorting
   const handleSort = (key) => {
@@ -759,6 +784,9 @@ const ManageDepartment = () => {
 
   // Handle successful task creation
   const handleTaskCreated = () => {
+    // Reset the fetch flag to allow refresh
+    hasFetched.current = false;
+    
     // Refresh the tasks list
     const fetchTasks = async () => {
       try {
@@ -766,8 +794,8 @@ const ManageDepartment = () => {
           `${import.meta.env.VITE_API_URL}api/task-management.php`,
           {
             params: { 
-              id: user?.id,
-              user_code: user?.user_code,
+              id: userId,
+              user_code: userCode,
               view_task: true
             }
           }
@@ -785,7 +813,6 @@ const ManageDepartment = () => {
           
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
-            client_name: task.client_name || "Unnamed Task",
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
@@ -828,9 +855,9 @@ const ManageDepartment = () => {
       form.append("task_id", taskId);
       form.append("task_status", newStatus);
       form.append("update_status", "true");
-
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`,
+        `${import.meta.env.VITE_API_URL}api/task-management.php?id=${userId}`,
         {
           method: "POST",
           body: form,
@@ -1098,17 +1125,12 @@ const ManageDepartment = () => {
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              {/* <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-md ring-4 ring-blue-50 group-hover:ring-blue-100 transition-all">
-                                <span className="text-white font-bold text-sm">
-                                  {task.name ? task.name.charAt(0).toUpperCase() : "T"}
-                                </span>
-                              </div> */}
                               <div>
                                 <span className="font-semibold text-slate-900 block">
-                                  {task.client_name || "Unnamed Task"}
+                                  {task.name || "Unnamed Task"}
                                 </span>
-                                <span className="text-xs text-slate-500 mt-1 block">
-                                  {task.name || "No description"}
+                                <span className="font-normal text-slate-900 block">
+                                  ({task.clientName})
                                 </span>
                               </div>
                             </div>
