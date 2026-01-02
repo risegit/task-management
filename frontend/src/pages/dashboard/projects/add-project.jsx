@@ -231,7 +231,7 @@ const ProjectForm = () => {
           confirmButtonText: 'OK',
           confirmButtonColor: '#d33',
         });
-      }F
+      }
     } catch (error) {
       console.error("API Error:", error);
       Swal.fire({
