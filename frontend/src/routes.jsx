@@ -36,6 +36,7 @@ import Editdept from "@/pages/dashboard/department/edit-deptartment";
 import Addproject from "@/pages/dashboard/projects/add-project";
 import Manageprojects from "@/pages/dashboard/projects/manage-projects";
 import Editproject from "@/pages/dashboard/projects/edit-project";
+import EditTaskComment from "@/pages/dashboard/task-management/edittask";
 
 
 import { SignIn, SignUp } from "@/pages/auth";

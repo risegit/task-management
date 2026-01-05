@@ -614,11 +614,35 @@ const ManageDepartment = () => {
   // Get stable primitive values for dependencies
   const userId = user?.id;
   const userCode = user?.user_code;
+  const userName = user?.name;
   
   // Use ref to track if data has been fetched
   const hasFetched = useRef(false);
   
   const itemsPerPage = 10;
+
+  // NEW FUNCTION: Check if current user is assigned to the task
+  const isUserAssignedToTask = (task) => {
+    if (!task || !userId || !userName) return false;
+    
+    // Check if assignedTo is an array and contains current user
+    if (Array.isArray(task.assignedTo)) {
+      return task.assignedTo.some(assignedUser => {
+        // Check if assigned user name contains current user's name or ID
+        return assignedUser.includes(userName) || 
+               assignedUser.includes(userId?.toString()) ||
+               (task.assignedToIds && task.assignedToIds.includes(userId));
+      });
+    }
+    
+    // Check if assignedTo is a string and contains current user
+    if (typeof task.assignedTo === 'string') {
+      return task.assignedTo.includes(userName) || 
+             task.assignedTo.includes(userId?.toString());
+    }
+    
+    return false;
+  };
 
   useEffect(() => {
     // Prevent multiple API calls
@@ -666,12 +690,20 @@ const ManageDepartment = () => {
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
-            assignedTo: task.assigned_to_names ? [task.assigned_to_names] : [],
+            assignedTo: task.assigned_to_names ? 
+              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
+              [],
+            assignedToIds: task.assigned_to_ids ? 
+              (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
+              [],
             deadline: task.deadline,
             remark: task.remarks,
             taskStatus: task.task_status || "not-acknowledge",
             clientId: task.client_id,
-            createdBy: task.created_by
+            createdBy: task.created_by,
+            // Store raw API data for reference
+            rawAssignedTo: task.assigned_to || "",
+            rawAssignedToNames: task.assigned_to_names || ""
           }));
           
           setTasks(transformedTasks);
@@ -816,12 +848,19 @@ const ManageDepartment = () => {
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
-            assignedTo: task.assigned_to_names ? [task.assigned_to_names] : [],
+            assignedTo: task.assigned_to_names ? 
+              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
+              [],
+            assignedToIds: task.assigned_to_ids ? 
+              (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
+              [],
             deadline: task.deadline,
             remark: task.remarks,
             taskStatus: task.task_status || "not-acknowledge",
             clientId: task.client_id,
-            createdBy: task.created_by
+            createdBy: task.created_by,
+            rawAssignedTo: task.assigned_to || "",
+            rawAssignedToNames: task.assigned_to_names || ""
           }));
           
           setTasks(transformedTasks);
@@ -855,30 +894,35 @@ const ManageDepartment = () => {
       form.append("task_id", taskId);
       form.append("task_status", newStatus);
       form.append("update_status", "true");
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?id=${userId}`,
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/task-management1.php`,
+        form,
         {
-          method: "POST",
-          body: form,
+          params: {
+            id: userId
+          }
         }
       );
 
-      const result = await response.json();
-      
+      // ✅ Axios auto-parses JSON
+      const result = response.data;
+
       if (result.status === "success") {
         // Update local state
-        const updatedTasks = tasks.map(task => 
-          task.id === taskId 
-            ? { ...task, taskStatus: newStatus }
-            : task
+        setTasks(prevTasks =>
+          prevTasks.map(task =>
+            task.id === taskId
+              ? { ...task, taskStatus: newStatus }
+              : task
+          )
         );
-        setTasks(updatedTasks);
+
         setStatusDropdownOpen(null);
-        
+
         Swal.fire({
-          icon: 'success',
-          title: 'Status Updated!',
+          icon: "success",
+          title: "Status Updated!",
           text: `Task status updated to ${newStatus}`,
           timer: 1500,
           showConfirmButton: false,
@@ -888,13 +932,20 @@ const ManageDepartment = () => {
         throw new Error(result.message || "Failed to update status");
       }
     } catch (error) {
-      console.error("Error updating task status:", error);
+      console.error(
+        "Error updating task status:",
+        error.response?.data || error.message
+      );
+
       Swal.fire({
-        icon: 'error',
-        title: 'Update Failed',
-        text: error.message || 'Failed to update task status',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33',
+        icon: "error",
+        title: "Update Failed",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to update task status",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
     }
   };
@@ -1118,299 +1169,346 @@ const ManageDepartment = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentTasks.map((task) => (
-                        <tr 
-                          key={task.id} 
-                          className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
-                        >
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div>
-                                <span className="font-semibold text-slate-900 block">
-                                  {task.name || "Unnamed Task"}
-                                </span>
-                                <span className="font-normal text-slate-900 block">
-                                  ({task.clientName})
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                              </div>
-                              <span className="font-medium text-slate-800">
-                                {task.assignedBy || "N/A"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex flex-wrap gap-1 max-w-xs">
-                              {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
-                                task.assignedTo.slice(0, 2).map((person, index) => (
-                                  <span 
-                                    key={index}
-                                    className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                  >
-                                    {person}
+                      {currentTasks.map((task) => {
+                        const isAssigned = isUserAssignedToTask(task);
+                        return (
+                          <tr 
+                            key={task.id} 
+                            className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <span className="font-semibold text-slate-900 block">
+                                    {task.name || "Unnamed Task"}
                                   </span>
-                                ))
-                              ) : (
-                                <span className="text-slate-500 text-sm">No assignments</span>
-                              )}
-                              {Array.isArray(task.assignedTo) && task.assignedTo.length > 2 && (
-                                <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
-                                  +{task.assignedTo.length - 2} more
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <svg className={`w-4 h-4 ${getDeadlineStatus(task.deadline)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <span className={`${getDeadlineStatus(task.deadline)}`}>
-                                {formatDate(task.deadline)}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 relative">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(task.taskStatus)}`}>
-                                {formatTaskStatus(task.taskStatus)}
-                              </span>
-                              <button 
-                                onClick={() => toggleStatusDropdown(task.id)}
-                                className="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
-                                title="Change Status"
-                              >
-                                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                            </div>
-                            
-                            {/* Status Dropdown */}
-                            {statusDropdownOpen === task.id && (
-                              <div className="absolute z-10 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-                                <div className="py-1">
-                                  <button 
-                                    onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-slate-700 flex items-center gap-2"
-                                  >
-                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                    Not-Acknowledged
-                                  </button>
-                                  <button 
-                                    onClick={() => updateTaskStatus(task.id, "acknowledged")}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm font-medium text-slate-700 flex items-center gap-2"
-                                  >
-                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                    Acknowledged
-                                  </button>
-                                  <button 
-                                    onClick={() => updateTaskStatus(task.id, "in-progress")}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-sm font-medium text-slate-700 flex items-center gap-2"
-                                  >
-                                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                    In-progress
-                                  </button>
-                                  <button 
-                                    onClick={() => updateTaskStatus(task.id, "completed")}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm font-medium text-slate-700 flex items-center gap-2"
-                                  >
-                                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                    Completed
-                                  </button>
+                                  <span className="font-normal text-slate-900 block">
+                                    ({task.clientName})
+                                  </span>
                                 </div>
                               </div>
-                            )}
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="max-w-xs">
-                              <span className="text-sm text-slate-700 line-clamp-2">
-                                {task.remark || "No remarks"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button 
-                                onClick={() => handleView(task)} 
-                                className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
-                                title="View Details"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                </div>
+                                <span className="font-medium text-slate-800">
+                                  {task.assignedBy || "N/A"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
+                                  task.assignedTo.slice(0, 2).map((person, index) => (
+                                    <span 
+                                      key={index}
+                                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                                        isAssigned && person.includes(userName) 
+                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-100" 
+                                          : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100"
+                                      }`}
+                                    >
+                                      {person}
+                                      {/* {isAssigned && person.includes(userName) && (
+                                        <span className="ml-1 text-xs text-green-600">(You)</span>
+                                      )} */}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-slate-500 text-sm">No assignments</span>
+                                )}
+                                {Array.isArray(task.assignedTo) && task.assignedTo.length > 2 && (
+                                  <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
+                                    +{task.assignedTo.length - 2} more
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-2">
+                                <svg className={`w-4 h-4 ${getDeadlineStatus(task.deadline)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                              </button>
-                              <button 
-                                onClick={() => handleEdit(task.id)} 
-                                className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
-                                title="Edit Task"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                <span className={`${getDeadlineStatus(task.deadline)}`}>
+                                  {formatDate(task.deadline)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 relative">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(task.taskStatus)}`}>
+                                  {formatTaskStatus(task.taskStatus)}
+                                </span>
+                                {isAssigned ? (
+                                  <button 
+                                    onClick={() => toggleStatusDropdown(task.id)}
+                                    className="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
+                                    title="Change Status"
+                                  >
+                                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                ) : (
+                                  <div className="w-6 h-6 opacity-0 cursor-default">
+                                    {/* Empty div for alignment */}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Status Dropdown - Only show if user is assigned */}
+                              {isAssigned && statusDropdownOpen === task.id && (
+                                <div className="absolute z-10 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                                  <div className="py-1">
+                                    <button 
+                                      onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
+                                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-slate-700 flex items-center gap-2"
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                      Not-Acknowledged
+                                    </button>
+                                    <button 
+                                      onClick={() => updateTaskStatus(task.id, "acknowledged")}
+                                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm font-medium text-slate-700 flex items-center gap-2"
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                      Acknowledged
+                                    </button>
+                                    <button 
+                                      onClick={() => updateTaskStatus(task.id, "in-progress")}
+                                      className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-sm font-medium text-slate-700 flex items-center gap-2"
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                                      In-progress
+                                    </button>
+                                    <button 
+                                      onClick={() => updateTaskStatus(task.id, "completed")}
+                                      className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm font-medium text-slate-700 flex items-center gap-2"
+                                    >
+                                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                      Completed
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="max-w-xs">
+                                <span className="text-sm text-slate-700 line-clamp-2">
+                                  {task.remark || "No remarks"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button 
+                                  onClick={() => handleView(task)} 
+                                  className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
+                                  title="View Details"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                </button>
+                                <button 
+                                  onClick={() => handleEdit(task.id)} 
+                                  className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 hover:scale-105 transition-all flex items-center gap-2"
+                                  title="Edit Task"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Mobile Cards */}
                 <div className="block lg:hidden space-y-4">
-                  {currentTasks.map((task) => (
-                    <div key={task.id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg ring-4 ring-blue-50">
-                          <span className="text-white font-bold text-lg">
-                            {task.name ? task.name.charAt(0).toUpperCase() : "T"}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-slate-900 text-lg mb-1">
-                            {task.name || "Unnamed Task"}
-                          </h3>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`px-3 py-1 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(task.taskStatus)}`}>
-                              {formatTaskStatus(task.taskStatus)}
+                  {currentTasks.map((task) => {
+                    const isAssigned = isUserAssignedToTask(task);
+                    return (
+                      <div key={task.id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
+                        <div className="flex items-start gap-4 mb-4">
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg ring-4 ring-blue-50">
+                            <span className="text-white font-bold text-lg">
+                              {task.name ? task.name.charAt(0).toUpperCase() : "T"}
                             </span>
-                            <div className="flex items-center gap-1 text-xs text-slate-500">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <span className={`${getDeadlineStatus(task.deadline)}`}>
-                                {formatDate(task.deadline)}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-bold text-slate-900 text-lg mb-1">
+                              {task.name || "Unnamed Task"}
+                            </h3>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`px-3 py-1 rounded-lg text-xs font-semibold inline-block ${getTaskStatusBadge(task.taskStatus)}`}>
+                                {formatTaskStatus(task.taskStatus)}
+                              </span>
+                              <div className="flex items-center gap-1 text-xs text-slate-500">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span className={`${getDeadlineStatus(task.deadline)}`}>
+                                  {formatDate(task.deadline)}
+                                </span>
+                              </div>
+                            </div>
+                            {isAssigned && (
+                              <div className="mt-1">
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                                  Assigned to you
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3 mb-4">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <div>
+                              <span className="text-sm font-medium text-slate-700">Assigned By:</span>
+                              <span className="text-slate-800 font-medium ml-2">{task.assignedBy || "N/A"}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-slate-700">Assigned To:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
+                                  task.assignedTo.slice(0, 3).map((person, index) => (
+                                    <span 
+                                      key={index}
+                                      className={`px-2 py-1 rounded-lg text-xs font-medium border ${
+                                        isAssigned && person.includes(userName) 
+                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-100" 
+                                          : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100"
+                                      }`}
+                                    >
+                                      {person}
+                                      {isAssigned && person.includes(userName) && (
+                                        <span className="ml-1 text-xs text-green-600">(You)</span>
+                                      )}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-slate-500 text-sm">No assignments</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                            <div>
+                              <span className="text-sm font-medium text-slate-700">Description:</span>
+                              <span className="text-slate-700 text-sm ml-2 block mt-1">
+                                {task.description || "No description available"}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <span className="text-sm font-medium text-slate-700">Remark:</span>
+                              <span className="text-slate-700 text-sm ml-2 block mt-1">
+                                {task.remark || "No remarks"}
                               </span>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <div>
-                            <span className="text-sm font-medium text-slate-700">Assigned By:</span>
-                            <span className="text-slate-800 font-medium ml-2">{task.assignedBy || "N/A"}</span>
-                          </div>
-                        </div>
                         
-                        <div className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-slate-700">Assigned To:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
-                                task.assignedTo.slice(0, 3).map((person, index) => (
-                                  <span 
-                                    key={index}
-                                    className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                  >
-                                    {person}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-slate-500 text-sm">No assignments</span>
-                              )}
+                        {/* Mobile Status Dropdown - Only show if user is assigned */}
+                        {isAssigned ? (
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-slate-700">Update Status:</span>
+                              <span className="text-xs text-green-600 font-medium">You can update status</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button 
+                                onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "not-acknowledge" ? "ring-2 ring-red-500" : ""} bg-red-50 text-red-700 border border-red-200`}
+                              >
+                                Not-Acknowledged
+                              </button>
+                              <button 
+                                onClick={() => updateTaskStatus(task.id, "acknowledged")}
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "acknowledged" ? "ring-2 ring-blue-500" : ""} bg-blue-50 text-blue-700 border border-blue-200`}
+                              >
+                                Acknowledged
+                              </button>
+                              <button 
+                                onClick={() => updateTaskStatus(task.id, "in-progress")}
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "in-progress" ? "ring-2 ring-amber-500" : ""} bg-amber-50 text-amber-700 border border-amber-200`}
+                              >
+                                In-progress
+                              </button>
+                              <button 
+                                onClick={() => updateTaskStatus(task.id, "completed")}
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "completed" ? "ring-2 ring-green-500" : ""} bg-green-50 text-green-700 border border-green-200`}
+                              >
+                                Completed
+                              </button>
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                          </svg>
-                          <div>
-                            <span className="text-sm font-medium text-slate-700">Description:</span>
-                            <span className="text-slate-700 text-sm ml-2 block mt-1">
-                              {task.description || "No description available"}
-                            </span>
+                        ) : (
+                          <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-sm text-slate-600">
+                                Only assigned users can update status
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                        )}
                         
-                        <div className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <div>
-                            <span className="text-sm font-medium text-slate-700">Remark:</span>
-                            <span className="text-slate-700 text-sm ml-2 block mt-1">
-                              {task.remark || "No remarks"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Mobile Status Dropdown */}
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold text-slate-700">Update Status:</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 pt-4 border-t border-slate-200">
                           <button 
-                            onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "not-acknowledge" ? "ring-2 ring-red-500" : ""} bg-red-50 text-red-700 border border-red-200`}
+                            onClick={() => handleView(task)}
+                            className="flex-1 px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-slate-200 transition-all flex items-center justify-center gap-2"
                           >
-                            Not-Acknowledged
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
                           </button>
                           <button 
-                            onClick={() => updateTaskStatus(task.id, "acknowledged")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "acknowledged" ? "ring-2 ring-blue-500" : ""} bg-blue-50 text-blue-700 border border-blue-200`}
+                            onClick={() => handleEdit(task.id)}
+                            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
                           >
-                            Acknowledged
-                          </button>
-                          <button 
-                            onClick={() => updateTaskStatus(task.id, "in-progress")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "in-progress" ? "ring-2 ring-amber-500" : ""} bg-amber-50 text-amber-700 border border-amber-200`}
-                          >
-                            In-progress
-                          </button>
-                          <button 
-                            onClick={() => updateTaskStatus(task.id, "completed")}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "completed" ? "ring-2 ring-green-500" : ""} bg-green-50 text-green-700 border border-green-200`}
-                          >
-                            Completed
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
                           </button>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-2 pt-4 border-t border-slate-200">
-                        <button 
-                          onClick={() => handleView(task)}
-                          className="flex-1 px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-slate-200 transition-all flex items-center justify-center gap-2"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View
-                        </button>
-                        <button 
-                          onClick={() => handleEdit(task.id)}
-                          className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -1545,9 +1643,16 @@ const ManageDepartment = () => {
                           selectedTask.assignedTo.map((person, index) => (
                             <span 
                               key={index}
-                              className="px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-100"
+                              className={`px-3 py-1 rounded-lg text-sm font-medium border ${
+                                isUserAssignedToTask(selectedTask) && person.includes(userName) 
+                                  ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-100" 
+                                  : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100"
+                              }`}
                             >
                               {person}
+                              {isUserAssignedToTask(selectedTask) && person.includes(userName) && (
+                                <span className="ml-1 text-xs text-green-600">(You)</span>
+                              )}
                             </span>
                           ))
                         ) : (
@@ -1564,6 +1669,31 @@ const ManageDepartment = () => {
                     <p className="text-slate-700">{selectedTask.remark || "No remarks"}</p>
                   </div>
                 </div>
+
+                {/* Show permission message in view modal */}
+                {isUserAssignedToTask(selectedTask) ? (
+                  <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-green-700 font-medium">
+                        You are assigned to this task and can update its status.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-slate-600">
+                        You are not assigned to this task. Only assigned users can update the status.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
