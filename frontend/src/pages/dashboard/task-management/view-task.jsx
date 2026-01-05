@@ -894,9 +894,11 @@ const ManageDepartment = () => {
       form.append("task_id", taskId);
       form.append("task_status", newStatus);
       form.append("update_status", "true");
+      form.append("userId", userId);
+      form.append("_method", "PUT");
 
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}api/task-management1.php`,
+        `${import.meta.env.VITE_API_URL}api/task-management.php`,
         form,
         {
           params: {
@@ -907,7 +909,7 @@ const ManageDepartment = () => {
 
       // ✅ Axios auto-parses JSON
       const result = response.data;
-
+      console.log("Update Status Response:", result);
       if (result.status === "success") {
         // Update local state
         setTasks(prevTasks =>
@@ -984,9 +986,9 @@ const ManageDepartment = () => {
     
     switch(normalizedStatus) {
       case "not-acknowledge":
-      case "not-acknowledged":
+      case "not-acknowledge":
         return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
-      case "acknowledged":
+      case "acknowledge":
         return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
       case "in-progress":
         return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
@@ -999,15 +1001,15 @@ const ManageDepartment = () => {
 
   // Format task status for display
   const formatTaskStatus = (status) => {
-    if (!status) return "Not-Acknowledged";
+    if (!status) return "Not-Acknowledge";
     
     const normalizedStatus = status.toLowerCase();
     
     switch(normalizedStatus) {
       case "not-acknowledge":
-        return "Not-Acknowledged";
-      case "acknowledged":
-        return "Acknowledged";
+        return "Not-Acknowledge";
+      case "acknowledge":
+        return "Acknowledge";
       case "in-progress":
         return "In-progress";
       case "completed":
@@ -1269,14 +1271,14 @@ const ManageDepartment = () => {
                                       className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-slate-700 flex items-center gap-2"
                                     >
                                       <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                      Not-Acknowledged
+                                      Not-Acknowledge
                                     </button>
                                     <button 
-                                      onClick={() => updateTaskStatus(task.id, "acknowledged")}
+                                      onClick={() => updateTaskStatus(task.id, "acknowledge")}
                                       className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm font-medium text-slate-700 flex items-center gap-2"
                                     >
                                       <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                      Acknowledged
+                                      Acknowledge
                                     </button>
                                     <button 
                                       onClick={() => updateTaskStatus(task.id, "in-progress")}
@@ -1450,13 +1452,13 @@ const ManageDepartment = () => {
                                 onClick={() => updateTaskStatus(task.id, "not-acknowledge")}
                                 className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "not-acknowledge" ? "ring-2 ring-red-500" : ""} bg-red-50 text-red-700 border border-red-200`}
                               >
-                                Not-Acknowledged
+                                Not-Acknowledge
                               </button>
                               <button 
-                                onClick={() => updateTaskStatus(task.id, "acknowledged")}
-                                className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "acknowledged" ? "ring-2 ring-blue-500" : ""} bg-blue-50 text-blue-700 border border-blue-200`}
+                                onClick={() => updateTaskStatus(task.id, "acknowledge")}
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold ${task.taskStatus === "acknowledge" ? "ring-2 ring-blue-500" : ""} bg-blue-50 text-blue-700 border border-blue-200`}
                               >
-                                Acknowledged
+                                Acknowledge
                               </button>
                               <button 
                                 onClick={() => updateTaskStatus(task.id, "in-progress")}

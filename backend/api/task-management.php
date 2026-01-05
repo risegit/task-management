@@ -157,175 +157,226 @@ switch ($method) {
         break;
 
 case 'PUT':
+    if(empty($_POST['update_status'])){
+        $taskID   = (int)($_POST['taskId'] ?? 0);
+        $userID   = (int)($_GET['id'] ?? 0);
+        $taskName = trim($_POST['taskName'] ?? '');
+        $deadline = $_POST['deadline'] ?? '';
+        $remarks  = $_POST['remarks'] ?? '';
+        $priority = $_POST['priority'] ?? '';
+        $status   = $_POST['status'] ?? '';
+        $assignedBy = (int)($_POST['assignedBy'] ?? 0);
 
-    $taskID   = (int)($_POST['taskId'] ?? 0);
-    $userID   = (int)($_GET['id'] ?? 0);
-    $taskName = trim($_POST['taskName'] ?? '');
-    $deadline = $_POST['deadline'] ?? '';
-    $remarks  = $_POST['remarks'] ?? '';
-    $priority = $_POST['priority'] ?? '';
-    $status   = $_POST['status'] ?? '';
-    $assignedBy = (int)($_POST['assignedBy'] ?? 0);
-
-    if ($taskID <= 0) {
-        echo json_encode(["status" => "error", "message" => "Invalid task"]);
-        exit;
-    }
-
-    // assignedTo: "1,2,3"
-    $assignedTos = [];
-    if (!empty($_POST['assignedTo'])) {
-        $assignedTos = explode(',', $_POST['assignedTo']);
-    }
-
-    $conn->begin_transaction();
-
-    try {
-
-        /* -------------------------
-           UPDATE TASK
-        --------------------------*/
-        $stmt = $conn->prepare("UPDATE tasks SET task_name=?, deadline=?, remarks=?, priority=?, updated_date=?, updated_time=? WHERE id=?");
-
-        $stmt->bind_param(
-            "ssssssi",
-            $taskName,
-            $deadline,
-            $remarks,
-            $priority,
-            $date,
-            $time,
-            $taskID
-        );
-
-        $stmt->execute();
-
-        // Existing assignees
-        $existing = [];
-        $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskID'");
-        while ($row = $res->fetch_assoc()) {
-            $existing[] = $row['user_id'];
+        if ($taskID <= 0) {
+            echo json_encode(["status" => "error", "message" => "Invalid task"]);
+            exit;
         }
 
-        // Add new assignees (default = not-acknowledge)
-        foreach ($assignedTos as $userId) {
-            if (!in_array($userId, $existing)) {
-                $stmt = $conn->prepare("
-                    INSERT INTO task_assignees 
-                    (task_id, user_id, status, created_date, created_time)
-                    VALUES (?, ?, 'not-acknowledge', ?, ?)
-                ");
-                $stmt->bind_param("iiss", $taskID, $userId, $date, $time);
-                $stmt->execute();
+        // assignedTo: "1,2,3"
+        $assignedTos = [];
+        if (!empty($_POST['assignedTo'])) {
+            $assignedTos = explode(',', $_POST['assignedTo']);
+        }
+
+        $conn->begin_transaction();
+
+        try {
+
+            /* -------------------------
+            UPDATE TASK
+            --------------------------*/
+            $stmt = $conn->prepare("UPDATE tasks SET task_name=?, deadline=?, remarks=?, priority=?, updated_date=?, updated_time=? WHERE id=?");
+
+            $stmt->bind_param(
+                "ssssssi",
+                $taskName,
+                $deadline,
+                $remarks,
+                $priority,
+                $date,
+                $time,
+                $taskID
+            );
+
+            $stmt->execute();
+
+            // Existing assignees
+            $existing = [];
+            $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskID'");
+            while ($row = $res->fetch_assoc()) {
+                $existing[] = $row['user_id'];
             }
-        }
 
-        // Remove unassigned users
-        if (!empty($existing)) {
-            $ids = implode(',', array_map('intval', $assignedTos));
-            $conn->query("
-                DELETE FROM task_assignees 
-                WHERE task_id='$taskID' 
-                AND user_id NOT IN ($ids)
+            // Add new assignees (default = not-acknowledge)
+            foreach ($assignedTos as $userId) {
+                if (!in_array($userId, $existing)) {
+                    $stmt = $conn->prepare("
+                        INSERT INTO task_assignees 
+                        (task_id, user_id, status, created_date, created_time)
+                        VALUES (?, ?, 'not-acknowledge', ?, ?)
+                    ");
+                    $stmt->bind_param("iiss", $taskID, $userId, $date, $time);
+                    $stmt->execute();
+                }
+            }
+
+            // Remove unassigned users
+            if (!empty($existing)) {
+                $ids = implode(',', array_map('intval', $assignedTos));
+                $conn->query("
+                    DELETE FROM task_assignees 
+                    WHERE task_id='$taskID' 
+                    AND user_id NOT IN ($ids)
+                ");
+            }
+
+
+            /* ---------------------------
+            DERIVE TASK STATUS
+            ----------------------------*/
+            $stmt = $conn->prepare("
+                SELECT
+                    SUM(status='completed')       AS completed,
+                    SUM(status='in-progress')     AS in_progress,
+                    SUM(status='acknowledge')     AS acknowledge,
+                    SUM(status='not-acknowledge') AS not_ack,
+                    COUNT(*)                      AS total
+                FROM task_assignees
+                WHERE task_id=?
             ");
+            $stmt->bind_param("i", $taskID);
+            $stmt->execute();
+            $statusRow = $stmt->get_result()->fetch_assoc();
+
+            // Update only THIS user's status
+            $sql = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskID' AND user_id='$userID'";
+            $stmt = $conn->prepare("UPDATE task_assignees SET status=?, updated_date=?, updated_time=? WHERE task_id=? AND user_id=?");
+            $stmt->bind_param("sssii", $status, $date, $time, $taskID, $userID);
+            $stmt->execute();
+            // echo json_encode(["status" => "success","sql" => $sql]); 
+            if ($statusRow['completed'] == $statusRow['total'] && $statusRow['total'] > 0) {
+                $taskStatus = 'completed';
+            } elseif ($statusRow['in_progress'] > 0) {
+                $taskStatus = 'in-progress';
+            } elseif ($statusRow['acknowledge'] > 0) {
+                $taskStatus = 'acknowledged';
+            } else {
+                $taskStatus = 'pending';
+            }
+
+            $stmt = $conn->prepare("
+                UPDATE tasks SET status=? WHERE id=?
+            ");
+            $stmt->bind_param("si", $taskStatus, $taskID);
+            $stmt->execute();
+
+
+            /* ---------------------------
+            COMMIT
+            ----------------------------*/
+            $conn->commit();
+
+            echo json_encode([
+                "status" => "success",
+                "message" => "Task updated successfully",
+                "task_status" => $taskStatus
+            ]);
+
+            // /* -------------------------
+            //    REMOVE OLD ASSIGNEES
+            // --------------------------*/
+            // $stmtDel = $conn->prepare(
+            //     "DELETE FROM task_assignees WHERE task_id=?"
+            // );
+            // $stmtDel->bind_param("i", $taskID);
+            // $stmtDel->execute();
+
+            // /* -------------------------
+            //    INSERT NEW ASSIGNEES
+            // --------------------------*/
+            // if (!empty($assignedTos)) {
+            //     $stmtIns = $conn->prepare(
+            //         "INSERT INTO task_assignees (task_id, user_id, status, created_date, created_time)
+            //          VALUES (?, ?, ?, ?, ?)"
+            //     );
+
+            //     foreach ($assignedTos as $userId) {
+            //         $stmtIns->bind_param(
+            //             "iisss",
+            //             $taskID,
+            //             $userId,
+            //             $status,
+            //             $date,
+            //             $time
+            //         );
+            //         $stmtIns->execute();
+            //     }
+            // }
+
+            // $conn->commit();
+
+            // echo json_encode([
+            //     "status" => "success",
+            //     "message" => "Task updated successfully"
+            // ]);
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode([
+                "status" => "error",
+                "message" => $e->getMessage()
+            ]);
+        }
+    }else{
+        $taskId     = (int)($_POST['task_id'] ?? 0);
+        $userId     = (int)($_POST['userId'] ?? 0);
+        $newStatus  = $_POST['task_status'] ?? '';
+        $update_status = $_POST['update_status'] ?? '';
+
+        $allowedStatus = [
+            'not-acknowledge',
+            'acknowledge',
+            'in-progress',
+            'completed'
+        ];
+
+        if ($taskId <= 0 || $userId <= 0 || !in_array($newStatus, $allowedStatus)) {
+            echo json_encode(["status" => "error", "message" => "Invalid input"]);
+            exit;
         }
 
+        $conn->begin_transaction();
 
-        /* ---------------------------
-           DERIVE TASK STATUS
-        ----------------------------*/
-        $stmt = $conn->prepare("
-            SELECT
-                SUM(status='completed')       AS completed,
-                SUM(status='in-progress')     AS in_progress,
-                SUM(status='acknowledge')     AS acknowledge,
-                SUM(status='not-acknowledge') AS not_ack,
-                COUNT(*)                      AS total
-            FROM task_assignees
-            WHERE task_id=?
-        ");
-        $stmt->bind_param("i", $taskID);
-        $stmt->execute();
-        $statusRow = $stmt->get_result()->fetch_assoc();
+        try {
 
-        // Update only THIS user's status
-        $sql = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskID' AND user_id='$userID'";
-        $stmt = $conn->prepare("UPDATE task_assignees SET status=?, updated_date=?, updated_time=? WHERE task_id=? AND user_id=?");
-        $stmt->bind_param("sssii", $status, $date, $time, $taskID, $userID);
-        $stmt->execute();
-        // echo json_encode(["status" => "success","sql" => $sql]); 
-        if ($statusRow['completed'] == $statusRow['total'] && $statusRow['total'] > 0) {
-            $taskStatus = 'completed';
-        } elseif ($statusRow['in_progress'] > 0) {
-            $taskStatus = 'in-progress';
-        } elseif ($statusRow['acknowledge'] > 0) {
-            $taskStatus = 'acknowledged';
-        } else {
-            $taskStatus = 'pending';
+            $stmt = $conn->prepare("
+                UPDATE task_assignees
+                SET status=?, updated_date=?, updated_time=?
+                WHERE task_id=? AND user_id=?
+            ");
+
+            $stmt->bind_param("sssii", $newStatus, $date, $time, $taskId, $userId);
+            $stmt->execute();
+
+            if ($stmt->affected_rows === 0) {
+                throw new Exception("No rows updated");
+            }
+
+            $conn->commit();
+
+            echo json_encode([
+                "status" => "success",
+                "message" => "Task status updated successfully"
+            ]);
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode([
+                "status" => "error",
+                "message" => $e->getMessage()
+            ]);
         }
 
-        $stmt = $conn->prepare("
-            UPDATE tasks SET status=? WHERE id=?
-        ");
-        $stmt->bind_param("si", $taskStatus, $taskID);
-        $stmt->execute();
-
-
-        /* ---------------------------
-           COMMIT
-        ----------------------------*/
-        $conn->commit();
-
-        echo json_encode([
-            "status" => "success",
-            "message" => "Task updated successfully",
-            "task_status" => $taskStatus
-        ]);
-
-        // /* -------------------------
-        //    REMOVE OLD ASSIGNEES
-        // --------------------------*/
-        // $stmtDel = $conn->prepare(
-        //     "DELETE FROM task_assignees WHERE task_id=?"
-        // );
-        // $stmtDel->bind_param("i", $taskID);
-        // $stmtDel->execute();
-
-        // /* -------------------------
-        //    INSERT NEW ASSIGNEES
-        // --------------------------*/
-        // if (!empty($assignedTos)) {
-        //     $stmtIns = $conn->prepare(
-        //         "INSERT INTO task_assignees (task_id, user_id, status, created_date, created_time)
-        //          VALUES (?, ?, ?, ?, ?)"
-        //     );
-
-        //     foreach ($assignedTos as $userId) {
-        //         $stmtIns->bind_param(
-        //             "iisss",
-        //             $taskID,
-        //             $userId,
-        //             $status,
-        //             $date,
-        //             $time
-        //         );
-        //         $stmtIns->execute();
-        //     }
-        // }
-
-        // $conn->commit();
-
-        // echo json_encode([
-        //     "status" => "success",
-        //     "message" => "Task updated successfully"
-        // ]);
-
-    } catch (Exception $e) {
-        $conn->rollback();
-        echo json_encode([
-            "status" => "error",
-            "message" => $e->getMessage()
-        ]);
     }
 
     break;

@@ -39,10 +39,16 @@ switch ($method) {
     /* =======================
        GET TASK COMMENTS
        ======================= */
-    case 'GET':
+        case 'GET':
 
         if (!$taskId || !$userId) {
             echo json_encode(["status" => "error", "message" => "Task ID or User ID missing"]);
+            exit;
+        }
+
+        // First check database connection
+        if ($conn->connect_error) {
+            echo json_encode(["status" => "error", "message" => "Database connection failed: " . $conn->connect_error]);
             exit;
         }
 
@@ -56,20 +62,44 @@ switch ($method) {
                     tc.task_id,
                     tc.parent_id,
                     tc.comment,
-                    tc.created_at,
-                    tc.updated_at,
+                    tc.created_date,
+                    tc.created_time,
                     u.id AS user_id,
                     u.name,
                     u.profile_pic
                 FROM task_comments tc
                 INNER JOIN users u ON tc.user_id = u.id
                 WHERE tc.task_id = ?
-                ORDER BY tc.created_at ASC";
+                ORDER BY tc.created_date ASC";
 
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $taskId);
-        $stmt->execute();
+        
+        // Check if prepare was successful
+        if (!$stmt) {
+            echo json_encode([
+                "status" => "error", 
+                "message" => "Database query preparation failed",
+                "sql_error" => $conn->error
+            ]);
+            exit;
+        }
+        
+        if (!$stmt->bind_param("i", $taskId)) {
+            echo json_encode(["status" => "error", "message" => "Failed to bind parameters"]);
+            exit;
+        }
+        
+        if (!$stmt->execute()) {
+            echo json_encode(["status" => "error", "message" => "Failed to execute query"]);
+            exit;
+        }
+        
         $result = $stmt->get_result();
+        
+        if (!$result) {
+            echo json_encode(["status" => "error", "message" => "Failed to get result set"]);
+            exit;
+        }
 
         $comments = [];
         while ($row = $result->fetch_assoc()) {
@@ -83,37 +113,55 @@ switch ($method) {
        ADD COMMENT / REPLY
        ======================= */
     case 'POST':
+    $taskId = (int)($_POST['task_id'] ?? 0);
+    $userId = (int)($_POST['user_id'] ?? 0);
+    $comment = trim($_POST['comment'] ?? '');
+    $parentId = $_POST['parent_id'] ?? null;
+    
+    // Convert string "null" to actual NULL
+    if ($parentId === 'null' || $parentId === '' || $parentId === null) {
+        $parentId = null;
+    } else {
+        $parentId = (int)$parentId;
+    }
+    
+    if (!$taskId || !$userId || !$comment) {
+        echo json_encode(["status" => "error", "message" => "Invalid data"]);
+        exit;
+    }
 
-        // $data = json_decode(file_get_contents("php://input"), true);
+    if (!hasTaskAccess($conn, $taskId, $userId)) {
+        echo json_encode(["status" => "error", "message" => "Access denied"]);
+        exit;
+    }
 
-        $taskId = $_POST['task_id'] ?? null;
-        $comment = trim($_POST['comment'] ?? '');
-        $parentId = $_POST['parent_id'] ?? null;
-
-        if (!$taskId || !$userId || !$comment) {
-            echo json_encode(["status" => "error", "message" => "Invalid data"]);
-            exit;
-        }
-
-        if (!hasTaskAccess($conn, $taskId, $userId)) {
-            echo json_encode(["status" => "error", "message" => "Access denied"]);
-            exit;
-        }
-
-        $sql = "INSERT into task_comments (task_id, user_id, parent_id, comment, created_at, updated_at)
-                VALUES ($taskId, $userId, " . ($parentId ? $parentId : "NULL") . ", '$comment', NOW(), NOW())";
-        // $sql = "INSERT INTO task_comments (task_id, user_id, parent_id, comment)
-        //         VALUES (?, ?, ?, ?)";
-
-        // $stmt = $conn->prepare($sql);
-        // $stmt->bind_param("iiis", $taskId, $userId, $parentId, $comment);
-        // $stmt->execute();
-
+    // For prepared statement with NULL handling
+    if ($parentId === null) {
+        // When parent_id is NULL
+        $sql = "INSERT INTO task_comments (task_id, user_id, parent_id, comment, created_date, created_time) 
+                VALUES (?, ?, NULL, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iisss", $taskId, $userId, $comment, $date, $time);
+    } else {
+        // When parent_id has a value
+        $sql = "INSERT INTO task_comments (task_id, user_id, parent_id, comment, created_date, created_time) 
+                VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iiisss", $taskId, $userId, $parentId, $comment, $date, $time);
+    }
+    
+    if ($stmt->execute()) {
         echo json_encode([
             "status" => "success",
-            "comment_id" => $sql
+            "comment_id" => $stmt->insert_id
         ]);
-        break;
+    } else {
+        echo json_encode([
+            "status" => "error", 
+            "message" => "Database error: " . $stmt->error
+        ]);
+    }
+    break;
 
     /* =======================
        EDIT COMMENT
@@ -163,6 +211,6 @@ switch ($method) {
         break;
 
     default:
-        http_response_code(405);
-        echo json_encode(["message" => "Method Not Allowed"]);
+        echo json_encode(["status" => "error", "message" => "Invalid request method"]);
+        break;
 }

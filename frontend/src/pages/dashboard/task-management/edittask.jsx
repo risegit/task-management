@@ -42,7 +42,7 @@ export default function CreateTask() {
   const fetchComments = async () => {
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?task_id=${taskId}&id=${userId}`
+        `${import.meta.env.VITE_API_URL}api/task-comments.php?task_id=${taskId}&id=${userId}`
       );
       const data = await res.json();
 
@@ -63,12 +63,16 @@ const buildCommentTree = (comments) => {
   const roots = [];
 
   comments.forEach(c => {
+    const timestamp = c.created_date && c.created_time 
+      ? `${c.created_date} ${c.created_time}`
+      : c.created_at || new Date().toISOString();
+
     map[c.id] = { 
       ...c, 
       userId: c.user_id,
       userName: c.name,
       text: c.comment,
-      timestamp: c.created_at,
+      timestamp: timestamp,
       replies: [] 
     };
   });
@@ -109,22 +113,17 @@ const handleAddComment = async () => {
   if (!newComment.trim()) return;
 
   try {
-    const payload = {
-      task_id: taskId,
-      comment: newComment,
-      user_id: userId,
-      parent_id: replyingTo?.id || null,
-    };
+    // Use URLSearchParams for form-encoded data
+    const params = new FormData();
+    params.append('task_id', taskId);
+    params.append('comment', newComment);
+    params.append('user_id', userId);
+    params.append('parent_id', replyingTo ? replyingTo.id : null);
 
     // Add comment
     const res = await axios.post(
       `${import.meta.env.VITE_API_URL}api/task-comments.php?id=${userId}`,
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
+      params
     );
 
     if (res.data.status === "success") {
@@ -133,7 +132,7 @@ const handleAddComment = async () => {
 
       // Reload comments
       const refresh = await axios.get(
-        `${import.meta.env.VITE_API_URL}api/task-management.php`,
+        `${import.meta.env.VITE_API_URL}api/task-comments.php`,
         {
           params: {
             task_id: taskId,
@@ -177,7 +176,7 @@ const handleAddComment = async () => {
 
     try {
       await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?comment_id=${editingComment}&id=${userId}`,
+        `${import.meta.env.VITE_API_URL}api/task-comments.php?comment_id=${editingComment}&id=${userId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -190,7 +189,7 @@ const handleAddComment = async () => {
 
       // Reload
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?task_id=${taskId}&id=${userId}`
+        `${import.meta.env.VITE_API_URL}api/task-comments.php?task_id=${taskId}&id=${userId}`
       );
       const data = await res.json();
       setComments(buildCommentTree(data.data));
@@ -212,12 +211,12 @@ const handleAddComment = async () => {
 
       try {
         await fetch(
-          `${import.meta.env.VITE_API_URL}api/task-management.php?comment_id=${commentId}&id=${userId}`,
+          `${import.meta.env.VITE_API_URL}api/task-comments.php?comment_id=${commentId}&id=${userId}`,
           { method: "DELETE" }
         );
 
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}api/task-management.php?task_id=${taskId}&id=${userId}`
+          `${import.meta.env.VITE_API_URL}api/task-comments.php?task_id=${taskId}&id=${userId}`
         );
         const data = await res.json();
         setComments(buildCommentTree(data.data));
@@ -305,7 +304,7 @@ const handleAddComment = async () => {
       // form.append("comments", JSON.stringify(comments));
       form.append("priority", taskData.priority.value);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-comments.php?id=${user?.id}`, {
         method: "POST",
         body: form,
       });
@@ -631,7 +630,7 @@ const handleAddComment = async () => {
                           disabled={!newComment.trim()}
                           className={`px-4 py-2 text-sm font-medium rounded-lg ${newComment.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                         >
-                          {replyingTo ? 'Reply' : 'Comment'}
+                          {replyingTo ? 'Reply' : 'Comment1'}
                         </button>
                       </div>
                     </div>
