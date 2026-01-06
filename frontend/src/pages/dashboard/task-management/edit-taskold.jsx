@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import Select, { components } from "react-select";
 import Swal from "sweetalert2";
 import axios from "axios";
-import { getCurrentUser } from "../../../utils/api";
 
 export default function CreateTask() {
   const [allAssignedTo, setAssignedTo] = useState([]);
@@ -21,7 +20,7 @@ export default function CreateTask() {
   const [loggedInUserStatus, setLoggedInUserStatus] = useState(null);
   const [isTaskCreator, setIsTaskCreator] = useState(false);
 
-  const user = getCurrentUser();
+  const user = JSON.parse(localStorage.getItem("user"));
   const userId = user?.id;
   const userName = user?.name || "User";
   const { id } = useParams();

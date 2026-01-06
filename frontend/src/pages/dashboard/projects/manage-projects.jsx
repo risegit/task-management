@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { getCurrentUser } from "../../../utils/api";
 
 const ProjectsTable = () => {
 
@@ -13,8 +14,10 @@ const ProjectsTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { id } = useParams();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
-  const user = JSON.parse(localStorage.getItem("user"));
+  // const user = JSON.parse(localStorage.getItem("user"));
   
+  const user = getCurrentUser();
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;

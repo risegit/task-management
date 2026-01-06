@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import Swal from "sweetalert2";
 import axios from "axios";
+import { getCurrentUser } from "../../../utils/api";
 
 // CreateTask Modal Component
 const CreateTask = ({ onClose, onSubmitSuccess }) => {
@@ -11,7 +12,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentUser();
 
   // Priority options for dropdown
   const priorityOptions = [
@@ -605,11 +606,8 @@ const ManageDepartment = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
   
-  // Memoize user to prevent unnecessary re-renders
-  const user = useMemo(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  }, []);
+  // Get user from JWT
+  const user = getCurrentUser();
   
   // Get stable primitive values for dependencies
   const userId = user?.id;

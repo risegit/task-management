@@ -1,13 +1,15 @@
 // src/components/RoleProtectedRoute.jsx
 import { Navigate } from "react-router-dom";
+import { jwtDecode } from 'jwt-decode';
 
-export default function 
+export default function
 RoleProtectedRoute({ element, allowedRoles }) {
-  const rawUser = localStorage.getItem("user");
+  const token = localStorage.getItem("token");
   let role = null;
-  if (rawUser) {
+  if (token) {
     try {
-      role = JSON.parse(rawUser)?.role ?? null;
+      const decoded = jwtDecode(token);
+      role = decoded.user?.role ?? null;
     } catch (e) {}
   }
 

@@ -13,6 +13,7 @@ import {
 } from "@material-tailwind/react";
 import { useState, useEffect, useMemo } from "react";
 import { useMaterialTailwindController, setOpenSidenav } from "@/context";
+import { getCurrentUser } from "@/utils/api";
 
 export function Sidenav({ brandImg, brandName, routes }) {
   const [controller, dispatch] = useMaterialTailwindController();
@@ -21,21 +22,10 @@ export function Sidenav({ brandImg, brandName, routes }) {
   const [profileImage, setProfileImage] = useState(null);
   const location = useLocation();
 
-  // ---- Read role ----
-  const rawRole = localStorage.getItem("role");
-  const rawUser = localStorage.getItem("user");
-  let role = rawRole ?? null;
-  const rawUsername = JSON.parse(localStorage.getItem("user"));
-  const username = rawUsername?.name;
-
-  try {
-    if (!role && rawUser) {
-      const parsed = JSON.parse(rawUser);
-      role = parsed?.role ?? null;
-    }
-  } catch (e) {
-    console.warn("Sidenav: failed to parse user", e);
-  }
+  // ---- Read user from JWT ----
+  const user = getCurrentUser();
+  const role = user?.role ?? null;
+  const username = user?.name ?? "";
 
   const handleToggle = (name) => {
     setOpenDropdown(openDropdown === name ? null : name);

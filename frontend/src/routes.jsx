@@ -213,11 +213,23 @@ const routes = [
             name: "Edit Task",
             path: "/task-management/edit-task/:id",
             hidden: true,
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin", "manager","staff"],
             element: (
               <RoleProtectedRoute
                 element={<EditTask />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin", "manager","staff"]}
+              />
+            ),
+          },
+          {
+            name: "Edit Task Comment",
+            path: "/task-management/edittask/:id",
+            hidden: true,
+            allowedRoles: ["admin", "manager","staff"],
+            element: (
+              <RoleProtectedRoute
+                element={<EditTaskComment />}
+                allowedRoles={["admin", "manager","staff"]}
               />
             ),
           },

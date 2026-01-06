@@ -6,6 +6,7 @@ import { Sidenav, DashboardNavbar, Configurator, Footer } from "@/widgets/layout
 import routes from "@/routes";
 import { useMaterialTailwindController, setOpenConfigurator } from "@/context";
 import React, { useState, useEffect } from "react";
+import { getCurrentUser } from "@/utils/api";
 
 // Helper function to filter routes based on user role
 const filterRoutesByRole = (routes, userRole) => {
@@ -64,25 +65,24 @@ export function Dashboard() {
   const [filteredRoutes, setFilteredRoutes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get user role from localStorage
+  // Get user role from JWT
   useEffect(() => {
     const getUserData = () => {
       try {
-        const rawUser = localStorage.getItem("user");
-        if (rawUser) {
-          const user = JSON.parse(rawUser);
+        const user = getCurrentUser();
+        if (user) {
           const role = user?.role || null;
           setUserRole(role);
-          
+
           // Filter routes based on role
           const filtered = filterRoutesByRole(routes, role);
           setFilteredRoutes(filtered);
         } else {
-          // If no user in localStorage, show empty routes
+          // If no user, show empty routes
           setFilteredRoutes([]);
         }
       } catch (error) {
-        console.error("Error parsing user data:", error);
+        console.error("Error getting user data:", error);
         setFilteredRoutes([]);
       } finally {
         setIsLoading(false);
@@ -90,11 +90,11 @@ export function Dashboard() {
     };
 
     getUserData();
-    
+
     // Listen for storage changes (if user logs in/out in another tab)
     const handleStorageChange = () => getUserData();
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };

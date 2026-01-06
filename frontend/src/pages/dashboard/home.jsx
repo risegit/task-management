@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle, Clock, TrendingUp, Lightbulb, Cake, Award, Megaphone, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from "react-router-dom";
+import { apiFetch } from '../../utils/api';
+import { jwtDecode } from 'jwt-decode';
 
 const Home = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -13,8 +15,14 @@ const Home = () => {
   const [inProgressPage, setInProgressPage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
 
-  const rawUsername = JSON.parse(localStorage.getItem("user"));
-  const username = rawUsername?.name;
+  const token = localStorage.getItem("token");
+  let username = "";
+  if (token) {
+    try {
+      const decoded = jwtDecode(token);
+      username = decoded.user?.name || "";
+    } catch (e) {}
+  }
   
   const itemsPerPage = 3; // Number of tasks to show per page
 
@@ -28,9 +36,7 @@ const Home = () => {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}api/announcement.php`
-        );
+        const response = await apiFetch('api/announcement.php');
 
         if (!response.ok) {
           throw new Error("Failed to fetch announcements");
