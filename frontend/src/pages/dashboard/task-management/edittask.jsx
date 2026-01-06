@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import Select from "react-select";
 import Swal from "sweetalert2";
@@ -13,14 +13,18 @@ export default function CreateTask() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingComment, setEditingComment] = useState(null);
   const [editText, setEditText] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState([]);
+
+  const socketRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const userId = user?.id;
+  const userId = Number(user?.id);
   const userName = user?.name || "User";
 
   const { id } = useParams();
   const taskId = id;
-
 
   const priorityOptions = [
     { value: "low", label: "Low", color: "#10b981" },
@@ -36,54 +40,302 @@ export default function CreateTask() {
     priority: "",
   });
 
+  // WebSocket initialization
   useEffect(() => {
-  if (!taskId || !userId) return;
+    if (!taskId || !userId) return;
 
-  const fetchComments = async () => {
+    // WebSocket URL - adjust based on your environment
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = import.meta.env.VITE_WS_URL || window.location.host;
+    const wsUrl = `${wsProtocol}//${wsHost}/ws/comments`;
+
+    console.log('Connecting to WebSocket:', wsUrl);
+
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?task_id=${taskId}&id=${userId}`
-      );
-      const data = await res.json();
+      socketRef.current = new WebSocket(wsUrl);
 
-      if (data.status === "success") {
-        const structured = buildCommentTree(data.data);
-        setComments(structured);
+      socketRef.current.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        
+        // Join the task room
+        socketRef.current.send(JSON.stringify({
+          type: 'join',
+          taskId: taskId,
+          userId: userId,
+          userName: userName
+        }));
+      };
+
+      socketRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+          
+          handleWebSocketMessage(data);
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
+        }
+      };
+
+      socketRef.current.onclose = () => {
+        console.log('WebSocket disconnected');
+        setIsConnected(false);
+        
+        // Attempt to reconnect after 3 seconds
+        setTimeout(() => {
+          if (taskId && userId) {
+            console.log('Attempting to reconnect...');
+            // This will trigger reconnection through useEffect cleanup
+          }
+        }, 3000);
+      };
+
+      socketRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket:', error);
+    }
+
+    // Cleanup function
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close();
       }
-    } catch (err) {
-      console.error("Failed to load comments", err);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [taskId, userId, userName]);
+
+  // Handle WebSocket messages
+  const handleWebSocketMessage = (data) => {
+    switch(data.type) {
+      case 'new_comment':
+        handleNewComment(data.comment);
+        break;
+        
+      case 'new_reply':
+        handleNewReply(data.reply, data.parentId);
+        break;
+        
+      case 'comment_updated':
+        handleCommentUpdated(data.comment);
+        break;
+        
+      case 'comment_deleted':
+        handleCommentDeleted(data.commentId);
+        break;
+        
+      case 'user_typing':
+        handleUserTyping(data.userId, data.userName);
+        break;
+        
+      case 'user_stopped_typing':
+        handleUserStoppedTyping(data.userId);
+        break;
+        
+      case 'users_online':
+        // Handle online users update if needed
+        break;
+        
+      case 'error':
+        console.error('WebSocket error:', data.message);
+        break;
     }
   };
 
-  fetchComments();
-}, [taskId, userId]);
+  // Handle new comment from WebSocket
+  const handleNewComment = (comment) => {
+    setComments(prev => {
+      // Check if comment already exists
+      const exists = prev.some(c => c.id === comment.id);
+      if (exists) return prev;
+      
+      return [...prev, {
+        ...comment,
+        replies: []
+      }];
+    });
+  };
 
-const buildCommentTree = (comments) => {
-  const map = {};
-  const roots = [];
+  // Handle new reply from WebSocket
+  const handleNewReply = (reply, parentId) => {
+    setComments(prev => prev.map(comment => {
+      if (comment.id === parentId) {
+        // Check if reply already exists
+        const exists = comment.replies.some(r => r.id === reply.id);
+        if (exists) return comment;
+        
+        return {
+          ...comment,
+          replies: [...comment.replies, reply]
+        };
+      }
+      
+      // Check replies in nested comments
+      if (comment.replies) {
+        const updatedReplies = comment.replies.map(replyComment => {
+          if (replyComment.id === parentId) {
+            const exists = replyComment.replies?.some(r => r.id === reply.id);
+            if (exists) return replyComment;
+            
+            return {
+              ...replyComment,
+              replies: [...(replyComment.replies || []), reply]
+            };
+          }
+          return replyComment;
+        });
+        
+        return {
+          ...comment,
+          replies: updatedReplies
+        };
+      }
+      
+      return comment;
+    }));
+  };
 
-  comments.forEach(c => {
-    map[c.id] = { 
-      ...c, 
-      userId: c.user_id,
-      userName: c.name,
-      text: c.comment,
-      timestamp: c.created_at,
-      replies: [] 
-    };
-  });
+  // Handle comment update from WebSocket
+  const handleCommentUpdated = (updatedComment) => {
+    setComments(prev => {
+      const updateComments = (comments) => 
+        comments.map(comment => {
+          if (comment.id === updatedComment.id) {
+            return { ...comment, text: updatedComment.text };
+          }
+          if (comment.replies) {
+            return {
+              ...comment,
+              replies: updateComments(comment.replies)
+            };
+          }
+          return comment;
+        });
+      
+      return updateComments(prev);
+    });
+  };
 
-  comments.forEach(c => {
-    if (c.parent_id) {
-      map[c.parent_id]?.replies.push(map[c.id]);
-    } else {
-      roots.push(map[c.id]);
+  // Handle comment deletion from WebSocket
+  const handleCommentDeleted = (commentId) => {
+    setComments(prev => {
+      const filterComments = (comments) =>
+        comments.filter(comment => comment.id !== commentId)
+          .map(comment => {
+            if (comment.replies) {
+              return {
+                ...comment,
+                replies: filterComments(comment.replies)
+              };
+            }
+            return comment;
+          });
+      
+      return filterComments(prev);
+    });
+  };
+
+  // Handle typing indicators
+  const handleUserTyping = (typingUserId, typingUserName) => {
+    if (typingUserId === userId) return; // Don't show self typing
+    
+    setTypingUsers(prev => {
+      const exists = prev.some(u => u.id === typingUserId);
+      if (exists) return prev;
+      
+      return [...prev, { id: typingUserId, name: typingUserName }];
+    });
+  };
+
+  const handleUserStoppedTyping = (typingUserId) => {
+    setTypingUsers(prev => prev.filter(u => u.id !== typingUserId));
+  };
+
+  // Send typing indicator
+  const handleTyping = () => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    
+    // Send typing start
+    socketRef.current.send(JSON.stringify({
+      type: 'typing_start',
+      taskId: taskId,
+      userId: userId,
+      userName: userName
+    }));
+    
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
     }
-  });
+    
+    // Set timeout to send typing stop
+    typingTimeoutRef.current = setTimeout(() => {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({
+          type: 'typing_stop',
+          taskId: taskId,
+          userId: userId
+        }));
+      }
+    }, 2000); // Send stop after 2 seconds of inactivity
+  };
 
-  return roots;
-};
+  useEffect(() => {
+    if (!taskId || !userId) return;
 
+    const fetchComments = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}api/task-comments.php?task_id=${taskId}&id=${userId}`
+        );
+        const data = await res.json();
+
+        if (data.status === "success") {
+          const structured = buildCommentTree(data.data);
+          setComments(structured);
+        }
+      } catch (err) {
+        console.error("Failed to load comments", err);
+      }
+    };
+
+    fetchComments();
+  }, [taskId, userId]);
+
+  const buildCommentTree = (comments) => {
+    const map = {};
+    const roots = [];
+
+    comments.forEach(c => {
+      const timestamp = c.created_date && c.created_time 
+        ? `${c.created_date} ${c.created_time}`
+        : c.created_at || new Date().toISOString();
+
+      map[c.id] = { 
+        ...c, 
+        userId: Number(c.user_id),
+        userName: c.name,
+        text: c.comment,
+        timestamp: timestamp,
+        replies: [] 
+      };
+    });
+
+    comments.forEach(c => {
+      if (c.parent_id) {
+        map[c.parent_id]?.replies.push(map[c.id]);
+      } else {
+        roots.push(map[c.id]);
+      }
+    });
+
+    return roots;
+  };
 
   // Helper functions
   const getAvatarColor = (id) => {
@@ -104,55 +356,50 @@ const buildCommentTree = (comments) => {
     });
   };
 
-  // Comment functionn
-const handleAddComment = async () => {
-  if (!newComment.trim()) return;
+  // Comment functions with WebSocket broadcast
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
 
-  try {
-    const payload = {
-      task_id: taskId,
-      comment: newComment,
-      user_id: userId,
-      parent_id: replyingTo?.id || null,
-    };
+    try {
+      const params = new FormData();
+      params.append('task_id', taskId);
+      params.append('comment', newComment);
+      params.append('user_id', userId);
+      params.append('parent_id', replyingTo ? replyingTo.id : null);
 
-    // Add comment
-    const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}api/task-comments.php?id=${userId}`,
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (res.data.status === "success") {
-      setNewComment("");
-      setReplyingTo(null);
-
-      // Reload comments
-      const refresh = await axios.get(
-        `${import.meta.env.VITE_API_URL}api/task-management.php`,
-        {
-          params: {
-            task_id: taskId,
-            id: userId,
-          },
-        }
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/task-comments.php?id=${userId}`,
+        params
       );
 
-      setComments(buildCommentTree(refresh.data.data));
+      if (res.data.status === "success") {
+        // Broadcast via WebSocket
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+          const commentData = {
+            type: replyingTo ? 'new_reply' : 'new_comment',
+            taskId: taskId,
+            comment: {
+              id: res.data.comment_id,
+              userId: userId,
+              userName: userName,
+              text: newComment,
+              timestamp: new Date().toISOString(),
+              replies: []
+            },
+            parentId: replyingTo ? replyingTo.id : null
+          };
+          socketRef.current.send(JSON.stringify(commentData));
+        }
+
+        setNewComment("");
+        setReplyingTo(null);
+      }
+    } catch (err) {
+      console.error("Comment failed", err);
     }
-  } catch (err) {
-    console.error("Comment failed", err);
-  }
-};
-
-
+  };
 
   const handleEditComment = (commentId) => {
-    // Find comment in main list or replies
     let foundComment = null;
     
     comments.forEach(comment => {
@@ -177,7 +424,7 @@ const handleAddComment = async () => {
 
     try {
       await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?comment_id=${editingComment}&id=${userId}`,
+        `${import.meta.env.VITE_API_URL}api/task-comments.php?comment_id=${editingComment}&id=${userId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -185,21 +432,25 @@ const handleAddComment = async () => {
         }
       );
 
+      // Broadcast via WebSocket
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({
+          type: 'comment_updated',
+          taskId: taskId,
+          comment: {
+            id: editingComment,
+            text: editText
+          }
+        }));
+      }
+
       setEditingComment(null);
       setEditText("");
-
-      // Reload
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}api/task-management.php?task_id=${taskId}&id=${userId}`
-      );
-      const data = await res.json();
-      setComments(buildCommentTree(data.data));
 
     } catch (err) {
       console.error("Edit failed", err);
     }
   };
-
 
   const handleDeleteComment = (commentId) => {
     Swal.fire({
@@ -212,22 +463,24 @@ const handleAddComment = async () => {
 
       try {
         await fetch(
-          `${import.meta.env.VITE_API_URL}api/task-management.php?comment_id=${commentId}&id=${userId}`,
+          `${import.meta.env.VITE_API_URL}api/task-comments.php?comment_id=${commentId}&id=${userId}`,
           { method: "DELETE" }
         );
 
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}api/task-management.php?task_id=${taskId}&id=${userId}`
-        );
-        const data = await res.json();
-        setComments(buildCommentTree(data.data));
+        // Broadcast via WebSocket
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+          socketRef.current.send(JSON.stringify({
+            type: 'comment_deleted',
+            taskId: taskId,
+            commentId: commentId
+          }));
+        }
 
       } catch (err) {
         console.error("Delete failed", err);
       }
     });
   };
-
 
   // Form handlers
   const handleChange = (e) => {
@@ -302,10 +555,9 @@ const handleAddComment = async () => {
       form.append("assignedTo", JSON.stringify(taskData.assignedTo.map(u => u.value)));
       form.append("deadline", taskData.deadline);
       form.append("remarks", taskData.remarks);
-      // form.append("comments", JSON.stringify(comments));
       form.append("priority", taskData.priority.value);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-management.php?id=${user?.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}api/task-comments.php?id=${user?.id}`, {
         method: "POST",
         body: form,
       });
@@ -315,7 +567,6 @@ const handleAddComment = async () => {
       if (result.status === "success") {
         Swal.fire({ icon: 'success', title: 'Task Created!', timer: 2000, showConfirmButton: false });
         
-        // Reset form
         setTaskData({ name: "", assignedTo: [], deadline: "", remarks: "", priority: "" });
         setComments([]);
         setNewComment("");
@@ -378,6 +629,7 @@ const handleAddComment = async () => {
                 <textarea
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
+                  onKeyUp={handleTyping}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   rows="2"
                 />
@@ -405,23 +657,35 @@ const handleAddComment = async () => {
                   {comment.text}
                 </div>
                 
-                {!isReply && (
+                {/* Reply button for ALL comments */}
+                <div className="flex items-center gap-4 mt-2">
                   <button
                     onClick={() => setReplyingTo(replyingTo?.id === comment.id ? null : comment)}
-                    className="mt-1 text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
                   >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
                     {replyingTo?.id === comment.id ? "Cancel Reply" : "Reply"}
                   </button>
-                )}
+                  
+                  {/* Show number of replies if any */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <span className="text-xs text-slate-500">
+                      {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+                    </span>
+                  )}
+                </div>
               </>
             )}
 
             {/* Reply input */}
-            {replyingTo?.id === comment.id && !isReply && (
+            {replyingTo?.id === comment.id && (
               <div className="mt-3 flex gap-2">
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
+                  onKeyUp={handleTyping}
                   placeholder={`Reply to ${comment.userName}...`}
                   className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   rows="2"
@@ -429,7 +693,7 @@ const handleAddComment = async () => {
                 <button
                   onClick={handleAddComment}
                   disabled={!newComment.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 self-start"
                 >
                   Reply
                 </button>
@@ -458,15 +722,25 @@ const handleAddComment = async () => {
           
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  Edit Task
+                </h2>
+                <p className="text-blue-100 mt-2">Fill in the details to Edit a task</p>
               </div>
-              Edit Task
-            </h2>
-            <p className="text-blue-100 mt-2">Fill in the details to Edit a task</p>
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm text-blue-100">
+                  {isConnected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Form Content */}
@@ -588,8 +862,26 @@ const handleAddComment = async () => {
                   </span>
                 </div>
 
+                {/* Typing indicators */}
+                {typingUsers.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <div className="flex -space-x-2">
+                      {typingUsers.slice(0, 3).map(user => (
+                        <div key={user.id} className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs">
+                          {getUserInitials(user.name)}
+                        </div>
+                      ))}
+                    </div>
+                    <span>
+                      {typingUsers.length === 1 
+                        ? `${typingUsers[0].name} is typing...`
+                        : `${typingUsers.length} people are typing...`}
+                    </span>
+                  </div>
+                )}
+
                 {/* Comments List */}
-                <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+                <div className="space-y-4 max-h-130 overflow-y-auto pr-2">
                   {comments.length === 0 ? (
                     <p className="text-slate-500 text-center py-4">No comments yet. Start the conversation!</p>
                   ) : (
@@ -606,6 +898,7 @@ const handleAddComment = async () => {
                     <textarea
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
+                      onKeyUp={handleTyping}
                       placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Add a comment..."}
                       className="w-full px-4 py-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
                       rows="3"
