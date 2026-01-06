@@ -13,6 +13,9 @@ if ($conn->connect_error) {
     http_response_code(500);
     echo json_encode(["status" => "error", "message" => "Database connection failed"]);
     // test
-    exit; 
+    exit;
 }
+
+// JWT Secret Key
+$jwt_secret = "your-secret-key-here-change-this-in-production";
 ?>

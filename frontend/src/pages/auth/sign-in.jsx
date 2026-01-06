@@ -12,6 +12,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
+import { jwtDecode } from 'jwt-decode';
+import { apiFetchForm } from '../../utils/api';
 
 export function SignIn() {
   const [username, setUsername] = useState("");
@@ -55,7 +57,6 @@ export function SignIn() {
         toast.success(data.message);
       }
 
-      localStorage.setItem("user", JSON.stringify(data.data));
       localStorage.setItem("token", data.token);
       localStorage.setItem("loggedIn", "true");
 

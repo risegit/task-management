@@ -5,6 +5,8 @@ header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
 include('../inc/config.php');
+require_once('../lib/src/JWT.php');
+require_once('../lib/src/Key.php');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
@@ -89,9 +91,16 @@ switch ($method) {
 
                 unset($row['password']);
 
-                $token = bin2hex(random_bytes(16));
+                // Generate JWT
+                $payload = [
+                    'iss' => 'task-management-app',
+                    'iat' => time(),
+                    'exp' => time() + (24 * 60 * 60), // 24 hours
+                    'user' => $row
+                ];
+                $token = \Firebase\JWT\JWT::encode($payload, $jwt_secret, 'HS256');
 
-                // Save token in DB (optional)
+                // Save token in DB (optional, for logout)
                 $sql2 = "UPDATE users SET token='$token', login_status='active' WHERE id='{$row['id']}'";
                 $conn->query($sql2);
 

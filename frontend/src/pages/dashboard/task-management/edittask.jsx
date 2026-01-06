@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import Select from "react-select";
 import Swal from "sweetalert2";
 import axios from "axios";
+import { getCurrentUser } from "../../../utils/api";
 
 export default function CreateTask() {
   const [allAssignedTo, setAssignedTo] = useState([]);
@@ -18,8 +19,8 @@ export default function CreateTask() {
 
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-
-  const user = JSON.parse(localStorage.getItem("user"));
+ const user = getCurrentUser();
+  // const user = JSON.parse(localStorage.getItem("user"));
   const userId = Number(user?.id);
   const userName = user?.name || "User";
 
