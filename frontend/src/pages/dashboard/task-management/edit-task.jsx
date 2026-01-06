@@ -4,18 +4,14 @@ import Select, { components } from "react-select";
 import Swal from "sweetalert2";
 import axios from "axios";
 import { getCurrentUser } from "../../../utils/api";
+import TaskComments from "./TaskComments";
 
-export default function CreateTask() {
+export default function EditTask() {
   const [allAssignedTo, setAssignedTo] = useState([]);
   const [assignedUsersStatus, setAssignedUsersStatus] = useState({});
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState("");
   const [selectedProject, setSelectedProject] = useState(null);
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [editingComment, setEditingComment] = useState(null);
-  const [editText, setEditText] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
   const [loggedInUserStatus, setLoggedInUserStatus] = useState(null);
@@ -230,116 +226,8 @@ export default function CreateTask() {
             <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-1">POC</span>
           )}
         </div>
-        {/* {isRemovable && <components.MultiValueRemove {...props} />} */}
       </components.MultiValue>
     );
-  };
-
-  // Comment functions
-  const handleAddComment = () => {
-    if (!newComment.trim()) return;
-    
-    const comment = {
-      id: Date.now(),
-      userId,
-      userName,
-      text: newComment,
-      timestamp: new Date().toISOString(),
-      replies: [],
-    };
-
-    if (replyingTo) {
-      // Add as reply
-      setComments(comments.map(comment => {
-        if (comment.id === replyingTo.id) {
-          return {
-            ...comment,
-            replies: [...comment.replies, {
-              ...comment,
-              id: Date.now(),
-              text: newComment,
-              timestamp: new Date().toISOString(),
-            }]
-          };
-        }
-        return comment;
-      }));
-      setReplyingTo(null);
-    } else {
-      // Add as new comment
-      setComments([...comments, comment]);
-    }
-    
-    setNewComment("");
-  };
-
-  const handleEditComment = (commentId) => {
-    // Find comment in main list or replies
-    let foundComment = null;
-    
-    comments.forEach(comment => {
-      if (comment.id === commentId) {
-        foundComment = comment;
-      }
-      comment.replies.forEach(reply => {
-        if (reply.id === commentId) {
-          foundComment = reply;
-        }
-      });
-    });
-
-    if (foundComment && foundComment.userId === userId) {
-      setEditingComment(commentId);
-      setEditText(foundComment.text);
-    }
-  };
-
-  const handleSaveEdit = () => {
-    if (!editText.trim()) return;
-
-    setComments(comments.map(comment => {
-      if (comment.id === editingComment) {
-        return { ...comment, text: editText };
-      }
-      // Check replies
-      if (comment.replies.some(reply => reply.id === editingComment)) {
-        return {
-          ...comment,
-          replies: comment.replies.map(reply => 
-            reply.id === editingComment ? { ...reply, text: editText } : reply
-          )
-        };
-      }
-      return comment;
-    }));
-
-    setEditingComment(null);
-    setEditText("");
-  };
-
-  const handleDeleteComment = (commentId) => {
-    Swal.fire({
-      title: 'Delete Comment?',
-      text: "This action cannot be undone!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Remove from top-level comments
-        let updatedComments = comments.filter(comment => comment.id !== commentId);
-        
-        // Remove from replies
-        updatedComments = updatedComments.map(comment => ({
-          ...comment,
-          replies: comment.replies.filter(reply => reply.id !== commentId)
-        }));
-
-        setComments(updatedComments);
-      }
-    });
   };
 
   // Form handlers
@@ -390,7 +278,6 @@ export default function CreateTask() {
       newErrors.deadline = "Deadline is required";
     } else {
       const deadlineDate = new Date(taskData.deadline);
-      const today = new Date().setHours(0, 0, 0, 0);
       
       // If we have created_date from the API response, check against it
       if (taskData.created_date) {
@@ -597,7 +484,7 @@ export default function CreateTask() {
       formData.append("taskName", taskData.name.trim());
       formData.append("assignedBy", taskData.assignedBy);
       formData.append("priority", taskData.priority.value);
-      formData.append("status", taskData.status.value); // Add status
+      formData.append("status", taskData.status.value);
       formData.append("deadline", taskData.deadline);
       formData.append("remarks", taskData.remarks.trim());
       
@@ -608,11 +495,6 @@ export default function CreateTask() {
       // Add project/client ID if available
       if (selectedProject && selectedProject.value) {
         formData.append("client_id", selectedProject.value);
-      }
-      
-      // Add comments if any
-      if (comments.length > 0) {
-        formData.append("comments", JSON.stringify(comments));
       }
       
       // For editing mode
@@ -630,7 +512,7 @@ export default function CreateTask() {
         assigned_by: taskData.assignedBy,
         assigned_to: assignedUserIds,
         priority: taskData.priority?.value,
-        status: taskData.status?.value, // Log status
+        status: taskData.status?.value,
         deadline: taskData.deadline,
         remarks: taskData.remarks,
         task_id: id || "new",
@@ -1259,26 +1141,6 @@ export default function CreateTask() {
                         {errors.status}
                       </p>
                     )}
-                    {/* <div className="text-xs text-slate-500 mt-1">
-                      {isTaskCreator ? (
-                        <span>
-                          {taskData.taskStatus ? (
-                            <span>Task status loaded from API: <span className="font-medium">{taskData.taskStatus}</span></span>
-                          ) : (
-                            <span>Update task status</span>
-                          )}
-                        </span>
-                      ) : loggedInUserStatus ? (
-                        <span>
-                          You can update your task status. 
-                          {taskData.assignedTo.length > 1 && (
-                            <span className="ml-1">Other assignees may have different statuses.</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span>You are not assigned to this task. Status cannot be updated.</span>
-                      )}
-                    </div> */}
                   </div>
                   
                   {/* Deadline */}
@@ -1399,19 +1261,19 @@ export default function CreateTask() {
                         <h4 className="font-semibold text-blue-800">Limited Editing Permission</h4>
                         <p className="text-sm text-blue-700 mt-1">
                           You are not the creator of this task. You can only update your task status.
-                          Only the task creator 
-                          {/* (<span className="font-medium">User ID: {taskData.assignedBy}</span>)  */}
-                          &nbsp;can modify other task details.
+                          Only the task creator can modify other task details.
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
+
+                
               </div>
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-slate-200">
+            <div className="flex justify-end gap-4 mt-8 mb-8 pt-6 border-t border-slate-200">
               <button 
                 type="button"
                 className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-all"
@@ -1449,6 +1311,8 @@ export default function CreateTask() {
                 )}
               </button>
             </div>
+            {/* Comments Component */}
+            <TaskComments />
           </div>
         </div>
       </div>
