@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import Swal from "sweetalert2";
 import { getCurrentUser } from "../../../utils/api";
 
 export default function AddEmployee() {
@@ -148,7 +149,7 @@ export default function AddEmployee() {
       //   }
       // );
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}api/task-management.php`,
+        `${import.meta.env.VITE_API_URL}api/emp.php`,
         formDataObj
       );
 
