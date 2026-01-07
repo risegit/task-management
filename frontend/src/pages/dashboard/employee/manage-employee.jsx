@@ -8,7 +8,7 @@ export default function ViewEmployeesStyled() {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [itemsPerPage] = useState(5);
+  const [itemsPerPage] = useState(10);
   
   const navigate = useNavigate();
 
@@ -285,6 +285,15 @@ export default function ViewEmployeesStyled() {
                             <SortArrow columnKey="department" />
                           </div>
                         </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleSort('status')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Status
+                            <SortArrow columnKey="status" />
+                          </div>
+                        </th>
                         <th className="py-4 px-4 text-right font-semibold text-slate-700 rounded-tr-xl">Actions</th>
                       </tr>
                     </thead>
@@ -329,6 +338,15 @@ export default function ViewEmployeesStyled() {
                           <td className="py-4 px-4">
                             <span className="px-3 py-1.5 rounded-lg text-xs font-semibold inline-block bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 border border-purple-200">
                               {emp.dept_name || emp.department || 'No Department'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${
+                              (emp.status === "active" || emp.status === 1) 
+                                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200" 
+                                : "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200"
+                            }`}>
+                              {(emp.status === "active" || emp.status === 1) ? "Active" : "Inactive"}
                             </span>
                           </td>
                           <td className="py-4 px-4 text-right">

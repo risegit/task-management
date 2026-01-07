@@ -26,7 +26,7 @@ switch ($method) {
             $stmt->execute();
             $result = $stmt->get_result();
         } else {
-            $stmt = $conn->prepare("SELECT * FROM announcement ORDER BY id DESC LIMIT 1");
+            $stmt = $conn->prepare("SELECT * FROM announcement where status='active' ORDER BY id DESC LIMIT 1");
             $stmt->execute();
             $result = $stmt->get_result();
         }
@@ -56,6 +56,7 @@ switch ($method) {
         $status = $input['status'] ?? '';
         
         $stmt = $conn->prepare("INSERT INTO `announcement`(`name`, `description`, `status`, `updated_by`, `created_date`, `created_time`) VALUES (?, ?, ?, ?, ?, ?)");
+        
         $stmt->bind_param("sssiss", $name, $description, $status, $userId, $date, $time);
         
         if ($stmt->execute()) {

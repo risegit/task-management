@@ -164,6 +164,7 @@ switch ($method) {
     case 'PUT':
         $id = trim($data['id'] ?? null);
         $projectId = (int)($data['project_id'] ?? 0);
+        $status = $_POST['status'] == 'inactive' ? 'inactive' : 'active';
 
         if ($projectId <= 0) {
             echo json_encode(["status" => "error", "message" => "Invalid project ID"]);
@@ -186,10 +187,11 @@ switch ($method) {
         $conn->begin_transaction();
 
         try {
+            $sql =  "UPDATE clients SET name=?, description=?, start_date=?, status=?, updated_by=?, updated_date=?, updated_time=? WHERE id=?";
             $stmt = $conn->prepare(
-                "UPDATE clients SET name=?, description=?, start_date=?, updated_by=?, updated_date=?, updated_time=? WHERE id=?"
+                "UPDATE clients SET name=?, description=?, start_date=?, status=?, updated_by=?, updated_date=?, updated_time=? WHERE id=?"
             );
-            $stmt->bind_param("sssissi", $projectName, $projectDescription, $startDate, $id, $date, $time, $projectId);
+            $stmt->bind_param("ssssissi", $projectName, $projectDescription, $startDate, $status, $id, $date, $time, $projectId);
             $stmt->execute();
 
             $stmtDelPOC = $conn->prepare("DELETE FROM client_users WHERE client_id=? AND is_poc=1");

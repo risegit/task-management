@@ -1297,7 +1297,7 @@ const ManageDepartment = () => {
                               )}
                             </td>
                             <td className="py-4 px-4">
-                              <div className="max-w-xs">
+                              <div className="max-w-xs max-w-[200px]">
                                 <span className="text-sm text-slate-700 line-clamp-2">
                                   {task.remark || "No remarks"}
                                 </span>
