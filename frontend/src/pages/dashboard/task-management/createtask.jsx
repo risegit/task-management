@@ -95,215 +95,222 @@ export default function CreateTask() {
 
   // 🔹 Fetch data from backend API
   useEffect(() => {
-  const fetchUsers = async () => {
-    try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}api/task-management.php`,
-        {
-          params: {
-            id: user?.id,
-            user_code: user?.user_code,
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: {
+              id: user?.id,
+              user_code: user?.user_code,
+            }
           }
+        );
+
+        // Axios already parses JSON
+        const data = response.data;
+
+        console.log("API response:", data);
+
+        // Projects dropdown - no change needed here
+        const projects = data.data
+          .filter(user => user.emp_id !== userId || user.id !== userId)
+          .map(user => ({
+            value: user.emp_id || user.id,
+            label: user.name
+          }));
+
+        setProjects(projects);
+
+      } catch (error) {
+        console.error(
+          "Error fetching team members:",
+          error.response?.data || error.message
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // Fetch users when project changes - UPDATED TO FILTER OUT CURRENT USER
+  useEffect(() => {
+    if (!selectedProject) {
+      setAssignedTo([]);
+      return;
+    }
+
+    const fetchProjectUsers = async () => {
+      if (!selectedProject) {
+        setAssignedTo([]);
+        return;
+      }
+
+      try {
+        setLoadingAssignedUsers(true);
+
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: { project_id: selectedProject.value }
+          }
+        );
+
+        const users = response.data?.data || [];
+        
+        // Filter out the current logged-in user from assigned users
+        const assignedUsers = users
+          .filter(user => {
+            // Filter out the current user based on emp_id or id
+            const isCurrentUser = (user.emp_id && user.emp_id === userId) || 
+                                 (user.id && user.id === userId);
+            return !isCurrentUser;
+          })
+          .map(user => ({
+            value: user.emp_id || user.id,
+            label: user.name + (user.is_poc == 1 ? " (POC)" : "")
+          }));
+
+        setAssignedTo(assignedUsers);
+        
+        // Filter out any previously selected users not in new list
+        const currentAssignedUserIds = taskData.assignedTo.map(u => u.value);
+        const availableUserIds = assignedUsers.map(u => u.value);
+        
+        const filteredAssignedTo = taskData.assignedTo.filter(user => 
+          availableUserIds.includes(user.value)
+        );
+        
+        if (filteredAssignedTo.length !== taskData.assignedTo.length) {
+          setTaskData(prev => ({ ...prev, assignedTo: filteredAssignedTo }));
+        }
+
+        // Show info if no users available (only current user in project)
+        if (assignedUsers.length === 0) {
+          console.log("No other team members available in this project");
+        }
+
+      } catch (error) {
+        console.error("Error fetching project team members:", error);
+        setAssignedTo([]);
+        setTaskData(prev => ({ ...prev, assignedTo: [] }));
+        
+        // Show error in dropdown
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed to load team members',
+          text: 'Could not fetch team members for this project',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      } finally {
+        setLoadingAssignedUsers(false);
+      }
+    };
+
+    fetchProjectUsers();
+  }, [selectedProject, userId]);
+
+  const handleSubmit = async () => {
+    if (!validate()) {
+      const firstError = Object.values(errors)[0];
+      if (firstError) {
+        Swal.fire({
+          icon: "error",
+          title: "Validation Error",
+          text: firstError,
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33 !important"
+        });
+      }
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const form = new FormData();
+      form.append("project_id", selectedProject.value);
+      form.append("task_name", taskData.name);
+      form.append("assignedBy", userId);
+      form.append(
+        "assignedTo",
+        JSON.stringify(taskData.assignedTo.map(u => u.value))
+      );
+      form.append("deadline", taskData.deadline);
+      form.append("remarks", taskData.remarks);
+      form.append("priority", taskData.priority.value);
+
+      console.log("Submitting form data...");
+      for (let pair of form.entries()) {
+        console.log(`${pair[0]}:`, pair[1]);
+      }
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/task-management.php`,
+        form,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          params: {
+              id: user?.id,
+              user_code: user?.user_code,
+            }
         }
       );
 
-      // Axios already parses JSON
-      const data = response.data;
+      const result = response.data;
+      console.log("API result:", result);
 
-      console.log("API response:", data);
+      if (result.status === "success") {
+        Swal.fire({
+          icon: "success",
+          title: "Task Created Successfully!",
+          text: result.message || "Task has been created successfully.",
+          timer: 2000,
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
 
-      // Assigned To = ALL users EXCEPT logged-in user
-      // In your first useEffect (fetchUsers):
-      const projects = data.data
-        .filter(user => user.emp_id !== userId || user.id !== userId) // Check both emp_id and id
-        .map(user => ({
-          value: user.emp_id || user.id, // Use emp_id if available, otherwise id
-          label: user.name
-      }));
-
-      setProjects(projects);
-
+        // Reset form
+        setTaskData({
+          name: "",
+          assignedTo: [],
+          deadline: "",
+          remarks: "",
+          priority: "",
+        });
+        setErrors({});
+        setSelectedProject(null); // Also reset project selection
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Failed to Create Task",
+          text: result.message || "Failed to create task",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33 !important"
+        });
+      }
     } catch (error) {
       console.error(
-        "Error fetching team members:",
+        "Submit Error:",
         error.response?.data || error.message
       );
+
+      Swal.fire({
+        icon: "error",
+        title: "Something Went Wrong",
+        text: "An error occurred while creating the task.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33 !important"
+      });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
-
-  fetchUsers();
-}, []);
-
-
-  // Fetch users when project changes
-  // Replace your current fetchProjectUsers effect with this:
-useEffect(() => {
-  if (!selectedProject) {
-    setAssignedTo([]);
-    return;
-  }
-
-  // Add a loading state for assigned users
-
-
-// Update your fetchProjectUsers function:
-const fetchProjectUsers = async () => {
-  if (!selectedProject) {
-    setAssignedTo([]);
-    return;
-  }
-
-  try {
-    setLoadingAssignedUsers(true); // Set loading for assigned users
-
-    const response = await axios.get(
-      `${import.meta.env.VITE_API_URL}api/task-management.php`,
-      {
-        params: { project_id: selectedProject.value }
-      }
-    );
-
-    const users = response.data?.data || [];
-    const assignedUsers = users.map(user => ({
-      value: user.emp_id,
-      label: user.name + (user.is_poc == 1 ? " (POC)" : "")
-    }));
-
-    setAssignedTo(assignedUsers);
-    
-    // Filter out any previously selected users not in new list
-    const currentAssignedUserIds = taskData.assignedTo.map(u => u.value);
-    const availableUserIds = assignedUsers.map(u => u.value);
-    
-    const filteredAssignedTo = taskData.assignedTo.filter(user => 
-      availableUserIds.includes(user.value)
-    );
-    
-    if (filteredAssignedTo.length !== taskData.assignedTo.length) {
-      setTaskData(prev => ({ ...prev, assignedTo: filteredAssignedTo }));
-    }
-  } catch (error) {
-    console.error("Error fetching project team members:", error);
-    setAssignedTo([]);
-    setTaskData(prev => ({ ...prev, assignedTo: [] }));
-    
-    // Show error in dropdown
-    Swal.fire({
-      icon: 'error',
-      title: 'Failed to load team members',
-      text: 'Could not fetch team members for this project',
-      timer: 3000,
-      showConfirmButton: false
-    });
-  } finally {
-    setLoadingAssignedUsers(false);
-  }
-};
-
-  fetchProjectUsers();
-}, [selectedProject]);
-
-
-  const handleSubmit = async () => {
-  if (!validate()) {
-    const firstError = Object.values(errors)[0];
-    if (firstError) {
-      Swal.fire({
-        icon: "error",
-        title: "Validation Error",
-        text: firstError,
-        confirmButtonText: "OK",
-        confirmButtonColor: "#d33 !important"
-      });
-    }
-    return;
-  }
-
-  setIsSubmitting(true);
-
-  try {
-    const form = new FormData();
-    form.append("project_id", selectedProject.value);
-    form.append("task_name", taskData.name);
-    form.append("assignedBy", userId);
-    form.append(
-      "assignedTo",
-      JSON.stringify(taskData.assignedTo.map(u => u.value))
-    );
-    form.append("deadline", taskData.deadline);
-    form.append("remarks", taskData.remarks);
-    form.append("priority", taskData.priority.value);
-
-    console.log("Submitting form data...");
-    for (let pair of form.entries()) {
-      console.log(`${pair[0]}:`, pair[1]);
-    }
-
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}api/task-management.php`,
-      form,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-        params: {
-            id: user?.id,
-            user_code: user?.user_code,
-          }
-      }
-    );
-
-    const result = response.data;
-    console.log("API result:", result);
-
-    if (result.status === "success") {
-      Swal.fire({
-        icon: "success",
-        title: "Task Created Successfully!",
-        text: result.message || "Task has been created successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-        timerProgressBar: true,
-      });
-
-      // Reset form
-      setTaskData({
-        name: "",
-        assignedTo: [],
-        deadline: "",
-        remarks: "",
-        priority: "",
-      });
-      setErrors({});
-    } else {
-      Swal.fire({
-        icon: "error",
-        title: "Failed to Create Task",
-        text: result.message || "Failed to create task",
-        confirmButtonText: "OK",
-        confirmButtonColor: "#d33 !important"
-      });
-    }
-  } catch (error) {
-    console.error(
-      "Submit Error:",
-      error.response?.data || error.message
-    );
-
-    Swal.fire({
-      icon: "error",
-      title: "Something Went Wrong",
-      text: "An error occurred while creating the task.",
-      confirmButtonText: "OK",
-      confirmButtonColor: "#d33 !important"
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
 
   // Custom styles for priority dropdown
   const priorityCustomStyles = {
@@ -527,7 +534,7 @@ const fetchProjectUsers = async () => {
                       loadingAssignedUsers 
                         ? "Fetching team members..." 
                         : allAssignedTo.length === 0 
-                          ? "No team members available" 
+                          ? "No other team members available" 
                           : "Select multiple team members..."
                     }
                     isDisabled={loading || loadingAssignedUsers || allAssignedTo.length === 0}
@@ -544,7 +551,7 @@ const fetchProjectUsers = async () => {
                     noOptionsMessage={() => 
                       loadingAssignedUsers 
                         ? "Loading team members..." 
-                        : "No team members available"
+                        : "No other team members available"
                     }
                     isClearable={true}
                   />
@@ -558,7 +565,11 @@ const fetchProjectUsers = async () => {
                   )}
                   <div className="text-xs text-slate-500 mt-1 flex justify-between">
                     <span>
-                      {loadingAssignedUsers ? "Fetching team members..." : `${taskData.assignedTo.length} team member(s) selected`}
+                      {loadingAssignedUsers 
+                        ? "Fetching team members..." 
+                        : taskData.assignedTo.length === 0 
+                          ? "Select team members (current user excluded)" 
+                          : `${taskData.assignedTo.length} team member(s) selected`}
                     </span>
                     {allAssignedTo.length > 0 && (
                       <span>{allAssignedTo.length} team member(s) available</span>
@@ -598,80 +609,79 @@ const fetchProjectUsers = async () => {
                 </div>
               </div>
 
-              {/* Second Row: Assigned To and Deadline */}
+              {/* Second Row: Priority and Deadline */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Priority
-                      <span className="text-red-500">*</span>
-                    </label>
-                    <Select
-                      options={priorityOptions}
-                      value={taskData.priority}
-                      onChange={(selected) => handleSelectChange("priority", selected)}
-                      classNamePrefix="react-select"
-                      styles={priorityCustomStyles}
-                      formatOptionLabel={formatOptionLabel}
-                      placeholder="Select priority..."
-                      isSearchable={false}
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Priority
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    options={priorityOptions}
+                    value={taskData.priority}
+                    onChange={(selected) => handleSelectChange("priority", selected)}
+                    classNamePrefix="react-select"
+                    styles={priorityCustomStyles}
+                    formatOptionLabel={formatOptionLabel}
+                    placeholder="Select priority..."
+                    isSearchable={false}
+                  />
+                  {errors.priority && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.priority}
+                    </p>
+                  )}
+                </div>
+                {/* Deadline */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Deadline
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="deadline"
+                      value={taskData.deadline}
+                      onChange={handleChange}
+                      min={new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                        errors.deadline 
+                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                      } focus:ring-4 outline-none transition-all`}
                     />
-                    {errors.priority && (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.priority}
-                      </p>
-                    )}
-                  </div>
-                  {/* Deadline */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Deadline
-                      <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        name="deadline"
-                        value={taskData.deadline}
-                        onChange={handleChange}
-                        min={new Date().toISOString().split('T')[0]}
-                        className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
-                          errors.deadline 
-                            ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                            : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                        } focus:ring-4 outline-none transition-all`}
-                      />
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <svg
-                          className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </div>
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg
+                        className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
                     </div>
-                    {errors.deadline ? (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.deadline}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-500">Cannot select past dates</p>
-                    )}
                   </div>
-                
+                  {errors.deadline ? (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.deadline}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500">Cannot select past dates</p>
+                  )}
+                </div>
               </div>
 
               {/* Remarks */}
@@ -718,9 +728,10 @@ const fetchProjectUsers = async () => {
                     assignedTo: [],
                     deadline: "",
                     remarks: "",
-                    priority: "", // Reset priority
+                    priority: "",
                   });
                   setErrors({});
+                  setSelectedProject(null); // Also reset project selection
                 }}
               >
                 Cancel

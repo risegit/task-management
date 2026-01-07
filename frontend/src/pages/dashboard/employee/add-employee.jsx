@@ -30,8 +30,10 @@ export default function AddEmployee() {
   };
 
   const handleCheckboxChange = (e) => {
-    const { checked } = e.target;
-    setFormData({ ...formData, status: checked ? 'active' : 'inactive' });
+    setFormData({
+      ...formData,
+      status: e.target.checked,
+    });
   };
 
   // Copy password to clipboard
@@ -460,7 +462,7 @@ export default function AddEmployee() {
                     <input
                       type="checkbox"
                       name="status"
-                      checked={formData.status === 'active'}
+                      checked={formData.status}
                       onChange={handleCheckboxChange}
                       className="sr-only peer"
                     />

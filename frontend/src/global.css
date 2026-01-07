@@ -57,3 +57,9 @@ aside{
 .swal2-actions .swal2-confirm{
     background-color: #d33 !important;
 }
+.border-progress-500{
+    border-color:rgb(251 140 0);
+}
+.text-progress-600{
+    color:rgb(251 140 0);
+}

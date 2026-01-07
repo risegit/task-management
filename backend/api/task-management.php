@@ -88,13 +88,13 @@ switch ($method) {
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
                     $countCond = 'count(u.name) count_tasks';
-                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge') and ta.user_id = '$userId' AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY Order By count_tasks DESC";
+                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge', 'in-progress', 'completed') and ta.user_id = '$userId' AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY Order By count_tasks DESC";
                 } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
                     $countCond = 'count(t.id) count_tasks';
-                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge') AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY GROUP BY u.name Order By count_tasks DESC";
+                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge', 'in-progress', 'completed') AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY GROUP BY u.id, status ORDER BY count_tasks DESC";
                 }
             }
-            $sql1 = "SELECT u.name,t.client_id,t.task_name,ta.status,t.priority, $countCond FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users u ON ta.user_id=u.id $whereClause";
+            $sql1 = "SELECT u.name,u.id user_id,t.client_id,t.task_name,t.priority, CASE WHEN ta.status IN ('not-acknowledge', 'acknowledge') THEN 'acknowledge' ELSE ta.status END AS status, $countCond FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users u ON ta.user_id=u.id $whereClause";
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result = $conn->query($sql1);
             $data = [];

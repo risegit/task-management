@@ -12,6 +12,8 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [todoTasks, setTodoTasks] = useState([]);
+  const [inProgressTasks, setInProgressTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState([]);
 
   // Pagination states for each task category
   const [todoPage, setTodoPage] = useState(1);
@@ -64,7 +66,6 @@ const Home = () => {
   useEffect(() => {
     const fetchTask = async () => {
       try {
-        // const response = await apiFetch('api/announcement.php');
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}api/task-management.php`,
           {
@@ -81,10 +82,20 @@ const Home = () => {
         
         // Check if data is empty or has null values
         const validTasks = data.data.filter(task => 
-          task && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+          task && ["acknowledge"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        );
+
+        const validTasks1 = data.data.filter(task => 
+          task && ["in-progress"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        );
+
+        const validTasks2 = data.data.filter(task => 
+          task && ["completed"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
         );
         
         setTodoTasks(validTasks);
+        setInProgressTasks(validTasks1);
+        setCompletedTasks(validTasks2);
       } catch (err) {
         console.error("Error fetching task:", err);
         setError("Unable to load task");
@@ -107,24 +118,24 @@ const Home = () => {
   //   { id: 13, title: "Budget planning", priority: "high" }
   // ];
 
-  const inProgressTasks = [
-    { id: 4, title: "Develop new feature module", progress: 65 },
-    { id: 5, title: "Bug fixes for deployment", progress: 40 },
-    { id: 6, title: "Database optimization", progress: 80 },
-    { id: 14, title: "UI/UX redesign", progress: 30 },
-    { id: 15, title: "API integration", progress: 70 },
-    { id: 16, title: "Testing phase", progress: 50 }
-  ];
+  // const inProgressTasks = [
+  //   { id: 4, title: "Develop new feature module", progress: 65 },
+  //   { id: 5, title: "Bug fixes for deployment", progress: 40 },
+  //   { id: 6, title: "Database optimization", progress: 80 },
+  //   { id: 14, title: "UI/UX redesign", progress: 30 },
+  //   { id: 15, title: "API integration", progress: 70 },
+  //   { id: 16, title: "Testing phase", progress: 50 }
+  // ];
 
-  const completedTasks = [
-    { id: 7, title: "Q4 Performance review", date: "Dec 26" },
-    { id: 8, title: "Security audit completed", date: "Dec 25" },
-    { id: 9, title: "Team training session", date: "Dec 24" },
-    { id: 17, title: "Client presentation", date: "Dec 23" },
-    { id: 18, title: "System update", date: "Dec 22" },
-    { id: 19, title: "Documentation complete", date: "Dec 21" },
-    { id: 20, title: "Onboarding new hires", date: "Dec 20" }
-  ];
+  // const completedTasks = [
+  //   { id: 7, title: "Q4 Performance review", date: "Dec 26" },
+  //   { id: 8, title: "Security audit completed", date: "Dec 25" },
+  //   { id: 9, title: "Team training session", date: "Dec 24" },
+  //   { id: 17, title: "Client presentation", date: "Dec 23" },
+  //   { id: 18, title: "System update", date: "Dec 22" },
+  //   { id: 19, title: "Documentation complete", date: "Dec 21" },
+  //   { id: 20, title: "Onboarding new hires", date: "Dec 20" }
+  // ];
 
   // Function to get paginated tasks for each category
   const getPaginatedTasks = (tasks, currentPage) => {
@@ -142,6 +153,16 @@ const Home = () => {
   const getTotalTodoTaskCount = () => {
     return todoTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
   };
+
+  // Calculate total task count for In Progress section
+const getTotalInProgressTaskCount = () => {
+  return inProgressTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
+};
+
+// Calculate total task count for Completed section
+const getTotalCompletedTaskCount = () => {
+  return completedTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
+};
 
   // Format time and date functions
   const formatTime = (date) => {
@@ -345,20 +366,25 @@ const Home = () => {
               </div>
               <h2 className="text-lg font-semibold text-black-800 ml-3">In Progress</h2>
               <span className="ml-auto bg-orange-600 text-white text-xs px-2 py-1 rounded-full">
-                {inProgressTasks.length}
+                {getTotalInProgressTaskCount()}
               </span>
             </div>
             <div className="space-y-3 flex-grow">
               {getPaginatedTasks(inProgressTasks, inProgressPage).map(task => (
-                <div key={task.id} className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-700 font-medium mb-2">{task.title}</p>
-                  <div className="flex items-center">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3">
-                      <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${task.progress}%` }}></div>
+                <Link to="/dashboard/task-management/view-task" key={task.id}>
+                    <div
+                      className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-progress-500 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start">
+                        <ClipboardDocumentCheckIcon className="w-5 h-5 text-progress-600 mt-0.5 mr-3 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-black-800 text-sm mb-1">
+                            {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Progress Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                          </h4>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs text-gray-600 font-medium">{task.progress}%</span>
-                  </div>
-                </div>
+                  </Link>
               ))}
             </div>
             <PaginationControls
@@ -377,16 +403,23 @@ const Home = () => {
               </div>
               <h2 className="text-lg font-semibold text-black-800 ml-3">Completed</h2>
               <span className="ml-auto bg-green-600 text-white text-xs px-2 py-1 rounded-full">
-                {completedTasks.length}
+                {getTotalCompletedTaskCount()}
               </span>
             </div>
             <div className="space-y-3 flex-grow">
               {getPaginatedTasks(completedTasks, completedPage).map(task => (
                 <div key={task.id} className="flex items-start p-3 bg-gray-50 rounded-lg">
                   <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 mr-3" />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-700 font-medium line-through">{task.title}</p>
+                  {/* <div className="flex-1">
+                    <p className="text-sm text-gray-700 font-medium line-through">
+                      {task.task_name}
+                    </p>
                     <span className="text-xs text-gray-500">{task.date}</span>
+                  </div> */}
+                  <div>
+                    <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
+                      {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                    </h4>
                   </div>
                 </div>
               ))}

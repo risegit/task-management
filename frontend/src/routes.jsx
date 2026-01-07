@@ -283,7 +283,7 @@ const routes = [
         icon: <ArrowRightOnRectangleIcon {...icon} />,
         name: "Sign Out",
         allowedRoles: ["admin", "staff", "manager"],
-        path: "auth/sign-in",
+        path: "/sign-out",
         element: <LogoutButton />,
       },
     ],

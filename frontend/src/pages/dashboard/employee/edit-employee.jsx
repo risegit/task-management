@@ -13,7 +13,7 @@ export default function EditEmployee() {
     email: "",
     phone: "",
     password: "",
-    active: true,
+    status: true,
   });
 
   const [departments, setDepartments] = useState([]);
@@ -55,7 +55,7 @@ export default function EditEmployee() {
               email: employee.email || "",
               phone: employee.phone || "",
               password: "",
-              active:
+              status:
                 employee.status === "active" ||
                 employee.active === true ||
                 employee.status === "1",
@@ -123,8 +123,10 @@ export default function EditEmployee() {
   };
 
   const handleCheckboxChange = (e) => {
-    const { checked } = e.target;
-    setFormData({ ...formData, active: checked });
+    setFormData({
+      ...formData,
+      status: e.target.checked,
+    });
   };
 
   const handleSubmit = async () => {
@@ -474,22 +476,20 @@ export default function EditEmployee() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      name="active"
-                      checked={formData.active}
+                      name="status"
+                      checked={formData.status}
                       onChange={handleCheckboxChange}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 bg-gradient-to-r from-blue-300 to-indigo-300 transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
                     <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
                   </div>
-                  <div>
-                    <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 block">
-                      Active Status
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      {formData.active ? 'Employee is currently active' : 'Employee is currently inactive'}
-                    </span>
-                  </div>
+                  <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">
+                    Active Status
+                  </span>
+                  <span className="text-xs text-slate-500 ml-2">
+                    {formData.status ? "Employee is active" : "Employee is inactive"}
+                  </span>
                 </label>
               </div>
             </div>

@@ -78,7 +78,7 @@ export default function AddItemTable() {
         Swal.fire({
           icon: 'success',
           title: 'Department added successfully!',
-          text: response.data.message || 'Department added successfully!',
+          text: result.message || 'Department added successfully!',
           timer: 2000,
           showConfirmButton: false,
           timerProgressBar: true,

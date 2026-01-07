@@ -382,10 +382,14 @@ export default function EditTask() {
             };
           }) || [];
 
-          // Get all available users for dropdown
+          // Get all available users for dropdown - FILTER OUT CURRENT USER
           const allUsers = data.userBelongsToProject || [];
           const formattedUsers = allUsers
-            .filter(user => user.emp_id !== userId)
+            .filter(user => {
+              // Filter out the current logged-in user
+              const isCurrentUser = user.emp_id === userId;
+              return !isCurrentUser;
+            })
             .map(user => ({
               value: user.emp_id,
               label: user.name + (user.is_poc === "1" ? " (POC)" : ""),
@@ -969,7 +973,7 @@ export default function EditTask() {
                         loadingAssignedUsers 
                           ? "Loading team members..." 
                           : allAssignedTo.length === 0 
-                            ? "No team members available" 
+                            ? "No other team members available" 
                             : isTaskCreator 
                               ? "Select multiple team members..."
                               : "Assigned users (read-only)"
@@ -988,7 +992,7 @@ export default function EditTask() {
                       noOptionsMessage={() => 
                         loadingAssignedUsers 
                           ? "Loading team members..." 
-                          : "No team members available"
+                          : "No other team members available"
                       }
                       isClearable={isTaskCreator}
                       components={isTaskCreator ? customComponents : {
@@ -1007,7 +1011,7 @@ export default function EditTask() {
                     )}
                     <div className="text-xs text-slate-500 mt-1 flex justify-between">
                       {allAssignedTo.length > 0 && (
-                        <span>{allAssignedTo.length} team member(s) available</span>
+                        <span>{allAssignedTo.length} team member(s) available (current user excluded)</span>
                       )}
                       {!isTaskCreator && (
                         <span className="text-amber-600">Field is read-only</span>

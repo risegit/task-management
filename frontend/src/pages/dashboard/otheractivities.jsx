@@ -7,7 +7,7 @@ export default function OthersActivities() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    active: true, // Default to active (checked)
+    status: "active", // Default to active (checked)
   });
 
   const [errors, setErrors] = useState({});
@@ -44,8 +44,10 @@ export default function OthersActivities() {
   };
 
   const handleCheckboxChange = (e) => {
-    const { checked } = e.target;
-    setFormData({ ...formData, active: checked });
+    setFormData({
+      ...formData,
+      status: e.target.checked,
+    });
   };
 
   const handleSubmit = async () => {
@@ -56,27 +58,17 @@ export default function OthersActivities() {
 
     form.append("name", formData.name);
     form.append("description", formData.description);
-    form.append("status", formData.active ? "active" : "inactive");
+    form.append("status", formData.status ? "active" : "inactive");
 
     // 🔍 Debug: log form data before sending
     console.log("Submitting form data:");
     for (let pair of form.entries()) {
       console.log(pair[0] + ":", pair[1]);
     }
-
-    // const response = await fetch(
-    //   `${import.meta.env.VITE_API_URL}api/announcement.php?id=${user?.id}`,
-    //   {
-    //     method: "POST",
-    //     body: form,
-    //   }
-    // );
     const response = await axios.post(
         `${import.meta.env.VITE_API_URL}api/announcement.php?id=${user?.id}`,
         form
       );
-
-    // const result = await response.json();
     const result = response.data;
     console.log("API Response:", result);
 
@@ -193,21 +185,23 @@ export default function OthersActivities() {
               </label>
               
               {/* Single checkbox approach */}
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <div className="pt-2">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
                     <input
                       type="checkbox"
-                      name="active"
-                      checked={formData.active}
+                      name="status"
+                      checked={formData.status}
                       onChange={handleCheckboxChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="sr-only peer"
                     />
-                    <span className="text-sm font-medium text-gray-700">Active</span>
-                  
-                  </label>
-                </div>          
-          
+                    <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 bg-gradient-to-r from-blue-300 to-indigo-300 transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">
+                    Active Status
+                  </span>
+                </label>
               </div>
             </div>
           </div>
