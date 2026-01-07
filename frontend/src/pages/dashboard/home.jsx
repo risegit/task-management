@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle, Clock, TrendingUp, Lightbulb, Cake, Award, Megaphone, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/solid";
 import { Link } from "react-router-dom";
-import { apiFetch } from '../../utils/api';
+import axios from 'axios';
+import { getCurrentUser } from "../../utils/api";
 import { jwtDecode } from 'jwt-decode';
 
 const Home = () => {
@@ -9,20 +11,22 @@ const Home = () => {
   const [currentAnnouncements, setCurrentAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [todoTasks, setTodoTasks] = useState([]);
 
   // Pagination states for each task category
   const [todoPage, setTodoPage] = useState(1);
   const [inProgressPage, setInProgressPage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
+  const user = getCurrentUser();
 
-  const token = localStorage.getItem("token");
-  let username = "";
-  if (token) {
-    try {
-      const decoded = jwtDecode(token);
-      username = decoded.user?.name || "";
-    } catch (e) {}
-  }
+  // const token = localStorage.getItem("token");
+  // let username = "";
+  // if (token) {
+  //   try {
+  //     const decoded = jwtDecode(token);
+  //     username = decoded.user?.name || "";
+  //   } catch (e) {}
+  // }
   
   const itemsPerPage = 3; // Number of tasks to show per page
 
@@ -36,13 +40,14 @@ const Home = () => {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const response = await apiFetch('api/announcement.php');
+        // const response = await apiFetch('api/announcement.php');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}api/announcement.php`)
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch announcements");
-        }
+        // if (!response.ok) {
+        //   throw new Error("Failed to fetch announcements");
+        // }
 
-        const data = await response.json();
+        const data = response.data;
         console.log("data=", data.data);
         setCurrentAnnouncements(data.data);
       } catch (err) {
@@ -56,16 +61,51 @@ const Home = () => {
     fetchAnnouncements();
   }, []);
 
+  useEffect(() => {
+    const fetchTask = async () => {
+      try {
+        // const response = await apiFetch('api/announcement.php');
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: { 
+              id: user?.id,
+              user_code: user?.user_code,
+              dashboard_task: true
+            }
+          }
+        );
+
+        const data = response.data;
+        console.log("task data=", data.data);
+        
+        // Check if data is empty or has null values
+        const validTasks = data.data.filter(task => 
+          task && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        );
+        
+        setTodoTasks(validTasks);
+      } catch (err) {
+        console.error("Error fetching task:", err);
+        setError("Unable to load task");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTask();
+  }, []);
+
   // Mock tasks data - you would fetch this from your API
-  const todoTasks = [
-    { id: 1, title: "Review project proposal", priority: "high" },
-    { id: 2, title: "Update team documentation", priority: "medium" },
-    { id: 3, title: "Schedule client meeting", priority: "low" },
-    { id: 10, title: "Prepare quarterly report", priority: "high" },
-    { id: 11, title: "Team meeting agenda", priority: "medium" },
-    { id: 12, title: "Code review", priority: "low" },
-    { id: 13, title: "Budget planning", priority: "high" }
-  ];
+  // const todoTasks = [
+  //   { id: 1, title: "Review project proposal", priority: "high" },
+  //   { id: 2, title: "Update team documentation", priority: "medium" },
+  //   { id: 3, title: "Schedule client meeting", priority: "low" },
+  //   { id: 10, title: "Prepare quarterly report", priority: "high" },
+  //   { id: 11, title: "Team meeting agenda", priority: "medium" },
+  //   { id: 12, title: "Code review", priority: "low" },
+  //   { id: 13, title: "Budget planning", priority: "high" }
+  // ];
 
   const inProgressTasks = [
     { id: 4, title: "Develop new feature module", progress: 65 },
@@ -96,6 +136,11 @@ const Home = () => {
   // Function to calculate total pages for each category
   const getTotalPages = (tasks) => {
     return Math.ceil(tasks.length / itemsPerPage);
+  };
+
+  // Calculate total task count for To Do section
+  const getTotalTodoTaskCount = () => {
+    return todoTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
   };
 
   // Format time and date functions
@@ -234,9 +279,6 @@ const Home = () => {
           {/* Center dot */}
           <circle cx="100" cy="100" r="8" fill="#1e40af" />
         </svg>
-        <div className="text-center mt-2">
-          <p className="text-xs text-gray-600 font-medium">{formatTime(time)}</p>
-        </div>
       </div>
     );
   };
@@ -246,7 +288,7 @@ const Home = () => {
       <div className="mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome back   {username ? username: " "}!</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back   {user.name ? user.name: " "}!</h1>
         </div>
 
         {/* First Row - Task Management */}
@@ -259,23 +301,33 @@ const Home = () => {
               </div>
               <h2 className="text-lg font-semibold text-black-800 ml-3">To Do</h2>
               <span className="ml-auto bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                {todoTasks.length}
+                {getTotalTodoTaskCount()}
               </span>
             </div>
             <div className="space-y-3 flex-grow">
-              {getPaginatedTasks(todoTasks, todoPage).map(task => (
-                <Link to="/dashboard/task-management/view-task" key={task.id}>
-                  <div className="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-700 font-medium">{task.title}</p>
-                      <span className={`text-xs ${task.priority === 'high' ? 'text-red-900' : task.priority === 'medium' ? 'text-purple-900' : 'text-green-500'}`}>
-                        {task.priority.toUpperCase()}
-                      </span>
+              {todoTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <ClipboardDocumentCheckIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No tasks pending</p>
+                </div>
+              ) : (
+                getPaginatedTasks(todoTasks, todoPage).map((task, index) => (
+                  <Link to="/dashboard/task-management/view-task" key={task.id || index}>
+                    <div
+                      className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start">
+                        <ClipboardDocumentCheckIcon className="w-5 h-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-black-800 text-sm mb-1">
+                            {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Pending Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                          </h4>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                ))
+              )}
             </div>
             <PaginationControls
               currentPage={todoPage}

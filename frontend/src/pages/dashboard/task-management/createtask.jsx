@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Select from "react-select";
 import Swal from "sweetalert2";
 import axios from "axios";
+import { getCurrentUser } from "../../../utils/api";
 
 export default function CreateTask() {
   const [allAssignedTo, setAssignedTo] = useState([]);
@@ -12,7 +13,7 @@ export default function CreateTask() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentUser();
   const userId = user?.id;
 
   // Priority options for dropdown

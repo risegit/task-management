@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import axios from "axios";
 import Swal from "sweetalert2";
+import { getCurrentUser } from "../../../utils/api";
 
 const ProjectForm = () => {
   // Form state
@@ -22,7 +23,7 @@ const ProjectForm = () => {
   // Errors state
   const [errors, setErrors] = useState({});
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentUser();
 
   useEffect(() => {
     const fetchEMP = async () => {
@@ -42,11 +43,23 @@ const ProjectForm = () => {
           setEmployees(formattedEmployees);
           setFilteredEmployees(formattedEmployees);
         } else {
-          alert("No employees found");
+          Swal.fire({
+            icon: "error",
+            title: "No employees found",
+            text: result.message || "No employees found",
+            confirmButtonText: "OK",
+            confirmButtonColor: "#d33 !important"
+          });
         }
       } catch (error) {
         console.error("Fetch Error:", error);
-        alert("Something went wrong while fetching employees");
+        Swal.fire({
+          icon: "error",
+          title: "Something went wrong while fetching employees",
+          text: result.message || "Something went wrong while fetching employees",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33 !important"
+        });
       } finally {
         setLoading(false);
       }

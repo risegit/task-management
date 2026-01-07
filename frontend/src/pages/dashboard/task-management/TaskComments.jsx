@@ -560,12 +560,12 @@ export default function TaskComments() {
         <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
           {totalComments}
         </span>
-        <div className="flex items-center gap-2 ml-auto">
+        {/* <div className="flex items-center gap-2 ml-auto">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
           <span className="text-xs text-slate-500">
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
-        </div>
+        </div> */}
       </div>
 
       {typingUsers.length > 0 && (
