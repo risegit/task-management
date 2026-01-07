@@ -34,7 +34,13 @@ switch ($method) {
                 "data" => $data
             ]);
         }else{
-            $where = !empty($status) ? "WHERE status='$status'" : "";
+            $allDept = $_GET['all_dept'] ?? null;
+            if(!empty($allDept)){
+                $where = "WHERE status='active'";
+            }else{
+                $where = !empty($status) ? "WHERE status='$status'" : "";
+            }
+
             $sql1 = "SELECT * FROM departments $where order by id desc";
             $result = $conn->query($sql1);
             $data = [];

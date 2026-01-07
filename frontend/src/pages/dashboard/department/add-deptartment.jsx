@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { getCurrentUser } from "../../../utils/api";
+import Swal from "sweetalert2";
 
 export default function AddItemTable() {
   const [formData, setFormData] = useState({
@@ -101,12 +102,12 @@ export default function AddItemTable() {
     } catch (error) {
       console.error("Submit Error:", error);
       Swal.fire({
-          icon: "error",
-          title: "Something went wrong while submitting!",
-          text: result.message || "Something went wrong while submitting!",
-          confirmButtonText: "OK",
-          confirmButtonColor: "#d33 !important"
-        });
+        icon: 'error',
+        title: 'Something Went Wrong',
+        text: 'An error occurred while creating the project.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33',
+      });
     } finally {
       setIsSubmitting(false);
     }

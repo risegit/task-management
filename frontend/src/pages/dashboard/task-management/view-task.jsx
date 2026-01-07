@@ -1262,7 +1262,7 @@ const ManageDepartment = () => {
                               
                               {/* Status Dropdown - Only show if user is assigned */}
                               {isAssigned && statusDropdownOpen === task.id && (
-                                <div className="absolute z-10 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                                <div className="absolute z-10 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-visible">
                                   <div className="py-1">
                                     <button 
                                       onClick={() => updateTaskStatus(task.id, "not-acknowledge")}

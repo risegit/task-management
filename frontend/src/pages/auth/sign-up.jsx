@@ -1,4 +1,4 @@
-// Singn-up
+// Sign-up
 
 import {
   Card,
@@ -7,28 +7,81 @@ import {
   Button,
   Typography,
 } from "@material-tailwind/react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
-// import { getCurrentUser } from "../../../utils/api";
+import axios from "axios";
 
 export function SignUp() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [department, setDepartment] = useState("");
+  const [departments, setDepartments] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fetchingDepartments, setFetchingDepartments] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {    
+    const fetchDepartments = async () => {
+      setFetchingDepartments(true);
+
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/department.php`,
+          {
+            params: { 
+              'all_dept': 'true',
+            }, 
+          }
+        );
+        
+        const result = response.data;
+        console.log("Fetch Department Response:", result);
+        
+        if (result.status === "success" && result.data?.length > 0) {
+          // Filter out "Admin" department from the list
+          const filteredDepartments = result.data.filter(
+            dept => dept.name.toLowerCase() !== "admin"
+          );
+          
+          // Sort alphabetically
+          const sortedDepartments = filteredDepartments.sort((a, b) => 
+            a.name.localeCompare(b.name)
+          );
+          
+          setDepartments(sortedDepartments);
+          
+          // Set default department to the first one (if available)
+          if (sortedDepartments.length > 0) {
+            setDepartment(sortedDepartments[0].name);
+          }
+        } else {
+          console.warn("No departments found or API returned empty data");
+          setDepartments([]);
+        }
+      } catch (error) {
+        console.error("Axios error:", error);
+        toast.error("Failed to fetch departments. Please try again.");
+        setDepartments([]);
+      } finally {
+        setFetchingDepartments(false);
+      }
+    };
+    
+    fetchDepartments();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!username || !password || !email) {
+    if (!username || !password || !email || !department) {
       setError("Please fill all fields");
       return;
     }
@@ -47,10 +100,10 @@ export function SignUp() {
       formData.append("username", username);
       formData.append("email", email);
       formData.append("password", password);
+      formData.append("department", department);
       formData.append("role", 'staff');
       formData.append("signin", "signup");
 
-      // ✅ Console FormData values
       console.log("FORM DATA:");
       for (let pair of formData.entries()) {
         console.log(pair[0] + ":", pair[1]);
@@ -64,13 +117,12 @@ export function SignUp() {
       const data = await res.json();
       console.log("Login API Response:", data);
 
-      if (data.status=='success') {
-          toast.success(data.message);
-          // navigate("/auth/sign-in", { replace: true });
+      if (data.status === 'success') {
+        toast.success(data.message);
+        // navigate("/auth/sign-in", { replace: true });
       } else {
-          toast.error(data.message);
+        toast.error(data.message);
       }
-
       
     } catch (err) {
       console.error("Login Error:", err);
@@ -83,13 +135,10 @@ export function SignUp() {
   const handleEmailChange = (e) => {
     const value = e.target.value;
     setEmail(value);
-
-    // Reset error first
     setEmailError("");
 
-    // Start validation only after '@'
     if (!value.includes("@")) {
-      return; // no validation yet
+      return;
     }
 
     const emailRegex = /^[a-zA-Z0-9._%+-]+@(riseit\.in|riseit\.com)$/;
@@ -99,11 +148,13 @@ export function SignUp() {
     }
   };
 
-
+  const handleDepartmentChange = (e) => {
+    setDepartment(e.target.value);
+  };
 
   return (
     <section className="m-8 flex">
-            <div className="w-2/5 h-full hidden lg:block">
+      <div className="w-2/5 h-full hidden lg:block">
         <img
           src="/img/pattern.png"
           className="h-full w-full object-cover rounded-3xl"
@@ -112,10 +163,54 @@ export function SignUp() {
       <div className="w-full lg:w-3/5 flex flex-col items-center justify-center">
         <div className="text-center">
           <Typography variant="h2" className="font-bold mb-4">Sign Up</Typography>
-          {/* <Typography variant="paragraph" color="blue-gray" className="text-lg font-normal">Enter your email and password to register.</Typography> */}
         </div>
         <form onSubmit={handleSubmit} className="mt-8 mb-2 mx-auto w-80 max-w-screen-lg lg:w-1/2">
           <div className="mb-1 flex flex-col gap-6">
+            {/* Department Dropdown - Using native select */}
+            <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
+              Department
+            </Typography>
+            
+            <div className="relative">
+              <select
+                value={department}
+                onChange={handleDepartmentChange}
+                className="w-full px-3 py-2.5 bg-white border border-blue-gray-200 rounded-lg 
+                         focus:border-gray-900 focus:outline-none focus:ring-0 
+                         text-blue-gray-700 text-base appearance-none"
+                disabled={fetchingDepartments || departments.length === 0}
+              >
+                {fetchingDepartments ? (
+                  <option value="">Loading departments...</option>
+                ) : departments.length === 0 ? (
+                  <option value="">No departments available</option>
+                ) : (
+                  <>
+                    <option value="">Select a department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+              {/* Custom dropdown arrow */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-blue-gray-700">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                </svg>
+              </div>
+            </div>
+            
+            {fetchingDepartments && (
+              <p className="text-blue-500 text-sm">Loading departments...</p>
+            )}
+            
+            {!fetchingDepartments && departments.length === 0 && (
+              <p className="text-red-500 text-sm">No departments available. Please contact administrator.</p>
+            )}
+
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
               Your Name
             </Typography>
@@ -125,11 +220,12 @@ export function SignUp() {
               name="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
+              className="!border-t-blue-gray-200 focus:!border-t-gray-900"
               labelProps={{
                 className: "before:content-none after:content-none",
               }}
             />
+
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
               Your Email
             </Typography>
@@ -139,7 +235,7 @@ export function SignUp() {
               name="email"
               value={email}
               onChange={handleEmailChange}
-              className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
+              className="!border-t-blue-gray-200 focus:!border-t-gray-900"
               labelProps={{
                 className: "before:content-none after:content-none",
               }}
@@ -154,60 +250,46 @@ export function SignUp() {
             </Typography>
             <div className="relative">
               <Input
-                  type={showPassword ? "text" : "password"}
-                  size="lg"
-                  placeholder="********"
-                  name="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
-                  labelProps={{
-                    className: "before:content-none after:content-none",
-                  }}
-                />
+                type={showPassword ? "text" : "password"}
+                size="lg"
+                placeholder="********"
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="!border-t-blue-gray-200 focus:!border-t-gray-900"
+                labelProps={{
+                  className: "before:content-none after:content-none",
+                }}
+              />
 
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
+
+          {error && (
+            <p className="text-red-500 text-sm mt-2">{error}</p>
+          )}
           
-          <Button type="submit" className="mt-6" fullWidth>
+          <Button 
+            type="submit" 
+            className="mt-6" 
+            fullWidth
+            disabled={fetchingDepartments || departments.length === 0 || loading || !department}
+          >
             {loading ? "Submitting..." : "Submit"}
           </Button>
 
-          {/* <div className="space-y-4 mt-8">
-            <Button size="lg" color="white" className="flex items-center gap-2 justify-center shadow-md" fullWidth>
-              <svg width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g clipPath="url(#clip0_1156_824)">
-                  <path d="M16.3442 8.18429C16.3442 7.64047 16.3001 7.09371 16.206 6.55872H8.66016V9.63937H12.9813C12.802 10.6329 12.2258 11.5119 11.3822 12.0704V14.0693H13.9602C15.4741 12.6759 16.3442 10.6182 16.3442 8.18429Z" fill="#4285F4" />
-                  <path d="M8.65974 16.0006C10.8174 16.0006 12.637 15.2922 13.9627 14.0693L11.3847 12.0704C10.6675 12.5584 9.7415 12.8347 8.66268 12.8347C6.5756 12.8347 4.80598 11.4266 4.17104 9.53357H1.51074V11.5942C2.86882 14.2956 5.63494 16.0006 8.65974 16.0006Z" fill="#34A853" />
-                  <path d="M4.16852 9.53356C3.83341 8.53999 3.83341 7.46411 4.16852 6.47054V4.40991H1.51116C0.376489 6.67043 0.376489 9.33367 1.51116 11.5942L4.16852 9.53356Z" fill="#FBBC04" />
-                  <path d="M8.65974 3.16644C9.80029 3.1488 10.9026 3.57798 11.7286 4.36578L14.0127 2.08174C12.5664 0.72367 10.6469 -0.0229773 8.65974 0.000539111C5.63494 0.000539111 2.86882 1.70548 1.51074 4.40987L4.1681 6.4705C4.8001 4.57449 6.57266 3.16644 8.65974 3.16644Z" fill="#EA4335" />
-                </g>
-                <defs>
-                  <clipPath id="clip0_1156_824">
-                    <rect width="16" height="16" fill="white" transform="translate(0.5)" />
-                  </clipPath>
-                </defs>
-              </svg>
-              <span>Sign in With Google</span>
-            </Button>
-            <Button size="lg" color="white" className="flex items-center gap-2 justify-center shadow-md" fullWidth>
-              <img src="/img/twitter-logo.svg" height={24} width={24} alt="" />
-              <span>Sign in With Twitter</span>
-            </Button>
-          </div> */}
           <Typography variant="paragraph" className="text-center text-blue-gray-500 font-medium mt-4">
             Already have an account?
             <Link to="/auth/sign-in" className="text-gray-900 ml-1">Sign in</Link>
           </Typography>
         </form>
-
       </div>
     </section>
   );

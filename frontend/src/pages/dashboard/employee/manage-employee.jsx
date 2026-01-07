@@ -19,7 +19,12 @@ export default function ViewEmployeesStyled() {
       try {
         // 🔹 Call API using axios (GET request)
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}api/emp.php`
+          `${import.meta.env.VITE_API_URL}api/emp.php`,
+          {
+            params: { 
+              'all_emp': 'true',
+            }
+          }
         );
 
         // 🔹 Axios automatically converts response to JSON
