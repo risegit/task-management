@@ -9,6 +9,7 @@ include('../inc/config.php');
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $emailId = $_GET['email'] ?? null;
+$allEmp = $_GET['all_emp'] ?? null;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
@@ -83,7 +84,7 @@ switch ($method) {
 
             if ($roleLower === 'manager') $prefix = 'MN';
             elseif ($roleLower === 'admin') $prefix = 'AD';
-            elseif ($roleLower === 'technician') $prefix = 'TC';
+            elseif ($roleLower === 'staff') $prefix = 'ST';
             else $prefix = 'OT'; // default prefix
             // 3. Generate user_code (example: MN0023)
             $user_code = $prefix . str_pad($user_id, 4, '0', STR_PAD_LEFT);
@@ -129,7 +130,7 @@ switch ($method) {
 
         if ($roleLower === 'manager') $prefix = 'MN';
         elseif ($roleLower === 'admin') $prefix = 'AD';
-        elseif ($roleLower === 'technician') $prefix = 'TC';
+        elseif ($roleLower === 'staff') $prefix = 'ST';
         else $prefix = 'OT'; // default prefix
         
         $user_code = $prefix . str_pad($user_id, 4, '0', STR_PAD_LEFT);

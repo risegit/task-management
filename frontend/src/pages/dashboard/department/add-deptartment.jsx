@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { getCurrentUser } from "../../../utils/api";
+import Swal from "sweetalert2";
 
 export default function AddItemTable() {
   const [formData, setFormData] = useState({
@@ -9,7 +11,8 @@ export default function AddItemTable() {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user"));
+  
+  const user = getCurrentUser();
 
   const validate = () => {
     let newErrors = {};
@@ -72,7 +75,14 @@ export default function AddItemTable() {
       console.log("API Response:", result);
 
       if (result.status === "success") {
-        alert(result.message || "Department added successfully!");
+        Swal.fire({
+          icon: 'success',
+          title: 'Department added successfully!',
+          text: response.data.message || 'Department added successfully!',
+          timer: 2000,
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
 
         setFormData({
           name: "",
@@ -81,11 +91,23 @@ export default function AddItemTable() {
         });
         setErrors({});
       } else {
-        alert(result.message || "Failed to add department");
+        Swal.fire({
+          icon: "error",
+          title: "Failed to add department",
+          text: result.message || "Failed to add department",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33 !important"
+        });
       }
     } catch (error) {
       console.error("Submit Error:", error);
-      alert("Something went wrong while submitting!");
+      Swal.fire({
+        icon: 'error',
+        title: 'Something Went Wrong',
+        text: 'An error occurred while creating the project.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33',
+      });
     } finally {
       setIsSubmitting(false);
     }

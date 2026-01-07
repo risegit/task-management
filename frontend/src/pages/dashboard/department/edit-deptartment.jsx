@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { getCurrentUser } from "../../../utils/api";
 
 export default function EditDepartment() {
   const { id } = useParams(); // Get department ID from URL
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentUser();
   const user_id = user?.id;
   const navigate = useNavigate();
   
@@ -204,30 +205,6 @@ export default function EditDepartment() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
       {/* Header */}
-      <header className="mb-8">
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
-          <button 
-            onClick={() => navigate("/dashboard/department/manage")}
-            className="hover:text-blue-600 transition-colors"
-          >
-            Dashboard
-          </button>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <button 
-            onClick={() => navigate("/dashboard/department/manage")}
-            className="hover:text-blue-600 transition-colors"
-          >
-            Department Management
-          </button>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <span className="text-slate-900 font-medium">Edit Department</span>
-        </div>
-        <h1 className="text-3xl font-bold text-slate-900">Edit Department</h1>
-      </header>
 
       {/* Main Form Card */}
       <div className="mx-auto">

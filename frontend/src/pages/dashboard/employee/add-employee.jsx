@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import Swal from "sweetalert2";
 import { getCurrentUser } from "../../../utils/api";
 
 export default function AddEmployee() {
@@ -58,11 +59,23 @@ export default function AddEmployee() {
         if (response.data?.data) {
           setDepartments(response.data.data);
         } else {
-          alert("No departments found");
+          Swal.fire({
+            icon: 'error',
+            title: 'No departments found',
+            text: response.data?.message || "No departments found",
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#d33',
+          });
         }
       } catch (error) {
         console.error("Fetch Error:", error);
-        alert("Something went wrong while fetching departments");
+        Swal.fire({
+          icon: 'error',
+          title: 'Something Went Wrong',
+          text: 'An error occurred while creating the project.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33',
+        });
       } finally {
         setLoading(false);
       }
@@ -148,7 +161,7 @@ export default function AddEmployee() {
       //   }
       // );
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}api/task-management.php`,
+        `${import.meta.env.VITE_API_URL}api/emp.php`,
         formDataObj
       );
 
