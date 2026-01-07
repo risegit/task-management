@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Select from 'react-select';
 import axios from "axios";
 import Swal from "sweetalert2";
+import { getCurrentUser } from "../../../utils/api";
 
 const ProjectForm = () => {
   // Form state
@@ -25,7 +26,7 @@ const ProjectForm = () => {
   // Errors state
   const [errors, setErrors] = useState({});
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentUser();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -649,9 +650,9 @@ const ProjectForm = () => {
                         onChange={handleCheckboxChange}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 transition-all"></div>
-                      <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
-                    </div>
+                      <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 bg-gradient-to-r from-blue-300 to-indigo-300 transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
+                  </div>
                     <div>
                       <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 block">
                         Active Status

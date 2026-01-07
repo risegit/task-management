@@ -1,6 +1,6 @@
 <?php
-header("Access-Control-Allow-Origin: *"); // Allow requests from frontend
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
@@ -10,6 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $emailId = $_GET['email'] ?? null;
 
+// Handle method override
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
@@ -18,68 +19,83 @@ $date = date("Y-m-d");
 $time = date("H:i:s");
 
 switch ($method) { 
-
     case 'GET':
         if($userId){
-            $sql1 = "SELECT * FROM announcement WHERE id='$userId'";
-            $result = $conn->query($sql1);
-            $data = [];
-            while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
-            }
-
-            echo json_encode([
-                "status" => "success",
-                "data" => $data
-            ]);
-        }else{
-            $sql1 = "SELECT * FROM announcement order by id desc Limit 1";
-            $result = $conn->query($sql1);
-            $data = [];
-            while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
-            }
-
-            echo json_encode([
-                "status" => "success",
-                "data" => $data
-            ]);
+            $stmt = $conn->prepare("SELECT * FROM announcement WHERE id=?");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        } else {
+            $stmt = $conn->prepare("SELECT * FROM announcement ORDER BY id DESC LIMIT 1");
+            $stmt->execute();
+            $result = $stmt->get_result();
         }
+        
+        $data = [];
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+        
+        echo json_encode([
+            "status" => "success",
+            "data" => $data
+        ]);
+        
+        if(isset($stmt)) $stmt->close();
         break;
     
     case 'POST':
-        $name = $_POST['name'] ?? '';
-        $description = $_POST['description'] ?? '';
-        $status = $_POST['status'] ?? '';
-
-         $sql = "INSERT INTO `announcement`(`name`, `description`, `status`, `updated_by`, `created_date`, `created_time`) VALUES ('$name','$description','$status','$userId','$date','$time')";
-         if ($conn->query($sql)) {
+        // Parse JSON input for POST requests
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input && $_POST) {
+            $input = $_POST;
+        }
+        
+        $name = $input['name'] ?? '';
+        $description = $input['description'] ?? '';
+        $status = $input['status'] ?? '';
+        
+        $stmt = $conn->prepare("INSERT INTO `announcement`(`name`, `description`, `status`, `updated_by`, `created_date`, `created_time`) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssiss", $name, $description, $status, $userId, $date, $time);
+        
+        if ($stmt->execute()) {
             echo json_encode(["status" => "success", "message" => "Announcement Created Successfully"]);
-         }else{
+        } else {
             echo json_encode(["status" => "error", "message" => $conn->error]);
-         }
-
+        }
+        
+        $stmt->close();
         break;
 
     case 'PUT':
-        $id = $_POST['id'] ?? ''; 
-        $name = $_POST['name'] ?? '';
-        $description = $_POST['description'] ?? '';
-        $status = $_POST['status'] ?? '';
+        // Parse JSON input for PUT requests
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input && $_POST) {
+            $input = $_POST;
+        }
+        
+        $id = $input['id'] ?? ''; 
+        $name = $input['name'] ?? '';
+        $description = $input['description'] ?? '';
+        $status = $input['status'] ?? '';
         $userstatus = filter_var($status, FILTER_VALIDATE_BOOLEAN) ? 'active' : 'inactive';
 
-        $sql = "UPDATE `announcement` SET `name`='$name', `description`='$description', `status`='$userstatus', `updated_by`='$userId', `created_date`='$date', `created_time`='$time' WHERE id='$id'";
-        if ($conn->query($sql)) {
-        echo json_encode(["status" => "success", "message" => "Announcement Updated Successfully".$sql]);
-        }else{
-        echo json_encode(["status" => "error", "message" => $conn->error."===".$sql]);
+        $stmt = $conn->prepare("UPDATE `announcement` SET `name`=?, `description`=?, `status`=?, `updated_by`=?, `created_date`=?, `created_time`=? WHERE id=?");
+        $stmt->bind_param("sssissi", $name, $description, $userstatus, $userId, $date, $time, $id);
+        
+        if ($stmt->execute()) {
+            echo json_encode(["status" => "success", "message" => "Announcement Updated Successfully"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => $conn->error]);
         }
-
+        
+        $stmt->close();
         break;
-
 
     default:
         echo json_encode(["status" => "error", "message" => "Invalid request method"]);
         break;
 }
+
+$conn->close();
 ?>

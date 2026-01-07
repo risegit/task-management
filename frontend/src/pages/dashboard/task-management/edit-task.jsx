@@ -16,6 +16,7 @@ export default function EditTask() {
   const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
   const [loggedInUserStatus, setLoggedInUserStatus] = useState(null);
   const [isTaskCreator, setIsTaskCreator] = useState(false);
+  const [isUserAssignedToTask, setIsUserAssignedToTask] = useState(false);
 
   const user = getCurrentUser();
   const userId = user?.id;
@@ -272,7 +273,11 @@ export default function EditTask() {
 
     if (taskData.assignedTo.length === 0) newErrors.assignedTo = "Please select at least one assignee";
     if (!taskData.priority) newErrors.priority = "Priority is required";
-    if (!taskData.status) newErrors.status = "Status is required";
+    
+    // Only validate status if user is assigned to the task
+    if (isUserAssignedToTask && !taskData.status) {
+      newErrors.status = "Status is required";
+    }
 
     if (!taskData.deadline) {
       newErrors.deadline = "Deadline is required";
@@ -335,6 +340,7 @@ export default function EditTask() {
           // Create a map of user statuses
           const userStatusMap = {};
           let loggedInUserAssignment = null;
+          let isUserInAssignedTo = false;
           
           if (data.assignedTo) {
             data.assignedTo.forEach(user => {
@@ -343,11 +349,13 @@ export default function EditTask() {
               // Check if this is the logged-in user
               if (user.user_id === userId) {
                 loggedInUserAssignment = user;
+                isUserInAssignedTo = true;
               }
             });
           }
           
           setAssignedUsersStatus(userStatusMap);
+          setIsUserAssignedToTask(isUserInAssignedTo);
           
           // Store the logged-in user's status
           if (loggedInUserAssignment) {
@@ -484,7 +492,12 @@ export default function EditTask() {
       formData.append("taskName", taskData.name.trim());
       formData.append("assignedBy", taskData.assignedBy);
       formData.append("priority", taskData.priority.value);
-      formData.append("status", taskData.status.value);
+      
+      // Only include status if user is assigned to the task or is the creator
+      if (isUserAssignedToTask || isTaskCreator) {
+        formData.append("status", taskData.status.value);
+      }
+      
       formData.append("deadline", taskData.deadline);
       formData.append("remarks", taskData.remarks.trim());
       
@@ -516,7 +529,8 @@ export default function EditTask() {
         deadline: taskData.deadline,
         remarks: taskData.remarks,
         task_id: id || "new",
-        is_task_creator: isTaskCreator
+        is_task_creator: isTaskCreator,
+        is_user_assigned: isUserAssignedToTask
       });
 
       // Send the request using Axios
@@ -597,6 +611,9 @@ export default function EditTask() {
     MultiValue: CustomMultiValue,
     MultiValueRemove: CustomMultiValueRemove
   };
+
+  // Determine if user can edit status
+  const canEditStatus = isUserAssignedToTask || isTaskCreator;
 
   // If we're in create mode (no id), don't show loading
   if (!id) {
@@ -820,14 +837,16 @@ export default function EditTask() {
               Edit Task
             </h2>
             <p className="text-blue-100 mt-2">
-              {isTaskCreator ? "You can edit all task details" : "You can only update your task status"}
+              {isTaskCreator ? "You can edit all task details" : 
+               isUserAssignedToTask ? "You can update your task status" : 
+               "You are not assigned to this task"}
             </p>
-            {!isTaskCreator && (
+            {!isTaskCreator && !isUserAssignedToTask && (
               <div className="mt-2 text-yellow-100 text-sm flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Only the task creator can modify task details
+                Only assigned users can update task status
               </div>
             )}
           </div>
@@ -1121,24 +1140,58 @@ export default function EditTask() {
                           (Your status: {loggedInUserStatus})
                         </span>
                       )}
+                      {!canEditStatus && (
+                        <span className="text-xs text-amber-600 font-normal">
+                          (Not assigned)
+                        </span>
+                      )}
                     </label>
                     <Select
                       options={statusOptions}
                       value={taskData.status}
-                      onChange={(selected) => handleSelectChange("status", selected)}
+                      onChange={canEditStatus ? (selected) => handleSelectChange("status", selected) : undefined}
                       classNamePrefix="react-select"
-                      styles={statusCustomStyles}
+                      styles={{
+                        ...statusCustomStyles,
+                        control: (provided, state) => ({
+                          ...provided,
+                          border: `2px solid ${errors.status ? '#fca5a5' : canEditStatus ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
+                          borderRadius: '0.75rem',
+                          padding: '8px 4px',
+                          backgroundColor: errors.status ? '#fef2f2' : (canEditStatus ? 'white' : '#f8fafc'),
+                          minHeight: '52px',
+                          boxShadow: state.isFocused && canEditStatus ? (errors.status ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                          "&:hover": {
+                            borderColor: errors.status ? '#f87171' : (canEditStatus ? '#94a3b8' : '#e2e8f0'),
+                          },
+                          opacity: !canEditStatus ? 0.7 : 1,
+                          cursor: canEditStatus ? 'pointer' : 'not-allowed',
+                        }),
+                        indicatorSeparator: (provided) => ({
+                          ...provided,
+                          display: canEditStatus ? 'flex' : 'none',
+                        }),
+                        dropdownIndicator: (provided) => ({
+                          ...provided,
+                          display: canEditStatus ? 'flex' : 'none',
+                        }),
+                      }}
                       formatOptionLabel={formatStatusOptionLabel}
-                      placeholder="Select status..."
+                      placeholder={canEditStatus ? "Select status..." : "Not assigned to task"}
                       isSearchable={false}
-                      isDisabled={loading}
+                      isDisabled={!canEditStatus || loading}
                     />
-                    {errors.status && (
+                    {errors.status && canEditStatus && (
                       <p className="text-red-500 text-sm flex items-center gap-1">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                         {errors.status}
+                      </p>
+                    )}
+                    {!canEditStatus && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        You are not assigned to this task. Only assigned users can update status.
                       </p>
                     )}
                   </div>
@@ -1249,7 +1302,7 @@ export default function EditTask() {
                 </div>
 
                 {/* Permission Notice */}
-                {!isTaskCreator && (
+                {!isTaskCreator && !isUserAssignedToTask && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1258,17 +1311,34 @@ export default function EditTask() {
                         </svg>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-blue-800">Limited Editing Permission</h4>
+                        <h4 className="font-semibold text-blue-800">Limited Access</h4>
                         <p className="text-sm text-blue-700 mt-1">
-                          You are not the creator of this task. You can only update your task status.
-                          Only the task creator can modify other task details.
+                          You are not assigned to this task. You can only view the task details.
+                          Only assigned users can update their task status, and only the task creator can modify other task details.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!isTaskCreator && isUserAssignedToTask && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-green-800">Assigned User Access</h4>
+                        <p className="text-sm text-green-700 mt-1">
+                          You are assigned to this task. You can update your task status.
+                          Only the task creator can modify other task details like task name, priority, deadline, etc.
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                
               </div>
             )}
 

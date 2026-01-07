@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { getCurrentUser } from "../../../utils/api";
 
 export default function AddEmployee() {
   const [formData, setFormData] = useState({
@@ -102,9 +103,10 @@ export default function AddEmployee() {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
-    } else if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password)) {
-      newErrors.password = "Password must be alphanumeric (letters and numbers)";
-    }
+    } 
+    // else if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password)) {
+    //   newErrors.password = "Password must be alphanumeric (letters and numbers)";
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -138,22 +140,34 @@ export default function AddEmployee() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}api/emp.php`,
-        {
-          method: "POST",
-          body: formDataObj,
-        }
+      // const response = await fetch(
+      //   `${import.meta.env.VITE_API_URL}api/emp.php`,
+      //   {
+      //     method: "POST",
+      //     body: formDataObj,
+      //   }
+      // );
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/task-management.php`,
+        formDataObj
       );
 
-      const result = await response.json();
+      // const result = await response.json();
+      const result = response.data;
       console.log("API Response:", result);
 
       if (result.status === "success") {
-        alert("Employee added successfully!");
+        Swal.fire({
+          icon: "success",
+          title: "Employee added successfully!",
+          text: result.message || "Employee has been added successfully.",
+          timer: 2000,
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
 
         setFormData({
-          role: "assignee",
+          role: "",
           department: "",
           name: "",
           email: "",
@@ -163,11 +177,23 @@ export default function AddEmployee() {
         });
         setErrors({});
       } else {
-        alert(result.message || "Failed to add employee");
+        Swal.fire({
+          icon: "error",
+          title: "Failed to add employee",
+          text: result.message || "Failed to add employee",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33 !important"
+        });
       }
     } catch (error) {
-      console.error("API Error:", error);
-      alert("Server error. Please try again.");
+      // console.error("API Error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Server error. Please try again.",
+        text: result.message || "Server error. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33 !important"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -214,7 +240,7 @@ export default function AddEmployee() {
                         : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
                     } focus:ring-4 outline-none transition-all bg-white`}
                   >
-                    <option value="assignee" disabled>Select Role</option>
+                    <option value="" disabled>Select Role</option>
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
                     <option value="staff">Staff</option>
@@ -398,7 +424,7 @@ export default function AddEmployee() {
                   )}
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{formData.password.length}/6 characters</span>
-                    {formData.password && (
+                    {/* {formData.password && (
                       <span className={
                         /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(formData.password) 
                           ? "text-green-600 font-medium" 
@@ -409,7 +435,7 @@ export default function AddEmployee() {
                           : "Needs letters & numbers"
                         }
                       </span>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>

@@ -46,7 +46,7 @@ export function SignIn() {
       });
 
       const data = await res.json();
-      console.log("Login API Response:", data);
+      // console.log("Login API Response:", data);
 
       if (!data.status || data.status !== "success") {
         toast.error(data.message);

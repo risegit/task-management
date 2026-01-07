@@ -12,6 +12,7 @@ $taskId = $_GET['task_id'] ?? null;
 $userCode = $_GET['user_code'] ?? null;
 $editTask = $_GET['edit-task'] ?? null;
 $viewTask = $_GET['view_task'] ?? null;
+$dashboardTask = $_GET['dashboard_task'] ?? null;
 $project_id = isset($_GET['project_id']) ? intval($_GET['project_id']) : 0;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
@@ -26,29 +27,6 @@ switch ($method) {
     case 'GET':
         if($editTask){
             $userId = $_GET['user_id'] ?? null;
-            // if (!empty($userCode)) {
-            //     if (str_starts_with($userCode, 'ST')) {
-            //         $sql1 = "SELECT t.id, t.task_name, t.remarks, t.deadline, COALESCE(ta.status, ta.status) AS status, t.created_by, ta.user_id AS assigned_to, ab.id AS assignedby, ab.name AS assignedby_name , ua.id AS assignedto, ua.name AS assignedto_name FROM tasks t LEFT JOIN task_assignees ta ON t.id = ta.task_id LEFT JOIN users ab ON t.created_by = ab.id LEFT JOIN users ua ON ta.user_id = ua.id WHERE t.created_by = '$userId' OR ta.user_id = '$userId'";
-            //     } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
-            //         $sql1 = "SELECT t.id,t.task_name,t.remarks,t.deadline, ta.status, ab.id assignedby, ab.name assignedby_name, at.id assignedto, at.name assignedto_name FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users at ON ta.user_id=at.id INNER JOIN users ab ON t.created_by=ab.id ORDER BY t.id DESC";
-            //     }
-            //     $result = $conn->query($sql1);
-            // $data = [];
-            // while ($row = $result->fetch_assoc()) {
-            //     $data[] = $row;
-            // }
-
-            // $sql2 = "SELECT * FROM users WHERE status='active'";
-            // $result2 = $conn->query($sql2);
-            // $staff = [];
-            // while ($row2 = $result2->fetch_assoc()) {
-            //     $staff[] = $row2;
-            // }
-
-            // echo json_encode(["status" => "success","data" => $data, 'staff' => $staff]);
-            // }else{
-            //     echo json_encode(["status" => "error", "data" => "Something went wrong"]);
-            // }
             // $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, GROUP_CONCAT(DISTINCT ta.status ORDER BY ta.status SEPARATOR ', ') AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id=t.client_id WHERE t.id IN ( SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId' ) GROUP BY t.id ORDER BY t.id DESC;";
             // $sql1 = "SELECT t.client_id,t.task_name,t.remarks,t.deadline,t.priority,t.status,t.created_date,t.created_by assigned_by,c.name FROM tasks t INNER JOIN clients c ON t.client_id=c.id WHERE t.id='$taskId';";
             $sql1 = "SELECT t.client_id,t.task_name,t.remarks,t.deadline,t.priority,t.status,t.created_date,t.created_by assigned_by,c.name, CASE WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' WHEN SUM(ta.status = 'completed') = COUNT(*) THEN 'completed' ELSE 'pending' END AS task_status FROM tasks t INNER JOIN clients c ON t.client_id=c.id INNER JOIN task_assignees ta ON t.id=ta.task_id WHERE t.id='$taskId'";
@@ -105,6 +83,26 @@ switch ($method) {
             }
 
             echo json_encode(["status" => "success","data123" => $data]);
+
+        }else if($dashboardTask){
+            if (!empty($userCode)) {
+                if (str_starts_with($userCode, 'ST')) {
+                    $countCond = 'count(u.name) count_tasks';
+                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge') and ta.user_id = '$userId' AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY Order By count_tasks DESC";
+                } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
+                    $countCond = 'count(t.id) count_tasks';
+                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge') AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY GROUP BY u.name Order By count_tasks DESC";
+                }
+            }
+            $sql1 = "SELECT u.name,t.client_id,t.task_name,ta.status,t.priority, $countCond FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users u ON ta.user_id=u.id $whereClause";
+            // echo json_encode(["status" => "success","query" => $sql1]);
+            $result = $conn->query($sql1);
+            $data = [];
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+
+            echo json_encode(["status" => "success","data" => $data]);
 
         }else if($project_id){
             $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id WHERE c.id='$project_id'";

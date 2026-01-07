@@ -150,14 +150,33 @@ export default function EditEmployee() {
       const result = await response.json();
       
       if (result.status === "success") {
-        alert("Employee Updated Successfully!");
-        navigate('/dashboard/employee/view-user');
+        Swal.fire({
+          icon: "success",
+          title: "Employee Updated Successfully!",
+          text: result.message || "Employee Updated Successfully!",
+          timer: 2000,
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
+        // navigate('/dashboard/employee/view-employee');
       } else {
-        alert(result.message || "Failed to update employee");
+        Swal.fire({
+          icon: "error",
+          title: "Failed to update employee",
+          text: result.message || "Failed to update employee",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33 !important"
+        });
       }
     } catch (error) {
-      console.error("Update Error:", error);
-      alert("Failed to update employee");
+      // console.error("Update Error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Server error. Please try again.",
+        text: result.message || "Server error. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33 !important"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -459,7 +478,7 @@ export default function EditEmployee() {
                       onChange={handleCheckboxChange}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 transition-all"></div>
+                    <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 bg-gradient-to-r from-blue-300 to-indigo-300 transition-all ring-2 ring-offset-1 ring-blue-300 peer-checked:ring-blue-600"></div>
                     <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-md"></div>
                   </div>
                   <div>

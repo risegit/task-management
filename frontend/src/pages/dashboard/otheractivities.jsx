@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import axios from "axios";
+import Swal from "sweetalert2";
+import { getCurrentUser } from "@/utils/api";
 
 export default function OthersActivities() {
   const [formData, setFormData] = useState({
@@ -8,7 +11,8 @@ export default function OthersActivities() {
   });
 
   const [errors, setErrors] = useState({});
-  const user = JSON.parse(localStorage.getItem("user"));
+  
+  const user = getCurrentUser();
 
   const validate = () => {
     let newErrors = {};
@@ -60,20 +64,31 @@ export default function OthersActivities() {
       console.log(pair[0] + ":", pair[1]);
     }
 
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}api/announcement.php?id=${user?.id}`,
-      {
-        method: "POST",
-        body: form,
-      }
-    );
+    // const response = await fetch(
+    //   `${import.meta.env.VITE_API_URL}api/announcement.php?id=${user?.id}`,
+    //   {
+    //     method: "POST",
+    //     body: form,
+    //   }
+    // );
+    const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/announcement.php?id=${user?.id}`,
+        form
+      );
 
-    const result = await response.json();
+    // const result = await response.json();
+    const result = response.data;
     console.log("API Response:", result);
 
     if (result.status === "success") {
-      alert(result.message || "Item added successfully!");
-
+      Swal.fire({
+        icon: "success",
+        title: "Announcement added successfully!",
+        text: result.message || "Announcement added successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+        timerProgressBar: true,
+      });
       // 🔄 Reset form
       setFormData({
         name: "",
@@ -83,11 +98,23 @@ export default function OthersActivities() {
 
       setErrors({});
     } else {
-      alert(result.message || "Failed to add item");
+      Swal.fire({
+        icon: "error",
+        title: "Failed to add announcement!",
+        text: result.message || "Failed to add announcement!",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33 !important"
+      });
     }
   } catch (error) {
     console.error("Submit Error:", error);
-    alert("Something went wrong while submitting!");
+    Swal.fire({
+      icon: "error",
+      title: "Something went wrong while submitting",
+      text: result.message || "Something went wrong while submitting",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#d33 !important"
+    });
   }
 };
 
