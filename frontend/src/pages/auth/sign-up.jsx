@@ -12,6 +12,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
+// import { getCurrentUser } from "../../../utils/api";
 
 export function SignUp() {
   const [username, setUsername] = useState("");
@@ -47,6 +48,7 @@ export function SignUp() {
       formData.append("email", email);
       formData.append("password", password);
       formData.append("role", 'staff');
+      formData.append("signin", "signup");
 
       // ✅ Console FormData values
       console.log("FORM DATA:");
@@ -64,7 +66,7 @@ export function SignUp() {
 
       if (data.status=='success') {
           toast.success(data.message);
-          navigate("/auth/sign-in", { replace: true });
+          // navigate("/auth/sign-in", { replace: true });
       } else {
           toast.error(data.message);
       }
