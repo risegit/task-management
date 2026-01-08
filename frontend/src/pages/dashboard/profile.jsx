@@ -1,41 +1,257 @@
-import React, { useState } from 'react';
-import { User, Mail, Calendar, Briefcase, Building2, UserCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Calendar, Briefcase, Building2, UserCircle2, Save, Edit, Copy } from 'lucide-react';
+import { getCurrentUser } from "../../utils/api";
+import axios from 'axios';
 
 const ProfilePage = () => {
-  const [profileData, setProfileData] = useState({
-    fullName: 'John Doe',
-    email: 'johndoe@gmail.com',
-    gender: 'Male',
-    department: 'Development',
-    designation: 'Senior Engineer',
-    dob: '1990-05-15',
-    joiningDate: '2022-03-01'
+  const [employee, setEmployee] = useState({
+    id: '',
+    name: '',
+    email: '',
+    gender: '',
+    phone: '',
+    dept_name: '', // For display only - not submitted
+    designation: '', // For display only - not submitted
+    dob: '', // For display only - not submitted
+    joining_date: '', // For display only - not submitted
+    password: ''
   });
 
+  const user = getCurrentUser();
+  const id = user.id;
+
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchEmployeeData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/emp.php`,
+          {
+            params: { 
+              empId: user.id,
+              profile: 'true'
+            }
+          }
+        );
+
+        const result = response.data.data[0];
+        console.log("API result:", result);
+        
+        setEmployee({
+          id: result.id || "",
+          name: result.name || "",
+          email: result.email || "",
+          gender: result.gender || "",
+          phone: result.phone || "",
+          password: "",
+          dept_name: result.dept_name || "",
+          designation: result.designation || "",
+          dob: result.dob || "",
+          joining_date: result.joining_date || ""
+        });
+          
+      } catch (error) {
+        console.error("Fetch error:", error);
+        setMessage({ type: 'error', text: 'Failed to load profile data' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEmployeeData();
+  }, [id]);
 
   const handleEdit = () => {
-    setIsEditing(!isEditing);
+    if (isEditing) {
+      handleSubmit();
+    } else {
+      setIsEditing(true);
+    }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfileData({ ...profileData, [name]: value });
+    setEmployee(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error for this field
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    const passwordLength = 12;
+    
+    for (let i = 0; i < passwordLength; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    setEmployee(prev => ({ ...prev, password }));
+  };
+
+  const copyPassword = () => {
+    if (employee.password) {
+      navigator.clipboard.writeText(employee.password);
+      setMessage({ type: 'success', text: 'Password copied to clipboard!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (isEditing && employee.password && employee.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+    
+    if (!employee.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    if (!employee.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employee.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      setMessage({ type: 'error', text: 'Please fix the errors before saving' });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      // Prepare data exactly as your PHP backend expects
+      const submitData = {
+        id: employee.id,
+        name: employee.name,
+        email: employee.email,
+        gender: employee.gender,
+        phone: employee.phone || '', // Send phone even if empty
+        password: employee.password || '', // Send empty string if no password
+        _method: 'PUT' // Laravel-style method override
+      };
+
+      console.log("Submitting data:", submitData);
+
+      // Use FormData for multipart/form-data
+      const formData = new FormData();
+      formData.append('id', submitData.id);
+      formData.append('name', submitData.name);
+      formData.append('email', submitData.email);
+      formData.append('gender', submitData.gender);
+      formData.append('phone', submitData.phone);
+      formData.append('password', submitData.password);
+      formData.append('_method', 'PUT');
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}api/emp.php`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      console.log("Update response:", response.data);
+
+      if (response.data.status === 'success') {
+        setMessage({ type: 'success', text: response.data.message || 'Profile updated successfully!' });
+        setIsEditing(false);
+        
+        // Clear password field after successful save
+        setEmployee(prev => ({ ...prev, password: '' }));
+        
+        // Refresh the page to get updated data
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        throw new Error(response.data.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || error.message || 'Failed to update profile. Please try again.' 
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (!dateString) return 'Not set';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } catch (error) {
+      return 'Invalid date';
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      
+      {/* Message Alert */}
+      {message.text && (
+        <div className={`mx-auto p-6 pb-0`}>
+          <div className={`rounded-lg p-4 mb-6 ${
+            message.type === 'success' 
+              ? 'bg-green-50 text-green-800 border border-green-200' 
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  {message.type === 'success' ? 'Success!' : 'Error!'}
+                </span>
+                <span>{message.text}</span>
+              </div>
+              <button 
+                onClick={() => setMessage({ type: '', text: '' })}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
-      <div className=" mx-auto p-6">
+      <div className="mx-auto p-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Profile Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
@@ -49,18 +265,34 @@ const ProfilePage = () => {
                   />
                 </div>
                 <div className="text-white">
-                  <h2 className="text-2xl font-bold mb-1">{profileData.fullName}</h2>
+                  <h2 className="text-2xl font-bold mb-1">{employee.name}</h2>
                   <p className="text-blue-100 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
-                    {profileData.email}
+                    {employee.email}
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleEdit}
-                className="px-6 py-2.5 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-all shadow-md"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-all shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isEditing ? 'Save' : 'Edit'}
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    Saving...
+                  </>
+                ) : isEditing ? (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-4 h-4" />
+                    Edit Profile
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -76,8 +308,33 @@ const ProfilePage = () => {
                 </label>
                 <input
                   type="text"
-                  name="fullName"
-                  value={profileData.fullName}
+                  name="name"
+                  value={employee.name}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className={`w-full px-4 py-3 rounded-lg border ${
+                    isEditing
+                      ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                      : 'border-gray-200 bg-gray-50'
+                  } ${errors.name ? 'border-red-300' : ''} outline-none transition-all`}
+                />
+                {errors.name && (
+                  <p className="text-red-500 text-sm">{errors.name}</p>
+                )}
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={employee.phone || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className={`w-full px-4 py-3 rounded-lg border ${
@@ -85,6 +342,7 @@ const ProfilePage = () => {
                       ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       : 'border-gray-200 bg-gray-50'
                   } outline-none transition-all`}
+                  placeholder="Enter phone number"
                 />
               </div>
 
@@ -96,7 +354,7 @@ const ProfilePage = () => {
                 </label>
                 <select
                   name="gender"
-                  value={profileData.gender}
+                  value={employee.gender}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className={`w-full px-4 py-3 rounded-lg border ${
@@ -105,112 +363,146 @@ const ProfilePage = () => {
                       : 'border-gray-200 bg-gray-50'
                   } outline-none transition-all`}
                 >
+                  <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
 
-              {/* Department */}
+              {/* Department (Read-only) */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-600" />
                   Department
                 </label>
-                <input
-                  type="text"
-                  name="department"
-                  value={profileData.department}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-lg border ${
-                    isEditing
-                      ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-                      : 'border-gray-200 bg-gray-50'
-                  } outline-none transition-all`}
-                />
+                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                  {employee.dept_name || 'Not set'}
+                </div>
               </div>
 
-              {/* Designation */}
+              {/* Designation (Read-only) */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-blue-600" />
                   Designation
                 </label>
+                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                  {employee.designation || 'Not set'}
+                </div>
+              </div>
+
+              {/* Email Address */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-blue-600" />
+                  Email Address
+                </label>
                 <input
-                  type="text"
-                  name="designation"
-                  value={profileData.designation}
+                  type="email"
+                  name="email"
+                  value={employee.email}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className={`w-full px-4 py-3 rounded-lg border ${
                     isEditing
                       ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       : 'border-gray-200 bg-gray-50'
-                  } outline-none transition-all`}
+                  } ${errors.email ? 'border-red-300' : ''} outline-none transition-all`}
                 />
+                {errors.email && (
+                  <p className="text-red-500 text-sm">{errors.email}</p>
+                )}
               </div>
 
-              {/* Date of Birth */}
+              {/* Date of Birth (Read-only) */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   Date of Birth
                 </label>
-                {isEditing ? (
-                  <input
-                    type="date"
-                    name="dob"
-                    value={profileData.dob}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-lg border border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
-                  />
-                ) : (
-                  <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
-                    {formatDate(profileData.dob)}
-                  </div>
-                )}
+                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                  {formatDate(employee.dob)}
+                </div>
               </div>
 
-              {/* Joining Date */}
+              {/* Joining Date (Read-only) */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   Joining Date
                 </label>
-                {isEditing ? (
-                  <input
-                    type="date"
-                    name="joiningDate"
-                    value={profileData.joiningDate}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-lg border border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
-                  />
-                ) : (
-                  <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
-                    {formatDate(profileData.joiningDate)}
-                  </div>
-                )}
+                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                  {formatDate(employee.joining_date)}
+                </div>
               </div>
             </div>
 
-            {/* Email Address Section */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Mail className="w-5 h-5 text-blue-600" />
-                My Email Address
-              </h3>
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Mail className="w-6 h-6 text-blue-600" />
+            {/* Password Section - Only show in edit mode */}
+            {isEditing && (
+              <div className="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Password Update</h3>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    New Password
+                    <span className="text-gray-400 text-xs">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="password"
+                      value={employee.password}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 pr-32 rounded-lg border-2 ${
+                        errors.password 
+                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                          : "border-blue-200 focus:border-blue-500 focus:ring-blue-100"
+                      } focus:ring-2 outline-none transition-all bg-white`}
+                      placeholder="Leave blank to keep current password"
+                    />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                      {employee.password && (
+                        <button
+                          type="button"
+                          onClick={copyPassword}
+                          className="text-gray-400 hover:text-blue-600 transition-colors p-1.5 hover:bg-blue-50 rounded-lg"
+                          title="Copy password"
+                        >
+                          <Copy className="w-5 h-5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={generatePassword}
+                        className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+                  {errors.password && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      {errors.password}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">
+                      {employee.password.length} characters (optional)
+                    </span>
+                    {employee.password && (
+                      <span className={`font-medium ${
+                        employee.password.length >= 8 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {employee.password.length >= 8 ? 'Strong' : 'Weak'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Password must be at least 8 characters long. Leave this field empty if you don't want to change the password.
+                  </p>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{profileData.email}</p>
-                  <p className="text-sm text-gray-500">Added 1 month ago</p>
-                </div>
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -223,7 +515,7 @@ const ProfilePage = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Position</p>
-                <p className="font-semibold text-gray-900">{profileData.designation}</p>
+                <p className="font-semibold text-gray-900">{employee.designation || 'Not set'}</p>
               </div>
             </div>
           </div>
@@ -235,7 +527,7 @@ const ProfilePage = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Department</p>
-                <p className="font-semibold text-gray-900">{profileData.department}</p>
+                <p className="font-semibold text-gray-900">{employee.dept_name || 'Not set'}</p>
               </div>
             </div>
           </div>
@@ -247,7 +539,7 @@ const ProfilePage = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Joined</p>
-                <p className="font-semibold text-gray-900">{formatDate(profileData.joiningDate)}</p>
+                <p className="font-semibold text-gray-900">{formatDate(employee.joining_date)}</p>
               </div>
             </div>
           </div>
