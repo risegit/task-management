@@ -24,6 +24,9 @@ export function reducer(state, action) {
     case "OPEN_CONFIGURATOR": {
       return { ...state, openConfigurator: action.value };
     }
+    case "SIDENAV_COLLAPSED": {
+      return { ...state, sidenavCollapsed: action.value };
+    }
     default: {
       throw new Error(`Unhandled action type: ${action.type}`);
     }
@@ -38,6 +41,7 @@ export function MaterialTailwindControllerProvider({ children }) {
     transparentNavbar: true,
     fixedNavbar: false,
     openConfigurator: false,
+    sidenavCollapsed: false, // Add this line
   };
 
   const [controller, dispatch] = React.useReducer(reducer, initialState);
@@ -71,6 +75,7 @@ MaterialTailwindControllerProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
+// Action creators
 export const setOpenSidenav = (dispatch, value) =>
   dispatch({ type: "OPEN_SIDENAV", value });
 export const setSidenavType = (dispatch, value) =>
@@ -83,3 +88,5 @@ export const setFixedNavbar = (dispatch, value) =>
   dispatch({ type: "FIXED_NAVBAR", value });
 export const setOpenConfigurator = (dispatch, value) =>
   dispatch({ type: "OPEN_CONFIGURATOR", value });
+export const setSidenavCollapsed = (dispatch, value) => // Add this
+  dispatch({ type: "SIDENAV_COLLAPSED", value });
