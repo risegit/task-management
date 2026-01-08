@@ -18,7 +18,7 @@ $project_id = isset($_GET['project_id']) ? intval($_GET['project_id']) : 0;
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
-
+date_default_timezone_set('Asia/Kolkata');
 $date = date("Y-m-d");
 $time = date("H:i:s");
 
@@ -87,11 +87,11 @@ switch ($method) {
         }else if($dashboardTask){
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
-                    $countCond = 'count(u.name) count_tasks';
-                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge', 'in-progress', 'completed') and ta.user_id = '$userId' AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY Order By count_tasks DESC";
+                    $countCond = "GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') AS clients, GROUP_CONCAT(DISTINCT t.task_name ORDER BY t.task_name SEPARATOR ', ') AS task_name, COUNT(t.id) AS count_tasks";
+                    $whereClause = "INNER JOIN clients c ON c.id = t.client_id WHERE ta.user_id = '$userId' AND ( ta.status IN ('not-acknowledge', 'acknowledge') OR ( ta.status IN ('in-progress', 'completed') AND ta.updated_date = CURDATE())) GROUP BY u.id, status Order By count_tasks DESC";
                 } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
-                    $countCond = 'count(t.id) count_tasks';
-                    $whereClause = "WHERE ta.status IN ('not-acknowledge', 'acknowledge', 'in-progress', 'completed') AND t.created_date >= CURDATE() AND t.created_date < CURDATE() + INTERVAL 1 DAY GROUP BY u.id, status ORDER BY count_tasks DESC";
+                    $countCond = "GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') AS clients, GROUP_CONCAT(DISTINCT t.task_name ORDER BY t.task_name SEPARATOR ', ') AS task_name, COUNT(t.id) AS count_tasks";
+                    $whereClause = "INNER JOIN clients c ON c.id = t.client_id WHERE ( ta.status IN ('not-acknowledge', 'acknowledge') OR ( ta.status IN ('in-progress', 'completed') AND ta.updated_date = CURDATE())) GROUP BY u.id, status ORDER BY count_tasks DESC";
                 }
             }
             $sql1 = "SELECT u.name,u.id user_id,t.client_id,t.task_name,t.priority, CASE WHEN ta.status IN ('not-acknowledge', 'acknowledge') THEN 'acknowledge' ELSE ta.status END AS status, $countCond FROM tasks t INNER JOIN task_assignees ta ON t.id=ta.task_id INNER JOIN users u ON ta.user_id=u.id $whereClause";

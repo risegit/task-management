@@ -233,7 +233,7 @@ export default function AddItemTable() {
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-slate-200">
-              <button 
+              {/* <button 
                 type="button"
                 className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-all"
                 onClick={() => {
@@ -246,7 +246,7 @@ export default function AddItemTable() {
                 }}
               >
                 Cancel
-              </button>
+              </button> */}
               <button
                 type="button"
                 onClick={handleSubmit}

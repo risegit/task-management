@@ -379,8 +379,21 @@ const getTotalCompletedTaskCount = () => {
                         <ClipboardDocumentCheckIcon className="w-5 h-5 text-progress-600 mt-0.5 mr-3 flex-shrink-0" />
                         <div>
                           <h4 className="font-semibold text-black-800 text-sm mb-1">
-                            {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Progress Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                             {user.role !== "staff" && (
+                              <> 
+                              {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Progress Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                              </>
+                             )}
+                             
+                             {user.role === "staff" && ( 
+                              <>
+                              <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
+                              </>
+                              )}
                           </h4>
+                          {user.role === "staff" && (
+                            <em className="text-xs">{task.clients}</em>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -408,7 +421,7 @@ const getTotalCompletedTaskCount = () => {
             </div>
             <div className="space-y-3 flex-grow">
               {getPaginatedTasks(completedTasks, completedPage).map(task => (
-                <div key={task.id} className="flex items-start p-3 bg-gray-50 rounded-lg">
+                <div key={task.id} className="flex items-start p-3 pb-0 bg-gray-50 rounded-lg">
                   <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 mr-3" />
                   {/* <div className="flex-1">
                     <p className="text-sm text-gray-700 font-medium line-through">
@@ -418,8 +431,23 @@ const getTotalCompletedTaskCount = () => {
                   </div> */}
                   <div>
                     <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
-                      {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                      {/* {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed 
+                      Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} */}
+                      {user.role !== "staff" && (
+                        <> 
+                        {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed 
+                      Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                        </>
+                        )}
+                        {user.role === "staff" && ( 
+                        <>
+                        <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
+                        </>
+                        )}
                     </h4>
+                    {user.role === "staff" && (
+                      <em className="text-xs">{task.clients}</em>
+                    )}
                   </div>
                 </div>
               ))}
