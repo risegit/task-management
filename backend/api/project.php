@@ -15,7 +15,7 @@ $emailId = $_GET['email'] ?? null;
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
-
+date_default_timezone_set('Asia/Kolkata');
 $date = date("Y-m-d");
 $time = date("H:i:s");
 
@@ -86,6 +86,14 @@ switch ($method) {
         $poc = $data['poc'] ?? null; // single ID
         $otherEmployees = $data['otherEmployees'] ?? [];
         // echo json_encode(["status" => "success", "poc" => $poc]);
+
+        $sql = "SELECT name FROM clients WHERE name='$projectName'";
+        $result = $conn->query($sql); 
+        if($result->num_rows > 0){
+            echo json_encode(["status" => "error", "message" => "Project Name Already Exists"]);
+            exit;
+        }
+
         $conn->begin_transaction();
         try {
             /* -----------------------------
@@ -182,6 +190,13 @@ switch ($method) {
             if (is_array($decoded)) {
                 $otherEmployees = $decoded;
             }
+        }
+
+        $sql = "SELECT name FROM clients WHERE name='$projectName' and id != '$projectId'";
+        $result = $conn->query($sql); 
+        if($result->num_rows > 0){
+            echo json_encode(["status" => "error", "message" => "Project Name Already Exists"]);
+            exit;
         }
 
         $conn->begin_transaction();

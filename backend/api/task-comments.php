@@ -13,6 +13,7 @@ $taskId = $_GET['task_id'] ?? null;
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
+date_default_timezone_set('Asia/Kolkata'); 
 
 $date = date("Y-m-d");
 $time = date("H:i:s");
@@ -178,9 +179,10 @@ switch ($method) {
         }
 
         $sql = "UPDATE task_comments 
-                SET comment = ?, updated_at = NOW()
+                SET comment = ?, updated_date = NOW(), updated_time = TIME(NOW())
                 WHERE id = ? AND user_id = ?";
-
+                // $sql1= "UPDATE task_comments SET comment = '$comment', updated_at = NOW() WHERE id = $commentId AND user_id = $userId";
+        // echo json_encode(["status" => "success", "sql" => $sql1]);
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("sii", $comment, $commentId, $userId);
         $stmt->execute();

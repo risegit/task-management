@@ -14,7 +14,7 @@ $allEmp = $_GET['all_emp'] ?? null;
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
-
+date_default_timezone_set('Asia/Kolkata');
 $date = date("Y-m-d");
 $time = date("H:i:s");
 
@@ -113,7 +113,7 @@ switch ($method) {
         // Start building the SET clause dynamically
         $setClauses = array();
 
-        $checkEmail = $conn->query("SELECT id FROM users WHERE email = '$email' or phone = '$phone' LIMIT 1");
+        $checkEmail = $conn->query("SELECT id FROM users WHERE (email = '$email' or phone = '$phone') and id != '$user_id' LIMIT 1");
         if ($checkEmail->num_rows > 0) {
             echo json_encode([
                 "status" => "error",

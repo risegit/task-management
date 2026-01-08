@@ -14,7 +14,7 @@ $emailId = $_GET['email'] ?? null;
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
 }
-
+date_default_timezone_set('Asia/Kolkata');
 $date = date("Y-m-d");
 $time = date("H:i:s");
 
