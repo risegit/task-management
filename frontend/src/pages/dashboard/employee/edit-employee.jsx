@@ -106,11 +106,11 @@ export default function EditEmployee() {
       newErrors.email = "Enter a valid email";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = "Enter a valid 10-digit phone number";
-    }
+    // if (!formData.phone.trim()) {
+    //   newErrors.phone = "Phone number is required";
+    // } else if (!/^\d{10}$/.test(formData.phone)) {
+    //   newErrors.phone = "Enter a valid 10-digit phone number";
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -386,7 +386,7 @@ export default function EditEmployee() {
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     Phone Number
-                    <span className="text-red-500">*</span>
+                    {/* <span className="text-red-500">*</span> */}
                   </label>
                   <input
                     type="tel"

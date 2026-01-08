@@ -53,7 +53,7 @@ switch ($method) {
             
             if ($result->num_rows == 0) {
                 $sql2 = "INSERT INTO `users`(`name`, `email`, `password`, `role`, `status`, `created_date`, `created_time`,`department_id`) VALUES ('$name','$email','$password_hash','$role','inactive','$date','$time','$department')";
-                echo json_encode(["status" => "success", "message" => $sql2 ]);
+                // echo json_encode(["status" => "success", "message" => $sql2 ]);
                 
                 if($conn->query($sql2)){
                     $user_id = $conn->insert_id;
@@ -63,10 +63,10 @@ switch ($method) {
                     else $prefix = 'OT';
                     $user_code = $prefix . str_pad($user_id, 4, '0', STR_PAD_LEFT);
                     $conn->query("UPDATE users SET user_code = '$user_code' WHERE id = '$user_id'");
-echo json_encode(["status" => "success", "message" => $sql2 ]);
-                    // echo json_encode(["status" => "success", "message" => "Your Account Created successfully! Now wait for admin to activate this account."]);
+// echo json_encode(["status" => "success", "message" => $sql2 ]);
+                    echo json_encode(["status" => "success", "message" => "Your Account Created successfully! Now wait for admin to activate this account."]);
                 }
-                echo json_encode(["status" => "success", "message" => $sql2 ]);
+                // echo json_encode(["status" => "success", "message" => $sql2 ]);
             }else{
                 echo json_encode(["status" => "error", "message" => "This user already registered with us"]);
                 break;
