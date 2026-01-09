@@ -28,7 +28,7 @@ export default function CreateTask() {
     assignedTo: [],
     deadline: "",
     remarks: "",
-    priority: "", // New priority field
+    priority: null, // New priority field
   });
 
   const handleChange = (e) => {
@@ -241,7 +241,8 @@ export default function CreateTask() {
       );
       form.append("deadline", taskData.deadline);
       form.append("remarks", taskData.remarks);
-      form.append("priority", taskData.priority.value);
+      // form.append("priority", taskData.priority.value);
+      form.append("priority", taskData.priority ? taskData.priority.value : "");
 
       console.log("Submitting form data...");
       for (let pair of form.entries()) {

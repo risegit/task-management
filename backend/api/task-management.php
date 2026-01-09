@@ -60,22 +60,23 @@ switch ($method) {
         }else if($viewTask){
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
-                    $taskStatusCond = "MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END)";
+                    $sql = "Select * from task_assignees where user_id='$userId'";
+                    $resultCheck = $conn->query($sql);
+                    if ($resultCheck->num_rows > 0) {  
+                        $taskStatusCond = "MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END)";
+                    } else {
+                        $taskStatusCond = "CASE WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'completed') = COUNT(*) THEN 'completed' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
+                    }
                     $whereClause = "WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId'";
                 } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
-                    $taskStatusCond = "CASE 
-                        WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed'
-                        WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress'
-                        WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge'
-                        WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge'
-                        ELSE 'pending'
-                    END";
                     $whereClause = '';
+                    $taskStatusCond = "CASE WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'completed') = COUNT(*) THEN 'completed' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
                 }
+                
             }
             // $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, GROUP_CONCAT(DISTINCT ta.status ORDER BY ta.status SEPARATOR ', ') AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id=t.client_id WHERE t.id IN ( SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id $whereClause ) GROUP BY t.id ORDER BY t.id DESC;";
             $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id WHERE t.id IN (SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id $whereClause) GROUP BY t.id ORDER BY t.id DESC";
-            // echo json_encode(["status" => "success","query" => $sql1]);
+            // echo json_encode(["status" => "success","query123" => $sql1]);
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {

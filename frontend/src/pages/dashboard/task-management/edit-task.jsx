@@ -45,7 +45,7 @@ export default function EditTask() {
     assignedTo: [],
     deadline: "",
     remarks: "",
-    priority: "",
+    priority: null,
     status: "",
     taskStatus: ""
   });
@@ -495,7 +495,7 @@ export default function EditTask() {
       // Basic task information
       formData.append("taskName", taskData.name.trim());
       formData.append("assignedBy", taskData.assignedBy);
-      formData.append("priority", taskData.priority.value);
+      formData.append("priority", taskData.priority ? taskData.priority.value : "");
       
       // Only include status if user is assigned to the task or is the creator
       if (isUserAssignedToTask || isTaskCreator) {
@@ -895,112 +895,187 @@ export default function EditTask() {
                     </label>
                     
                     <Select
-                      isMulti
-                      options={allAssignedTo}
-                      value={taskData.assignedTo}
-                      onChange={isTaskCreator ? (selected) => handleSelectChange("assignedTo", selected) : undefined}
-                      classNamePrefix="react-select"
-                      className={`react-select-container ${errors.assignedTo ? 'error' : ''}`}
-                      styles={{
-                        menu: (provided) => ({ 
-                          ...provided, 
-                          zIndex: 9999,
-                          borderRadius: '0.75rem',
-                          marginTop: '4px',
-                          boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-                        }),
-                        control: (provided, state) => ({
-                          ...provided,
-                          border: `2px solid ${errors.assignedTo ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
-                          borderRadius: '0.75rem',
-                          padding: '8px 4px',
-                          backgroundColor: errors.assignedTo ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
-                          minHeight: '52px',
-                          boxShadow: state.isFocused && isTaskCreator ? (errors.assignedTo ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
-                          "&:hover": {
-                            borderColor: errors.assignedTo ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
-                          },
-                          opacity: loadingAssignedUsers || !isTaskCreator ? 0.7 : 1,
-                          cursor: isTaskCreator ? 'pointer' : 'not-allowed',
-                        }),
-                        multiValue: (provided, state) => ({
-                          ...provided,
-                          backgroundColor: state.data.status === 'in-progress' ? '#fef3c7' : 
-                                         state.data.status === 'completed' ? '#d1fae5' : 
-                                         state.data.status === 'acknowledge' ? '#dbeafe' : 
-                                         '#e0f2fe',
-                          borderRadius: '0.5rem',
-                          border: state.data.status === 'in-progress' ? '1px solid #f59e0b' : 
-                                 state.data.status === 'completed' ? '1px solid #10b981' : 
-                                 state.data.status === 'acknowledge' ? '1px solid #3b82f6' : 
-                                 '1px solid #0369a1',
-                          opacity: !isTaskCreator ? 0.8 : 1,
-                        }),
-                        multiValueLabel: (provided, state) => ({
-                          ...provided,
-                          color: state.data.status === 'in-progress' ? '#92400e' : 
-                                state.data.status === 'completed' ? '#065f46' : 
-                                state.data.status === 'acknowledge' ? '#1e40af' : 
-                                '#0369a1',
-                          fontWeight: '500',
-                          paddingRight: '4px',
-                        }),
-                        multiValueRemove: (provided, state) => {
-                          const isRemovable = !(state.data.status === 'in-progress' || 
-                                               state.data.status === 'completed');
-                          
-                          return {
-                            ...provided,
-                            color: isRemovable && isTaskCreator ? '#0369a1' : '#9ca3af',
-                            cursor: isRemovable && isTaskCreator ? 'pointer' : 'not-allowed',
-                            '&:hover': {
-                              backgroundColor: isRemovable && isTaskCreator ? '#bae6fd' : 'transparent',
-                              color: isRemovable && isTaskCreator ? '#0c4a6e' : '#9ca3af',
-                            },
-                            display: isRemovable && isTaskCreator ? 'flex' : 'none',
-                          };
-                        },
-                        indicatorSeparator: (provided) => ({
-                          ...provided,
-                          display: isTaskCreator ? 'flex' : 'none',
-                        }),
-                        dropdownIndicator: (provided) => ({
-                          ...provided,
-                          display: isTaskCreator ? 'flex' : 'none',
-                        }),
-                      }}
-                      placeholder={
-                        loadingAssignedUsers 
-                          ? "Loading team members..." 
-                          : allAssignedTo.length === 0 
-                            ? "No other team members available" 
-                            : isTaskCreator 
-                              ? "Select multiple team members..."
-                              : "Assigned users (read-only)"
-                      }
-                      isDisabled={loading || loadingAssignedUsers || allAssignedTo.length === 0 || !isTaskCreator}
-                      isLoading={loadingAssignedUsers}
-                      loadingMessage={() => (
-                        <div className="flex items-center justify-center gap-2 py-4">
-                          <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>Loading team members...</span>
-                        </div>
-                      )}
-                      noOptionsMessage={() => 
-                        loadingAssignedUsers 
-                          ? "Loading team members..." 
-                          : "No other team members available"
-                      }
-                      isClearable={isTaskCreator}
-                      components={isTaskCreator ? customComponents : {
-                        ...customComponents,
-                        DropdownIndicator: () => null,
-                        ClearIndicator: () => null,
-                      }}
-                    />
+  isMulti
+  options={allAssignedTo}
+  value={taskData.assignedTo}
+  onChange={isTaskCreator ? (selected) => handleSelectChange("assignedTo", selected) : undefined}
+  classNamePrefix="react-select"
+  className={`react-select-container ${errors.assignedTo ? 'error' : ''}`}
+  styles={{
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${errors.assignedTo ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: errors.assignedTo ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+      minHeight: '52px',
+      boxShadow: state.isFocused && isTaskCreator ? (errors.assignedTo ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+      "&:hover": {
+        borderColor: errors.assignedTo ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+      },
+      opacity: loadingAssignedUsers || !isTaskCreator ? 0.7 : 1,
+      cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+    }),
+    // Style for individual options in the dropdown menu
+    option: (provided, state) => {
+      // Check if this option is in assignedTo with "not-acknowledge" status
+      const isAssignedUser = taskData.assignedTo.find(user => user.value === state.data.value);
+      const isNotAcknowledge = isAssignedUser && isAssignedUser.status === 'not-acknowledge';
+      
+      return {
+        ...provided,
+        padding: '12px 16px',
+        backgroundColor: state.isSelected 
+          ? (isNotAcknowledge ? '#fee2e2' : '#e0f2fe') // Red background for not-acknowledge
+          : state.isFocused 
+            ? (isNotAcknowledge ? '#fef2f2' : '#f8fafc') // Light red for hover
+            : 'white',
+        color: isNotAcknowledge ? '#dc2626' : '#1e293b', // Red text for not-acknowledge
+        fontWeight: '500',
+        borderLeft: state.isSelected 
+          ? `4px solid ${isNotAcknowledge ? '#dc2626' : '#0ea5e9'}` // Red border for not-acknowledge
+          : `4px solid ${isNotAcknowledge ? '#fecaca' : 'transparent'}`, // Light red border
+        '&:hover': {
+          backgroundColor: isNotAcknowledge ? '#fee2e2' : '#e0f2fe', // Red on hover for not-acknowledge
+        },
+      };
+    },
+    // Style for selected values (chips)
+    multiValue: (provided, state) => {
+      const isNotAcknowledge = state.data.status === 'not-acknowledge';
+      const isInProgress = state.data.status === 'in-progress';
+      const isCompleted = state.data.status === 'completed';
+      const isAcknowledge = state.data.status === 'acknowledge';
+      
+      // Red theme for not-acknowledge
+      if (isNotAcknowledge) {
+        return {
+          ...provided,
+          backgroundColor: '#fee2e2', // Light red background
+          borderRadius: '0.5rem',
+          border: '1px solid #f87171', // Red border
+          opacity: !isTaskCreator ? 0.8 : 1,
+        };
+      }
+      
+      // Other statuses
+      return {
+        ...provided,
+        backgroundColor: isInProgress ? '#fef3c7' : 
+                       isCompleted ? '#d1fae5' : 
+                       isAcknowledge ? '#dbeafe' : 
+                       '#e0f2fe', // Default blue for other statuses
+        borderRadius: '0.5rem',
+        border: isInProgress ? '1px solid #f59e0b' : 
+                isCompleted ? '1px solid #10b981' : 
+                isAcknowledge ? '1px solid #3b82f6' : 
+                '1px solid #0ea5e9', // Default blue border
+        opacity: !isTaskCreator ? 0.8 : 1,
+      };
+    },
+    multiValueLabel: (provided, state) => {
+      const isNotAcknowledge = state.data.status === 'not-acknowledge';
+      
+      // Red text for not-acknowledge
+      if (isNotAcknowledge) {
+        return {
+          ...provided,
+          color: '#b91c1c', // Dark red text
+          fontWeight: '600', // Bold text
+          paddingRight: '4px',
+        };
+      }
+      
+      // Other statuses
+      return {
+        ...provided,
+        color: state.data.status === 'in-progress' ? '#92400e' : 
+               state.data.status === 'completed' ? '#065f46' : 
+               state.data.status === 'acknowledge' ? '#1e40af' : 
+               '#0369a1', // Default blue
+        fontWeight: '500',
+        paddingRight: '4px',
+      };
+    },
+    multiValueRemove: (provided, state) => {
+      const isNotAcknowledge = state.data.status === 'not-acknowledge';
+      const isRemovable = !(state.data.status === 'in-progress' || 
+                           state.data.status === 'completed');
+      
+      // Red remove button for not-acknowledge
+      if (isNotAcknowledge) {
+        return {
+          ...provided,
+          color: isRemovable && isTaskCreator ? '#dc2626' : '#9ca3af', // Red color
+          cursor: isRemovable && isTaskCreator ? 'pointer' : 'not-allowed',
+          '&:hover': {
+            backgroundColor: isRemovable && isTaskCreator ? '#fca5a5' : 'transparent', // Light red on hover
+            color: isRemovable && isTaskCreator ? '#991b1b' : '#9ca3af', // Darker red on hover
+          },
+          display: isRemovable && isTaskCreator ? 'flex' : 'none',
+        };
+      }
+      
+      // For other statuses
+      return {
+        ...provided,
+        color: isRemovable && isTaskCreator ? '#0369a1' : '#9ca3af',
+        cursor: isRemovable && isTaskCreator ? 'pointer' : 'not-allowed',
+        '&:hover': {
+          backgroundColor: isRemovable && isTaskCreator ? '#bae6fd' : 'transparent',
+          color: isRemovable && isTaskCreator ? '#0c4a6e' : '#9ca3af',
+        },
+        display: isRemovable && isTaskCreator ? 'flex' : 'none',
+      };
+    },
+    indicatorSeparator: (provided) => ({
+      ...provided,
+      display: isTaskCreator ? 'flex' : 'none',
+    }),
+    dropdownIndicator: (provided) => ({
+      ...provided,
+      display: isTaskCreator ? 'flex' : 'none',
+    }),
+  }}
+  placeholder={
+    loadingAssignedUsers 
+      ? "Loading team members..." 
+      : allAssignedTo.length === 0 
+        ? "No other team members available" 
+        : isTaskCreator 
+          ? "Select multiple team members..."
+          : "Assigned users (read-only)"
+  }
+  isDisabled={loading || loadingAssignedUsers || allAssignedTo.length === 0 || !isTaskCreator}
+  isLoading={loadingAssignedUsers}
+  loadingMessage={() => (
+    <div className="flex items-center justify-center gap-2 py-4">
+      <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span>Loading team members...</span>
+    </div>
+  )}
+  noOptionsMessage={() => 
+    loadingAssignedUsers 
+      ? "Loading team members..." 
+      : "No other team members available"
+  }
+  isClearable={isTaskCreator}
+  components={isTaskCreator ? customComponents : {
+    ...customComponents,
+    DropdownIndicator: () => null,
+    ClearIndicator: () => null,
+  }}
+/>
                     {errors.assignedTo && isTaskCreator && (
                       <p className="text-red-500 text-sm flex items-center gap-1">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

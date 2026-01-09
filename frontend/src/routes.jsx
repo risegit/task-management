@@ -66,16 +66,16 @@ const routes = [
       {
         icon: <BuildingOfficeIcon {...icon} />,
         name: "Departments",
-        allowedRoles: ["admin", "manager", ""],
+        allowedRoles: ["admin", "manager"],
         collapse: [
           {
             name: "Add Department",
             path: "/department/add-department",
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin"],
             element: (
               <RoleProtectedRoute
                 element={<Adddept />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin"]}
               />
             ),
           },
@@ -94,11 +94,11 @@ const routes = [
             name: "Edit Department",
             path: "/department/edit-deptartment/:id",
             hidden: true,
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin"],
             element: (
               <RoleProtectedRoute
                 element={<Editdept />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin"]}
               />
             )},
         ],

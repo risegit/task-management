@@ -58,16 +58,21 @@ const ProjectsTable = () => {
 
         if (result.status === "success") {
 
+          // In your fetchProjects function, update the normalizedProjects section:
           const normalizedProjects = result.project.map((item, index) => {
+            // Convert poc_employee to an array (it might be a string or array)
+            const pocArray = Array.isArray(item.poc_employee) 
+              ? item.poc_employee 
+              : (item.poc_employee ? [item.poc_employee] : []);
             
             return {
-              id: item.client_id,        // used for routing
-              projectIndex: String(index + 1), // used for mapping
+              id: item.client_id,
+              projectIndex: String(index + 1),
               projectName: item.client_name,
               description: item.description,
               startDate: item.start_date,
               status: item.status === "active" ? "Active" : "Inactive",
-              poc: item.poc_employee,
+              poc: pocArray, // Make sure this is an array
               other_employees: item.other_employees
             };
           });
@@ -123,11 +128,26 @@ const ProjectsTable = () => {
   };
 
   // Filter projects
-  const filteredProjects = projects.filter(project =>
-    project.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.poc.some(poc => poc.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    project.status.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProjects = projects.filter(project => {
+  const searchLower = searchQuery.toLowerCase();
+  
+  // Check project name
+  const nameMatch = project.projectName.toLowerCase().includes(searchLower);
+  
+  // Check POC - now it's an array
+  const pocMatch = project.poc.some(poc => 
+    poc.toLowerCase().includes(searchLower)
   );
+  
+  // Check other employees if needed
+  const otherMatch = project.other_employees && 
+    project.other_employees.toLowerCase().includes(searchLower);
+  
+  // Check status
+  const statusMatch = project.status.toLowerCase().includes(searchLower);
+  
+  return nameMatch || pocMatch || otherMatch || statusMatch;
+});
 
   // Apply sorting to filtered results
   const sortedProjects = [...filteredProjects].sort((a, b) => {
