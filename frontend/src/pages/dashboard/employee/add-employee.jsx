@@ -108,11 +108,11 @@ export default function AddEmployee() {
       newErrors.email = "Enter a valid email";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = "Enter a valid 10-digit phone number";
-    }
+    // if (!formData.phone.trim()) {
+    //   newErrors.phone = "Phone number is required";
+    // } else if (!/^\d{10}$/.test(formData.phone)) {
+    //   newErrors.phone = "Enter a valid 10-digit phone number";
+    // }
 
     if (!formData.password.trim()) {
       newErrors.password = "Password is required";
@@ -363,7 +363,7 @@ export default function AddEmployee() {
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     Phone Number
-                    <span className="text-red-500">*</span>
+                    {/* <span className="text-red-500">*</span> */}
                   </label>
                   <input
                     type="tel"

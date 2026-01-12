@@ -156,16 +156,16 @@ switch ($method) {
             $userstatus = filter_var($status, FILTER_VALIDATE_BOOLEAN) ? 'active' : 'inactive';
             $setClauses[] = "`status` = '" . $conn->real_escape_string($userstatus) . "'";
         }
-        if (!empty($designation)) {
-            $setClauses[] = "`designation` = '" . $conn->real_escape_string($designation) . "'";
-        }
-        if (!empty($dob)) {
-            $setClauses[] = "`dob` = '" . $conn->real_escape_string($dob) . "'";
-        }
-        if (!empty($joining_date)) {
-            $setClauses[] = "`joining_date` = '" . $conn->real_escape_string($joining_date) . "'";
-        }
-        
+
+        $roleLower = strtolower(trim($_POST['role'])); 
+            $prefix = '';
+        if ($roleLower === 'manager') $prefix = 'MN';
+            elseif ($roleLower === 'admin') $prefix = 'AD';
+            elseif ($roleLower === 'staff') $prefix = 'ST';
+            else $prefix = 'OT'; // default prefix
+            // 3. Generate user_code (example: MN0023)
+            $user_code = $prefix . str_pad($user_id, 4, '0', STR_PAD_LEFT);
+        $setClauses[] = "`user_code` = '" . $conn->real_escape_string($user_code) . "'";
         // Always update the timestamp fields
         $setClauses[] = "`updated_date` = '$date'";
         $setClauses[] = "`updated_time` = '$time'";
@@ -179,7 +179,7 @@ switch ($method) {
         // Build the final SQL query
         $setClause = implode(', ', $setClauses);
         $sql = "UPDATE `users` SET $setClause WHERE id='$user_id'";
-        
+        // echo json_encode(["status" => "success", "message" => $sql ]);
         if ($conn->query($sql)) {
             echo json_encode(["status" => "success", "message" => "Employee Updated Successfully"]);
         } else {

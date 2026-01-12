@@ -1041,7 +1041,8 @@ const ManageDepartment = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
       {/* Main Card */}
       <div className="mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        {/* <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"> */}
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200">
           {/* Card Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -1111,7 +1112,7 @@ const ManageDepartment = () => {
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="overflow-x-auto hidden lg:block">
+                <div className="hidden lg:block">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b-2 border-slate-200">
