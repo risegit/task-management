@@ -10,7 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $emailId = $_GET['email'] ?? null;
 $allEmp = $_GET['all_emp'] ?? null;
-$profile = $_GET['profile'] ?? null;
+
 
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
@@ -41,19 +41,6 @@ switch ($method) {
                 "status" => "success",
                 "data" => $data,
                 "departments" => $department
-            ]);
-        }else if($profile){
-            $userId = $_GET['empId'];
-            $sql1 = "SELECT u.id,u.name,u.phone,u.role,u.email,u.status,dept.name dept_name,ud.designation,ud.dob,ud.gender,ud.joining_date FROM users u INNER JOIN departments dept ON u.department_id = dept.id INNER JOIN users_details ud ON u.id=ud.user_id WHERE u.id='$userId' order by u.id desc";
-            $result = $conn->query($sql1);
-            $data = [];
-            while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
-            }
-
-            echo json_encode([
-                "status" => "success",
-                "data" => $data
             ]);
         }else{
             $sql1 = "SELECT u.id,u.name,u.role,u.email,u.status,dept.name dept_name FROM users u INNER JOIN departments dept ON u.department_id = dept.id order by u.id desc;";
@@ -120,7 +107,10 @@ switch ($method) {
         $email = $_POST['email'] ?? '';
         $department_id = $_POST['department'] ?? '';
         $phone = $_POST['phone'] ?? '';
+        $designation = $_POST['designation'] ?? '';
         $password = $_POST['password'] ?? '';
+        $dob = $_POST['dob'] ?? '';
+        $joining_date = $_POST['joining_date'] ?? '';
         $role = $_POST['role'] ?? '';
         $status = $_POST['status'] ?? '';
         
