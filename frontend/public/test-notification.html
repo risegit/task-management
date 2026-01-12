@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Test - Isolated</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .granted {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .denied {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .default {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .logs {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #374151;
+        }
+        .log-entry.success { color: #10b981; }
+        .log-entry.error { color: #ef4444; }
+        .log-entry.info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Browser Notification Test</h1>
+        <p>This page tests notifications <strong>without React</strong> to isolate the issue.</p>
+        
+        <div id="status" class="status default">
+            Checking notification permission...
+        </div>
+        
+        <div>
+            <button onclick="requestPermission()">Request Permission</button>
+            <button onclick="testSimpleNotification()" id="testBtn" disabled>Test Simple Notification</button>
+            <button onclick="testIconNotification()" id="iconBtn" disabled>Test with Icon</button>
+            <button onclick="testInteractionNotification()" id="interactionBtn" disabled>Test with Interaction</button>
+            <button onclick="testWithFocus()">Test with Window Focus</button>
+        </div>
+        
+        <h3>Console Logs:</h3>
+        <div id="logs" class="logs"></div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <h3>Next Steps:</h3>
+            <ol>
+                <li>Click "Request Permission" if status shows "default"</li>
+                <li>Click test buttons to see if notifications appear</li>
+                <li>Check browser settings if notifications don't appear</li>
+                <li>Try in different browsers (Chrome, Firefox, Edge)</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const logsDiv = document.getElementById('logs');
+        const statusDiv = document.getElementById('status');
+        const testBtn = document.getElementById('testBtn');
+        const iconBtn = document.getElementById('iconBtn');
+        const interactionBtn = document.getElementById('interactionBtn');
+
+        function testWithFocus() {
+  if (Notification.permission !== 'granted') return;
+  
+  log('Testing with explicit window focus...', 'info');
+  
+  // First, bring window to front
+  window.focus();
+  
+  // Add a small delay
+  setTimeout(() => {
+    try {
+      const notif = new Notification('FOCUS TEST', {
+        body: 'This should appear with window focus',
+        requireInteraction: true,
+        icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827346.png',
+        silent: false
+      });
+      
+      log('✅ Focus test notification created', 'success');
+      
+      notif.onclick = () => {
+        log('Focus test notification clicked', 'info');
+        notif.close();
+      };
+    } catch (error) {
+      log(`❌ Focus test error: ${error.message}`, 'error');
+    }
+  }, 100);
+}
+
+        
+        function log(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`[Notification Test] ${message}`);
+        }
+        
+        function updateStatus() {
+            if (!('Notification' in window)) {
+                statusDiv.innerHTML = '❌ Browser does not support notifications';
+                statusDiv.className = 'status denied';
+                return false;
+            }
+            
+            switch(Notification.permission) {
+                case 'granted':
+                    statusDiv.innerHTML = '✅ Notifications are ENABLED';
+                    statusDiv.className = 'status granted';
+                    testBtn.disabled = false;
+                    iconBtn.disabled = false;
+                    interactionBtn.disabled = false;
+                    return true;
+                case 'denied':
+                    statusDiv.innerHTML = '❌ Notifications are BLOCKED. Enable in browser settings.';
+                    statusDiv.className = 'status denied';
+                    return false;
+                case 'default':
+                    statusDiv.innerHTML = '⚠️ Notifications are NOT set up. Click "Request Permission"';
+                    statusDiv.className = 'status default';
+                    return false;
+            }
+        }
+        
+        function requestPermission() {
+            log('Requesting notification permission...', 'info');
+            Notification.requestPermission().then(permission => {
+                log(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
+                updateStatus();
+                
+                if (permission === 'granted') {
+                    // Auto-test a notification
+                    setTimeout(() => {
+                        testSimpleNotification();
+                    }, 500);
+                }
+            });
+        }
+        
+        function testSimpleNotification() {
+            if (Notification.permission !== 'granted') {
+                log('Cannot test: permission not granted', 'error');
+                return;
+            }
+            
+            log('Creating simple notification...', 'info');
+            try {
+                const notif = new Notification('Test Notification', {
+                    body: 'This is a simple test notification.',
+                    silent: false
+                });
+                
+                log('✅ Simple notification created successfully', 'success');
+                log(`Notification object: ${JSON.stringify({
+                    title: notif.title,
+                    body: notif.body,
+                    tag: notif.tag
+                })}`, 'info');
+                
+                notif.onclick = () => {
+                    log('Notification clicked', 'info');
+                    notif.close();
+                };
+                
+                setTimeout(() => {
+                    if (notif) notif.close();
+                }, 5000);
+                
+            } catch (error) {
+                log(`❌ Error creating notification: ${error.message}`, 'error');
+            }
+        }
+        
+        function testIconNotification() {
+            if (Notification.permission !== 'granted') return;
+            
+            log('Creating notification with icon...', 'info');
+            try {
+                const notif = new Notification('Test with Icon', {
+                    body: 'This notification includes an icon.',
+                    icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827346.png',
+                    badge: 'https://cdn-icons-png.flaticon.com/512/1827/1827346.png',
+                    silent: false
+                });
+                
+                log('✅ Icon notification created successfully', 'success');
+                
+                notif.onclick = () => {
+                    log('Icon notification clicked', 'info');
+                    notif.close();
+                };
+                
+                setTimeout(() => notif.close(), 5000);
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testInteractionNotification() {
+            if (Notification.permission !== 'granted') return;
+            
+            log('Creating notification with requireInteraction...', 'info');
+            try {
+                const notif = new Notification('Attention Required', {
+                    body: 'This notification stays until you click it.',
+                    requireInteraction: true,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827346.png',
+                    silent: false
+                });
+                
+                log('✅ Interactive notification created successfully', 'success');
+                
+                notif.onclick = () => {
+                    log('Interactive notification clicked and closed', 'info');
+                    notif.close();
+                };
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize
+        log('Test page loaded', 'info');
+        updateStatus();
+        
+        // Auto-request permission if not set (after a delay)
+        setTimeout(() => {
+            if (Notification.permission === 'default') {
+                log('Auto-requesting permission in 2 seconds...', 'info');
+                setTimeout(requestPermission, 2000);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

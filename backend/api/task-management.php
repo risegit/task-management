@@ -148,14 +148,26 @@ switch ($method) {
         $assignedTos = json_decode($jsonAssignedTo, true);
         $query1='';
         $query2='';
-        $sql1 = "INSERT INTO `tasks`(`client_id`,`task_name`, `deadline`, `remarks`, `created_by`, `created_date`, `created_time`) VALUES ('$clientId','$taskName','$deadline','$remarks','$userId','$date','$time')";
+        $sql1 = "INSERT INTO `tasks`(`client_id`,`task_name`, `deadline`, `remarks`, `priority` , `created_by`, `created_date`, `created_time`) VALUES ('$clientId','$taskName','$deadline','$remarks','$priority','$userId','$date','$time')";
+        $taskId=0;
         if($conn->query($sql1)){
-            $task_id = $conn->insert_id;
+            $taskId = $conn->insert_id;
             foreach ($assignedTos as $assignedTo) {
-                $sql2 = "INSERT INTO `task_assignees`(`task_id`, `user_id`, `created_date`, `created_time`) VALUES ('$task_id','$assignedTo','$date','$time')";
+                $sql2 = "INSERT INTO `task_assignees`(`task_id`, `user_id`, `created_date`, `created_time`) VALUES ('$taskId','$assignedTo','$date','$time')";
                 $query2 .= $sql2;
                 $conn->query($sql2);
             }
+        }
+        foreach ($assignedTos as $empId) {
+            $msg = "You have been assigned a new task";
+            $sqlNotify = "
+                INSERT INTO notifications
+                (user_id, sender_id, type, reference_id, message, created_date, created_time)
+                VALUES
+                ('$empId', '$userId', 'task_assigned', '$taskId', '$msg', '$date', '$time');
+            ";
+
+            $conn->query($sqlNotify);
         }
         echo json_encode(["status" => "success", "message" => "Task created successfully!", "query1" => $query1, "query2" => $query2]);
         

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   Navbar,
@@ -16,7 +17,9 @@ import {
   UserCircleIcon,
   Cog6ToothIcon,
   BellIcon,
+  BellSlashIcon,
   ClockIcon,
+  XMarkIcon,
   CreditCardIcon,
   Bars3Icon,
 } from "@heroicons/react/24/solid";
@@ -26,14 +29,166 @@ import {
   setOpenSidenav,
 } from "@/context";
 
+import NotificationBell from "../../pages/dashboard/NotificationBell";
+import { getCurrentUser } from "../../utils/api";
+import { initNotificationSound } from "@/utils/notificationSound";
+// Add this import line near the top with your other imports
+import { showDesktopNotification } from "../../utils/notifications";
+
 export function DashboardNavbar() {
   const [controller, dispatch] = useMaterialTailwindController();
   const { fixedNavbar, openSidenav } = controller;
   const { pathname } = useLocation();
   const [layout, page] = pathname.split("/").filter((el) => el !== "");
+  const user = getCurrentUser();
 
+  const [permissionState, setPermissionState] = useState(null); // null | "request" | "denied"
+
+    /* -----------------------------------------
+     CHECK NOTIFICATION PERMISSION
+  ----------------------------------------- */
+useEffect(() => {
+  if (!("Notification" in window)) return;
+
+  if (Notification.permission === "default") {
+    setPermissionState("request"); // show Turn On
+  }
+
+  if (Notification.permission === "denied") {
+    setPermissionState("denied"); // show blocked message
+  }
+
+  if (Notification.permission === "granted") {
+    setPermissionState(null); // hide banner
+  }
+}, []);
+
+
+  useEffect(() => {
+    if (localStorage.getItem("sound_unlocked") === "1") return;
+
+    const unlockSound = () => {
+      initNotificationSound();
+      document.removeEventListener("click", unlockSound);
+    };
+
+    document.addEventListener("click", unlockSound);
+
+    return () => {
+      document.removeEventListener("click", unlockSound);
+    };
+  }, []);
+
+  useEffect(() => {
+  const interval = setInterval(() => {
+    if (!("Notification" in window)) return;
+
+    if (Notification.permission === "granted") {
+      setPermissionState(null);
+    }
+
+    if (Notification.permission === "denied") {
+      setPermissionState("denied");
+    }
+
+    if (Notification.permission === "default") {
+      setPermissionState("request");
+    }
+  }, 1500);
+
+  return () => clearInterval(interval);
+}, []);
+
+
+
+  /* -----------------------------------------
+     REQUEST NOTIFICATION PERMISSION
+  ----------------------------------------- */
+  const enableNotifications = async () => {
+    if (!("Notification" in window)) return;
+
+    const permission = await Notification.requestPermission();
+
+    if (permission === "granted") {
+      setPermissionState(null);
+      initNotificationSound();
+
+      new Notification("Notifications enabled 🎉", {
+        body: "You will now receive task updates.",
+      });
+    }
+
+    if (permission === "denied") {
+      setPermissionState("denied");
+    }
+  };
+
+
+  /* -----------------------------------------
+     UNLOCK SOUND ON FIRST USER ACTION
+  ----------------------------------------- */
+  useEffect(() => {
+    const unlock = () => {
+      initNotificationSound();
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
+
+    document.addEventListener("click", unlock);
+    document.addEventListener("keydown", unlock);
+
+    return () => {
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   return (
+    <>
+    {/* 🔔 NOTIFICATION PERMISSION BANNER */}
+    {permissionState && (
+      <div className="mx-4 mt-3 flex items-center justify-between rounded-lg bg-green-900 px-4 py-3 text-white shadow-md">
+        <div className="flex items-center gap-3">
+          <BellSlashIcon className="h-6 w-6 text-green-300" />
+
+          <div>
+            <Typography className="font-semibold">
+              Notifications are off
+            </Typography>
+
+            {permissionState === "request" && (
+              <Typography className="text-sm text-green-200">
+                Get notifications for task updates.
+                <span
+                  onClick={enableNotifications}
+                  className="ml-1 cursor-pointer font-semibold underline"
+                >
+                  Turn on
+                </span>
+              </Typography>
+            )}
+
+            {permissionState === "denied" && (
+              <Typography className="text-sm text-green-200">
+                Notifications are blocked.
+                <span className="ml-1 font-semibold">
+                  Enable from browser settings
+                </span>
+              </Typography>
+            )}
+          </div>
+        </div>
+
+        <IconButton
+          variant="text"
+          color="white"
+          onClick={() => setPermissionState(null)}
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </IconButton>
+      </div>
+    )}
+
     <Navbar
       color={fixedNavbar ? "white" : "transparent"}
       className={`rounded-xl transition-all ${
@@ -46,12 +201,33 @@ export function DashboardNavbar() {
     >
       <div className="flex flex-col-reverse justify-between gap-6 md:flex-row md:items-center">
         <div className="capitalize">
+<button
+  onClick={() => {
+    // Test notification
+    showDesktopNotification({
+      id: 999,
+      message: "Test notification - please ignore",
+      reference_id: 1
+    });
+  }}
+  style={{
+    marginLeft: '10px',
+    padding: '5px 10px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer'
+  }}
+>
+  Test Notification
+</button>
           <Breadcrumbs
             className={`bg-transparent p-0 transition-all ${
               fixedNavbar ? "mt-1" : ""
             }`}
           >
-            <Link to={`/${layout}/home`}>
+            <Link to={`/${layout}`}>
               <Typography
                 variant="small"
                 color="blue-gray"
@@ -73,7 +249,7 @@ export function DashboardNavbar() {
           </Typography>
         </div>
         <div className="flex items-center">
-   
+            
           <IconButton
             variant="text"
             color="blue-gray"
@@ -82,7 +258,9 @@ export function DashboardNavbar() {
           >
             <Bars3Icon strokeWidth={3} className="h-6 w-6 text-blue-gray-500" />
           </IconButton>
-          <Link to="/auth/sign-out">
+          <NotificationBell userId={user?.id} />
+          
+          <Link to="/auth/sign-in">
             <Button
               variant="text"
               color="blue-gray"
@@ -183,6 +361,7 @@ export function DashboardNavbar() {
         </div>
       </div>
     </Navbar>
+    </>
   );
 }
 
