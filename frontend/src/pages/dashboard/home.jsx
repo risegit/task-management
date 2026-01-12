@@ -37,10 +37,10 @@ const Home = () => {
       try {
         const response = await axios.get(`${import.meta.env.VITE_API_URL}api/announcement.php`)
         const data = response.data;
-        console.log("data=", data.data);
+        // console.log("data=", data.data);
         setCurrentAnnouncements(data.data);
       } catch (err) {
-        console.error("Error fetching announcements:", err);
+        // console.error("Error fetching announcements:", err);
         setError("Unable to load announcements");
       } finally {
         setLoading(false);
@@ -65,7 +65,7 @@ const Home = () => {
         );
 
         const data = response.data;
-        console.log("task data=", data.data);
+        // console.log("task data=", data.data);
         
         // Check if data is empty or has null values
         const validTasks = data.data.filter(task => 
