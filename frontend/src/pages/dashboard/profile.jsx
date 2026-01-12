@@ -10,21 +10,71 @@ const ProfilePage = () => {
     email: '',
     gender: '',
     phone: '',
-    dept_name: '', // For display only - not submitted
-    designation: '', // For display only - not submitted
-    dob: '', // For display only - not submitted
-    joining_date: '', // For display only - not submitted
+    dept_name: '',
+    designation: '',
+    dob: '',
+    joining_date: '',
     password: ''
   });
 
   const user = getCurrentUser();
   const id = user.id;
+  const userRole = user.role || '' // Assuming role is stored in user object
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Track if DOB and joining date were originally empty
+  const [originalData, setOriginalData] = useState({
+    dob: '',
+    joining_date: ''
+  });
+
+  // Check if current user is staff
+  const isStaff = userRole === 'staff';
+
+  // Function to get initials from name
+  const getInitials = (name) => {
+    if (!name || typeof name !== 'string') return '?';
+    
+    const nameParts = name.trim().split(' ');
+    if (nameParts.length === 0) return '?';
+    
+    if (nameParts.length === 1) {
+      return nameParts[0].charAt(0).toUpperCase();
+    }
+    
+    // Get first and last name initials
+    const firstNameInitial = nameParts[0].charAt(0).toUpperCase();
+    const lastNameInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+    return `${firstNameInitial}${lastNameInitial}`;
+  };
+
+  // Function to get background color based on initials
+  const getAvatarColor = (initials) => {
+    const colors = [
+      'bg-blue-600',
+      'bg-green-600',
+      'bg-purple-600',
+      'bg-red-600',
+      'bg-yellow-600',
+      'bg-pink-600',
+      'bg-indigo-600',
+      'bg-teal-600',
+      'bg-orange-600',
+      'bg-cyan-600'
+    ];
+    
+    if (!initials) return colors[0];
+    
+    // Generate a consistent color based on the initials
+    const charCodeSum = initials.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const colorIndex = charCodeSum % colors.length;
+    return colors[colorIndex];
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -33,10 +83,10 @@ const ProfilePage = () => {
       try {
         setIsLoading(true);
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}api/emp.php`,
+          `${import.meta.env.VITE_API_URL}api/users.php`,
           {
             params: { 
-              empId: user.id,
+              empId: id,
               profile: 'true'
             }
           }
@@ -44,6 +94,16 @@ const ProfilePage = () => {
 
         const result = response.data.data[0];
         console.log("API result:", result);
+        
+        // Format dates for input fields (YYYY-MM-DD format)
+        const formatDateForInput = (dateString) => {
+          if (!dateString) return '';
+          const date = new Date(dateString);
+          return date.toISOString().split('T')[0];
+        };
+        
+        const dob = formatDateForInput(result.dob) || "";
+        const joiningDate = formatDateForInput(result.joining_date) || "";
         
         setEmployee({
           id: result.id || "",
@@ -54,8 +114,14 @@ const ProfilePage = () => {
           password: "",
           dept_name: result.dept_name || "",
           designation: result.designation || "",
-          dob: result.dob || "",
-          joining_date: result.joining_date || ""
+          dob: dob,
+          joining_date: joiningDate
+        });
+        
+        // Store original data to check if fields were empty
+        setOriginalData({
+          dob: dob,
+          joining_date: joiningDate
         });
           
       } catch (error) {
@@ -69,6 +135,32 @@ const ProfilePage = () => {
     fetchEmployeeData();
   }, [id]);
 
+  // Function to check if a field is editable based on user role
+  const isFieldEditable = (fieldName) => {
+    if (!isEditing) return false;
+    
+    // Staff can only edit specific fields
+    if (isStaff) {
+      const staffEditableFields = ['name', 'phone', 'designation', 'gender'];
+      
+      // For DOB and joining_date, check if they were originally empty
+      if (fieldName === 'dob') {
+        // Allow editing only if DOB was originally empty
+        return !originalData.dob;
+      }
+      
+      if (fieldName === 'joining_date') {
+        // Allow editing only if joining date was originally empty
+        return !originalData.joining_date;
+      }
+      
+      return staffEditableFields.includes(fieldName);
+    }
+    
+    // Admin or other roles can edit all fields
+    return true;
+  };
+
   const handleEdit = () => {
     if (isEditing) {
       handleSubmit();
@@ -79,6 +171,48 @@ const ProfilePage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // For staff users, check if field is editable
+    if (isStaff) {
+      if (name === 'dob' && originalData.dob) {
+        // Prevent editing if DOB already exists
+        setMessage({ 
+          type: 'error', 
+          text: 'Date of birth cannot be edited once set' 
+        });
+        return;
+      }
+      
+      if (name === 'joining_date' && originalData.joining_date) {
+        // Prevent editing if joining date already exists
+        setMessage({ 
+          type: 'error', 
+          text: 'Joining date cannot be edited once set' 
+        });
+        return;
+      }
+      
+      // Staff can only edit specific fields
+      const allowedFields = ['name', 'phone', 'designation', 'gender'];
+      
+      // If DOB or joining_date are empty, allow editing them
+      if (name === 'dob' && !originalData.dob) {
+        allowedFields.push('dob');
+      }
+      
+      if (name === 'joining_date' && !originalData.joining_date) {
+        allowedFields.push('joining_date');
+      }
+      
+      if (!allowedFields.includes(name)) {
+        setMessage({ 
+          type: 'error', 
+          text: `You cannot edit ${name}` 
+        });
+        return;
+      }
+    }
+    
     setEmployee(prev => ({ ...prev, [name]: value }));
     
     // Clear error for this field
@@ -88,6 +222,15 @@ const ProfilePage = () => {
   };
 
   const generatePassword = () => {
+    // Only allow password generation for non-staff users or if staff can edit password
+    if (isStaff) {
+      // If staff shouldn't edit password, you can either:
+      // 1. Disable this feature completely for staff
+      // 2. Or show a message
+      setMessage({ type: 'error', text: 'Staff cannot change passwords' });
+      return;
+    }
+    
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
     const passwordLength = 12;
@@ -110,18 +253,71 @@ const ProfilePage = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    if (isEditing && employee.password && employee.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    }
-    
-    if (!employee.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    
-    if (!employee.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employee.email)) {
-      newErrors.email = 'Invalid email format';
+    // Staff validation rules
+    if (isStaff) {
+      // Staff can only edit specific fields, so only validate those
+      if (!employee.name.trim()) {
+        newErrors.name = 'Name is required';
+      }
+      
+      // Optional: add phone validation for staff
+      if (employee.phone && !/^\d{10}$/.test(employee.phone.replace(/\D/g, ''))) {
+        newErrors.phone = 'Please enter a valid 10-digit phone number';
+      }
+      
+      // Validate DOB if it's being set for the first time
+      if (!originalData.dob && employee.dob) {
+        const dobDate = new Date(employee.dob);
+        if (isNaN(dobDate.getTime())) {
+          newErrors.dob = 'Invalid date of birth';
+        } else if (dobDate > new Date()) {
+          newErrors.dob = 'Date of birth cannot be in the future';
+        }
+      }
+      
+      // Validate joining date if it's being set for the first time
+      if (!originalData.joining_date && employee.joining_date) {
+        const joinDate = new Date(employee.joining_date);
+        if (isNaN(joinDate.getTime())) {
+          newErrors.joining_date = 'Invalid joining date';
+        } else if (joinDate > new Date()) {
+          newErrors.joining_date = 'Joining date cannot be in the future';
+        }
+      }
+    } else {
+      // Full validation for non-staff users
+      if (isEditing && employee.password && employee.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
+      
+      if (!employee.name.trim()) {
+        newErrors.name = 'Name is required';
+      }
+      
+      if (!employee.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employee.email)) {
+        newErrors.email = 'Invalid email format';
+      }
+      
+      // Validate date formats
+      if (employee.dob) {
+        const dobDate = new Date(employee.dob);
+        if (isNaN(dobDate.getTime())) {
+          newErrors.dob = 'Invalid date of birth';
+        } else if (dobDate > new Date()) {
+          newErrors.dob = 'Date of birth cannot be in the future';
+        }
+      }
+      
+      if (employee.joining_date) {
+        const joinDate = new Date(employee.joining_date);
+        if (isNaN(joinDate.getTime())) {
+          newErrors.joining_date = 'Invalid joining date';
+        } else if (joinDate > new Date()) {
+          newErrors.joining_date = 'Joining date cannot be in the future';
+        }
+      }
     }
     
     setErrors(newErrors);
@@ -137,31 +333,60 @@ const ProfilePage = () => {
     try {
       setIsSaving(true);
       
-      // Prepare data exactly as your PHP backend expects
-      const submitData = {
-        id: employee.id,
-        name: employee.name,
-        email: employee.email,
-        gender: employee.gender,
-        phone: employee.phone || '', // Send phone even if empty
-        password: employee.password || '', // Send empty string if no password
-        _method: 'PUT' // Laravel-style method override
-      };
+      // Prepare data based on user role
+      let submitData;
+      
+      // if (isStaff) {
+      //   // Staff can only submit specific fields
+      //   submitData = {
+      //     id: id,
+      //     name: employee.name,
+      //     gender: employee.gender,
+      //     phone: employee.phone || '',
+      //     designation: employee.designation || '',
+      //     // Include DOB and joining_date only if they were originally empty and are now being set
+      //     ...(!originalData.dob && employee.dob && { dob: employee.dob }),
+      //     ...(!originalData.joining_date && employee.joining_date && { joining_date: employee.joining_date }),
+      //     _method: 'PUT'
+      //   };
+      // } else {
+      //   // Non-staff users can submit all fields
+      //   submitData = {
+      //     id: id,
+      //     name: employee.name,
+      //     email: employee.email,
+      //     gender: employee.gender,
+      //     phone: employee.phone || '',
+      //     designation: employee.designation || '',
+      //     dob: employee.dob || '',
+      //     joining_date: employee.joining_date || '',
+      //     password: employee.password || '',
+      //     _method: 'PUT'
+      //   };
+      // }
+
+      submitData = {
+          id: id,
+          name: employee.name,
+          email: employee.email,
+          gender: employee.gender,
+          phone: employee.phone || '',
+          designation: employee.designation || '',
+          dob: employee.dob || '',
+          joining_date: employee.joining_date || '',
+          password: employee.password || '',
+          _method: 'PUT'
+        };
 
       console.log("Submitting data:", submitData);
 
-      // Use FormData for multipart/form-data
       const formData = new FormData();
-      formData.append('id', submitData.id);
-      formData.append('name', submitData.name);
-      formData.append('email', submitData.email);
-      formData.append('gender', submitData.gender);
-      formData.append('phone', submitData.phone);
-      formData.append('password', submitData.password);
-      formData.append('_method', 'PUT');
+      Object.keys(submitData).forEach(key => {
+        formData.append(key, submitData[key]);
+      });
 
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}api/emp.php`,
+        `${import.meta.env.VITE_API_URL}api/users.php`,
         formData,
         {
           headers: {
@@ -179,9 +404,19 @@ const ProfilePage = () => {
         // Clear password field after successful save
         setEmployee(prev => ({ ...prev, password: '' }));
         
+        // Update original data if DOB or joining_date were set
+        if (isStaff) {
+          if (!originalData.dob && employee.dob) {
+            setOriginalData(prev => ({ ...prev, dob: employee.dob }));
+          }
+          if (!originalData.joining_date && employee.joining_date) {
+            setOriginalData(prev => ({ ...prev, joining_date: employee.joining_date }));
+          }
+        }
+        
         // Refresh the page to get updated data
         setTimeout(() => {
-          window.location.reload();
+          // window.location.reload();
         }, 1500);
       } else {
         throw new Error(response.data.message || 'Failed to update profile');
@@ -197,7 +432,7 @@ const ProfilePage = () => {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDisplayDate = (dateString) => {
     if (!dateString) return 'Not set';
     try {
       const date = new Date(dateString);
@@ -221,6 +456,9 @@ const ProfilePage = () => {
       </div>
     );
   }
+
+  const initials = getInitials(employee.name);
+  const avatarColor = getAvatarColor(initials);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -250,6 +488,19 @@ const ProfilePage = () => {
         </div>
       )}
 
+      {/* Role Indicator */}
+      {isStaff && (
+        <div className="mx-auto p-6 pb-0">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <p className="text-yellow-800 text-sm font-medium">
+              <span className="font-bold">You can only edit Name, Phone, Designation, and Gender fields.</span>
+              <br />
+           
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="mx-auto p-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -258,18 +509,19 @@ const ProfilePage = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
                 <div className="w-24 h-24 rounded-full bg-white p-1 shadow-lg">
-                  <img
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop"
-                    alt="Profile"
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                  <div className={`w-full h-full rounded-full flex items-center justify-center ${avatarColor} text-white`}>
+                    <span className="text-3xl font-bold">{initials}</span>
+                  </div>
                 </div>
                 <div className="text-white">
                   <h2 className="text-2xl font-bold mb-1">{employee.name}</h2>
-                  <p className="text-blue-100 flex items-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    {employee.email}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-blue-100 flex items-center gap-2">{employee.dept_name}</p>
+                    <p className="text-blue-100 flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      {user.email}
+                    </p>
+                  </div>
                 </div>
               </div>
               <button
@@ -300,7 +552,7 @@ const ProfilePage = () => {
           {/* Profile Details */}
           <div className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Full Name */}
+              {/* Full Name - Editable for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <User className="w-4 h-4 text-blue-600" />
@@ -311,9 +563,9 @@ const ProfilePage = () => {
                   name="name"
                   value={employee.name}
                   onChange={handleChange}
-                  disabled={!isEditing}
+                  disabled={!isFieldEditable('name')}
                   className={`w-full px-4 py-3 rounded-lg border ${
-                    isEditing
+                    isFieldEditable('name')
                       ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       : 'border-gray-200 bg-gray-50'
                   } ${errors.name ? 'border-red-300' : ''} outline-none transition-all`}
@@ -323,7 +575,7 @@ const ProfilePage = () => {
                 )}
               </div>
 
-              {/* Phone Number */}
+              {/* Phone Number - Editable for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,19 +586,22 @@ const ProfilePage = () => {
                 <input
                   type="tel"
                   name="phone"
-                  value={employee.phone || ''}
+                  value={employee.phone}
                   onChange={handleChange}
-                  disabled={!isEditing}
+                  disabled={!isFieldEditable('phone')}
                   className={`w-full px-4 py-3 rounded-lg border ${
-                    isEditing
+                    isFieldEditable('phone')
                       ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       : 'border-gray-200 bg-gray-50'
-                  } outline-none transition-all`}
+                  } ${errors.phone ? 'border-red-300' : ''} outline-none transition-all`}
                   placeholder="Enter phone number"
                 />
+                {errors.phone && (
+                  <p className="text-red-500 text-sm">{errors.phone}</p>
+                )}
               </div>
 
-              {/* Gender */}
+              {/* Gender - Editable for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <UserCircle2 className="w-4 h-4 text-blue-600" />
@@ -356,9 +611,9 @@ const ProfilePage = () => {
                   name="gender"
                   value={employee.gender}
                   onChange={handleChange}
-                  disabled={!isEditing}
+                  disabled={!isFieldEditable('gender')}
                   className={`w-full px-4 py-3 rounded-lg border ${
-                    isEditing
+                    isFieldEditable('gender')
                       ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       : 'border-gray-200 bg-gray-50'
                   } outline-none transition-all`}
@@ -370,7 +625,7 @@ const ProfilePage = () => {
                 </select>
               </div>
 
-              {/* Department (Read-only) */}
+              {/* Department (Read-only for everyone) */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-600" />
@@ -381,65 +636,195 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              {/* Designation (Read-only) */}
+              {/* Designation - Editable for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-blue-600" />
                   Designation
                 </label>
-                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
-                  {employee.designation || 'Not set'}
-                </div>
+                {isFieldEditable('designation') ? (
+                  <input
+                    type="text"
+                    name="designation"
+                    value={employee.designation}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                      isFieldEditable('designation')
+                        ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                        : 'border-gray-200 bg-gray-50'
+                    } outline-none transition-all`}
+                    placeholder="Enter designation"
+                  />
+                ) : (
+                  <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                    {employee.designation || 'Not set'}
+                  </div>
+                )}
               </div>
 
-              {/* Email Address */}
+              {/* Email Address - Not editable for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Mail className="w-4 h-4 text-blue-600" />
                   Email Address
+                  {isStaff && <span className="text-xs text-gray-400">(Read-only)</span>}
                 </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={employee.email}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-lg border ${
-                    isEditing
-                      ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-                      : 'border-gray-200 bg-gray-50'
-                  } ${errors.email ? 'border-red-300' : ''} outline-none transition-all`}
-                />
-                {errors.email && (
+                {isStaff ? (
+                  <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                    {employee.email}
+                  </div>
+                ) : (
+                  <input
+                    type="email"
+                    name="email"
+                    value={employee.email}
+                    onChange={handleChange}
+                    disabled={!isFieldEditable('email')}
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                      isFieldEditable('email')
+                        ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                        : 'border-gray-200 bg-gray-50'
+                    } ${errors.email ? 'border-red-300' : ''} outline-none transition-all`}
+                  />
+                )}
+                {!isStaff && errors.email && (
                   <p className="text-red-500 text-sm">{errors.email}</p>
                 )}
               </div>
 
-              {/* Date of Birth (Read-only) */}
+              {/* Date of Birth - Editable only once for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   Date of Birth
+                  {isStaff && originalData.dob && (
+                    <span className="text-xs text-gray-400">(Set once, cannot be changed)</span>
+                  )}
                 </label>
-                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
-                  {formatDate(employee.dob)}
-                </div>
+                {isStaff ? (
+                  isFieldEditable('dob') ? (
+                    // Staff can edit DOB only if it was originally empty
+                    <>
+                      <input
+                        type="date"
+                        name="dob"
+                        value={employee.dob}
+                        onChange={handleChange}
+                        className={`w-full px-4 py-3 rounded-lg border ${
+                          isFieldEditable('dob')
+                            ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                            : 'border-gray-200 bg-gray-50'
+                        } ${errors.dob ? 'border-red-300' : ''} outline-none transition-all`}
+                        max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                      />
+                      <p className="text-xs text-blue-600 italic">
+                        You can set your date of birth once. This cannot be changed later.
+                      </p>
+                      {errors.dob && (
+                        <p className="text-red-500 text-sm">{errors.dob}</p>
+                      )}
+                    </>
+                  ) : (
+                    // Read-only display for staff if DOB is already set
+                    <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                      {formatDisplayDate(employee.dob)}
+                    </div>
+                  )
+                ) : isEditing ? (
+                  // Non-staff users in edit mode
+                  <>
+                    <input
+                      type="date"
+                      name="dob"
+                      value={employee.dob}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isEditing
+                          ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                          : 'border-gray-200 bg-gray-50'
+                      } ${errors.dob ? 'border-red-300' : ''} outline-none transition-all`}
+                      max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    />
+                    {errors.dob && (
+                      <p className="text-red-500 text-sm">{errors.dob}</p>
+                    )}
+                  </>
+                ) : (
+                  // Non-staff users not in edit mode
+                  <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                    {formatDisplayDate(employee.dob)}
+                  </div>
+                )}
               </div>
 
-              {/* Joining Date (Read-only) */}
+              {/* Joining Date - Editable only once for staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   Joining Date
+                  {isStaff && originalData.joining_date && (
+                    <span className="text-xs text-gray-400">(Set once, cannot be changed)</span>
+                  )}
                 </label>
-                <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
-                  {formatDate(employee.joining_date)}
-                </div>
+                {isStaff ? (
+                  isFieldEditable('joining_date') ? (
+                    // Staff can edit joining date only if it was originally empty
+                    <>
+                      <input
+                        type="date"
+                        name="joining_date"
+                        value={employee.joining_date}
+                        onChange={handleChange}
+                        className={`w-full px-4 py-3 rounded-lg border ${
+                          isFieldEditable('joining_date')
+                            ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                            : 'border-gray-200 bg-gray-50'
+                        } ${errors.joining_date ? 'border-red-300' : ''} outline-none transition-all`}
+                        max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                      />
+                      <p className="text-xs text-blue-600 italic">
+                        You can set your joining date once. This cannot be changed later.
+                      </p>
+                      {errors.joining_date && (
+                        <p className="text-red-500 text-sm">{errors.joining_date}</p>
+                      )}
+                    </>
+                  ) : (
+                    // Read-only display for staff if joining date is already set
+                    <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                      {formatDisplayDate(employee.joining_date)}
+                    </div>
+                  )
+                ) : isEditing ? (
+                  // Non-staff users in edit mode
+                  <>
+                    <input
+                      type="date"
+                      name="joining_date"
+                      value={employee.joining_date}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isEditing
+                          ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                          : 'border-gray-200 bg-gray-50'
+                      } ${errors.joining_date ? 'border-red-300' : ''} outline-none transition-all`}
+                      max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    />
+                    {errors.joining_date && (
+                      <p className="text-red-500 text-sm">{errors.joining_date}</p>
+                    )}
+                  </>
+                ) : (
+                  // Non-staff users not in edit mode
+                  <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
+                    {formatDisplayDate(employee.joining_date)}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Password Section - Only show in edit mode */}
-            {isEditing && (
+            {/* Password Section - Only show in edit mode for non-staff users */}
+            {isEditing && !isStaff && (
               <div className="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Password Update</h3>
                 <div className="space-y-2">
@@ -539,7 +924,7 @@ const ProfilePage = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Joined</p>
-                <p className="font-semibold text-gray-900">{formatDate(employee.joining_date)}</p>
+                <p className="font-semibold text-gray-900">{formatDisplayDate(employee.joining_date)}</p>
               </div>
             </div>
           </div>
