@@ -176,8 +176,9 @@ switch ($method) {
 
 case 'PUT':
     if(empty($_POST['update_status'])){
-        $taskID   = (int)($_POST['taskId'] ?? 0);
+        $taskId   = (int)($_POST['taskId'] ?? 0);
         $userID   = (int)($_GET['id'] ?? 0);
+        $userName  = $_POST['userName'] ?? '';
         $taskName = trim($_POST['taskName'] ?? '');
         $deadline = $_POST['deadline'] ?? '';
         $remarks  = $_POST['remarks'] ?? '';
@@ -185,7 +186,7 @@ case 'PUT':
         $status   = $_POST['status'] ?? '';
         $assignedBy = (int)($_POST['assignedBy'] ?? 0);
 
-        if ($taskID <= 0) {
+        if ($taskId <= 0) {
             echo json_encode(["status" => "error", "message" => "Invalid task"]);
             exit;
         }
@@ -213,14 +214,14 @@ case 'PUT':
                 $priority,
                 $date,
                 $time,
-                $taskID
+                $taskId
             );
 
             $stmt->execute();
 
             // Existing assignees
             $existing = [];
-            $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskID'");
+            $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskId'");
             while ($row = $res->fetch_assoc()) {
                 $existing[] = $row['user_id'];
             }
@@ -233,7 +234,7 @@ case 'PUT':
                         (task_id, user_id, status, created_date, created_time)
                         VALUES (?, ?, 'not-acknowledge', ?, ?)
                     ");
-                    $stmt->bind_param("iiss", $taskID, $userId, $date, $time);
+                    $stmt->bind_param("iiss", $taskId, $userId, $date, $time);
                     $stmt->execute();
                 }
             }
@@ -243,7 +244,7 @@ case 'PUT':
                 $ids = implode(',', array_map('intval', $assignedTos));
                 $conn->query("
                     DELETE FROM task_assignees 
-                    WHERE task_id='$taskID' 
+                    WHERE task_id='$taskId' 
                     AND user_id NOT IN ($ids)
                 ");
             }
@@ -262,14 +263,14 @@ case 'PUT':
                 FROM task_assignees
                 WHERE task_id=?
             ");
-            $stmt->bind_param("i", $taskID);
+            $stmt->bind_param("i", $taskId);
             $stmt->execute();
             $statusRow = $stmt->get_result()->fetch_assoc();
 
             // Update only THIS user's status
-            $sql = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskID' AND user_id='$userID'";
+            $sql = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskId' AND user_id='$userID'";
             $stmt = $conn->prepare("UPDATE task_assignees SET status=?, updated_date=?, updated_time=? WHERE task_id=? AND user_id=?");
-            $stmt->bind_param("sssii", $status, $date, $time, $taskID, $userID);
+            $stmt->bind_param("sssii", $status, $date, $time, $taskId, $userID);
             $stmt->execute();
             // echo json_encode(["status" => "success","sql" => $sql]); 
             if ($statusRow['completed'] == $statusRow['total'] && $statusRow['total'] > 0) {
@@ -285,10 +286,17 @@ case 'PUT':
             $stmt = $conn->prepare("
                 UPDATE tasks SET status=? WHERE id=?
             ");
-            $stmt->bind_param("si", $taskStatus, $taskID);
+            $stmt->bind_param("si", $taskStatus, $taskId);
             $stmt->execute();
 
+            $rtvSenderIdResult = $conn->query("SELECT created_by FROM tasks WHERE id='$taskId'");
+            $row = $rtvSenderIdResult->fetch_assoc();
+            $rtvSenderId = $row['created_by'] ?? 0;
 
+            $msg = $userName." updated task status to ".$status;
+            $sqlNotify = "INSERT INTO notifications (user_id, sender_id, type, reference_id, message, created_date, created_time) VALUES('$userID', '$rtvSenderId', 'task_updated', '$taskId', '$msg', '$date', '$time');";
+            // echo json_encode(["status" => "success","sql1" => $sqlNotify]);
+            $conn->query($sqlNotify);
             /* ---------------------------
             COMMIT
             ----------------------------*/
@@ -297,7 +305,7 @@ case 'PUT':
             echo json_encode([
                 "status" => "success",
                 "message" => "Task updated successfully",
-                "task_status" => $taskStatus
+                "task_status1" => $taskStatus
             ]);
 
             // /* -------------------------
@@ -306,7 +314,7 @@ case 'PUT':
             // $stmtDel = $conn->prepare(
             //     "DELETE FROM task_assignees WHERE task_id=?"
             // );
-            // $stmtDel->bind_param("i", $taskID);
+            // $stmtDel->bind_param("i", $taskId);
             // $stmtDel->execute();
 
             // /* -------------------------
@@ -348,6 +356,7 @@ case 'PUT':
     }else{
         $taskId     = (int)($_POST['task_id'] ?? 0);
         $userId     = (int)($_POST['userId'] ?? 0);
+        $userName  = $_POST['userName'] ?? '';
         $newStatus  = $_POST['task_status'] ?? '';
         $update_status = $_POST['update_status'] ?? '';
 
@@ -380,11 +389,22 @@ case 'PUT':
                 throw new Exception("No rows updated");
             }
 
+            $rtvSenderIdResult = $conn->query("SELECT created_by FROM tasks WHERE id='$taskId'");
+            $row = $rtvSenderIdResult->fetch_assoc();
+            $rtvSenderId = $row['created_by'] ?? 0;
+
+            $msg = $userName." updated task status to ".$newStatus;
+            $sqlNotify = "INSERT INTO notifications (user_id, sender_id, type, reference_id, message, created_date, created_time) VALUES('$userId', '$rtvSenderId', 'task_updated', '$taskId', '$msg', '$date', '$time');";
+
+            // echo json_encode(["status" => "success","sql2" => $sqlNotify]);
+
+            $conn->query($sqlNotify);
+
             $conn->commit();
 
             echo json_encode([
                 "status" => "success",
-                "message" => "Task status updated successfully"
+                "message1" => "Task status updated successfully"
             ]);
 
         } catch (Exception $e) {

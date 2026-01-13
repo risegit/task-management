@@ -162,12 +162,12 @@ export default function CreateTask() {
         
         // Filter out the current logged-in user from assigned users
         const assignedUsers = users
-          .filter(user => {
-            // Filter out the current user based on emp_id or id
-            const isCurrentUser = (user.emp_id && user.emp_id === userId) || 
-                                 (user.id && user.id === userId);
-            return !isCurrentUser;
-          })
+          // .filter(user => {
+          //   // Filter out the current user based on emp_id or id
+          //   const isCurrentUser = (user.emp_id && user.emp_id === userId) || 
+          //                        (user.id && user.id === userId);
+          //   return !isCurrentUser;
+          // })
           .map(user => ({
             value: user.emp_id || user.id,
             label: user.name + (user.is_poc == 1 ? " (POC)" : "")

@@ -170,7 +170,7 @@ export default function NotificationBell({ userId }) {
           console.log("🔄 SSE: Attempting to reconnect...");
           hasSetupSSERef.current = false; // Reset flag to allow reconnection
         }
-      }, 5000);
+      }, 20000);
     };
 
     // Cleanup only on unmount

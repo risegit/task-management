@@ -19,7 +19,7 @@ export const showDesktopNotification = async (notification) => {
     try {
       const notif = new Notification("🔔 Task Update", {
         body: notification.message,
-        icon: '/favicon.ico',
+        icon: '/img/favicon.png',
         requireInteraction: true
       });
       
@@ -27,7 +27,7 @@ export const showDesktopNotification = async (notification) => {
         window.focus();
         if (notification.reference_id) {
           window.open(
-            `${import.meta.env.VITE_FRNT_URL}/dashboard/task-management/edit-task/${notification.reference_id}`,
+            `${import.meta.env.VITE_FRNT_URL}/edit-task/${notification.reference_id}`,
             '_blank'
           );
         }

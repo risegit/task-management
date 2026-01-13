@@ -172,6 +172,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       const form = new FormData();
 
       form.append("task_name", taskData.name);
+      form.append("userName", user?.name);
       form.append("assignedBy", user?.id);
       form.append(
         "assignedTo",
@@ -890,6 +891,7 @@ const ManageDepartment = () => {
     try {
       const form = new FormData();
       form.append("task_id", taskId);
+      form.append("userName", user?.name);
       form.append("task_status", newStatus);
       form.append("update_status", "true");
       form.append("userId", userId);
