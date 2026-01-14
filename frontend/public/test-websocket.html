@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <button onclick="connectWebSocket()">Connect</button>
+    <button onclick="sendPing()">Send Ping</button>
+    <button onclick="sendNotification()">Send Test Notification</button>
+    <div id="output" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; min-height: 200px;"></div>
+
+    <script>
+        let ws = null;
+        const output = document.getElementById('output');
+
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            output.innerHTML += `[${time}] ${message}<br>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log("WebSocket is already connected");
+                return;
+            }
+
+            const userId = prompt("Enter User ID (try 2 or 3):", "2");
+            if (!userId) return;
+
+            ws = new WebSocket(`ws://localhost:8080?user_id=${userId}`);
+
+            ws.onopen = () => {
+                log("✅ WebSocket connected successfully");
+            };
+
+            ws.onmessage = (event) => {
+                log(`📨 Received: ${event.data}`);
+            };
+
+            ws.onerror = (error) => {
+                log(`❌ Error: ${error}`);
+            };
+
+            ws.onclose = (event) => {
+                log(`🔌 Closed: Code ${event.code}, Reason: ${event.reason || 'No reason'}`);
+            };
+        }
+
+        function sendPing() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log("WebSocket not connected");
+                return;
+            }
+            ws.send(JSON.stringify({type: 'ping'}));
+            log("Sent ping");
+        }
+
+        function sendNotification() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log("WebSocket not connected");
+                return;
+            }
+            
+            const testNotification = {
+                type: 'notification',
+                data: {
+                    id: Date.now(),
+                    message: 'Test notification from manual test',
+                    type: 'task_assigned',
+                    user_id: 2,
+                    sender_id: 1,
+                    created_date: new Date().toISOString().split('T')[0],
+                    created_time: new Date().toLocaleTimeString('en-US', {hour12: false}),
+                    sender_name: 'Test User',
+                    status: 'pending'
+                }
+            };
+            
+            ws.send(JSON.stringify(testNotification));
+            log("Sent test notification");
+        }
+    </script>
+</body>
+</html>

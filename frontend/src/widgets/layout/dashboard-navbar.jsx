@@ -47,21 +47,21 @@ export function DashboardNavbar() {
     /* -----------------------------------------
      CHECK NOTIFICATION PERMISSION
   ----------------------------------------- */
-useEffect(() => {
-  if (!("Notification" in window)) return;
+// useEffect(() => {
+//   if (!("Notification" in window)) return;
 
-  if (Notification.permission === "default") {
-    setPermissionState("request"); // show Turn On
-  }
+//   if (Notification.permission === "default") {
+//     setPermissionState("request"); // show Turn On
+//   }
 
-  if (Notification.permission === "denied") {
-    setPermissionState("denied"); // show blocked message
-  }
+//   if (Notification.permission === "denied") {
+//     setPermissionState("denied"); // show blocked message
+//   }
 
-  if (Notification.permission === "granted") {
-    setPermissionState(null); // hide banner
-  }
-}, []);
+//   if (Notification.permission === "granted") {
+//     setPermissionState(null); // hide banner
+//   }
+// }, []);
 
 
   useEffect(() => {
@@ -79,25 +79,25 @@ useEffect(() => {
     };
   }, []);
 
-  useEffect(() => {
-  const interval = setInterval(() => {
-    if (!("Notification" in window)) return;
+//   useEffect(() => {
+//   const interval = setInterval(() => {
+//     if (!("Notification" in window)) return;
 
-    if (Notification.permission === "granted") {
-      setPermissionState(null);
-    }
+//     if (Notification.permission === "granted") {
+//       setPermissionState(null);
+//     }
 
-    if (Notification.permission === "denied") {
-      setPermissionState("denied");
-    }
+//     if (Notification.permission === "denied") {
+//       setPermissionState("denied");
+//     }
 
-    if (Notification.permission === "default") {
-      setPermissionState("request");
-    }
-  }, 15000);
+//     if (Notification.permission === "default") {
+//       setPermissionState("request");
+//     }
+//   }, 15000);
 
-  return () => clearInterval(interval);
-}, []);
+//   return () => clearInterval(interval);
+// }, []);
 
 
 
