@@ -4,12 +4,31 @@ import { showDesktopNotification } from "../../utils/notifications";
 import { playNotificationSound } from "@/utils/notificationSound";
 import { Bell, Check, Clock, User } from "lucide-react";
 
+// Simple function to get websocket instance
+const getWebsocket = async () => {
+  // Try to get from window first (for testing)
+  if (typeof window !== 'undefined' && window.__websocket) {
+    console.log('Using window.__websocket instance');
+    return window.__websocket;
+  }
+  
+  // Otherwise import it dynamically
+  try {
+    const module = await import("../../utils/websocket");
+    console.log('Dynamically loaded websocket module');
+    return module.default;
+  } catch (error) {
+    console.error('Failed to load websocket module:', error);
+    throw error;
+  }
+};
+
 export default function NotificationBell({ userId }) {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const sseRef = useRef(null);
-  const hasSetupSSERef = useRef(false);
+  const wsInitializedRef = useRef(false);
+  const wsListenersRef = useRef([]);
 
   const unreadCount = notifications.filter(n => n.is_read == 0).length;
 
@@ -77,9 +96,94 @@ export default function NotificationBell({ userId }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ---------------- FETCH NOTIFICATIONS ---------------- */
+  /* ---------------- WEB SOCKET CONNECTION ---------------- */
+  useEffect(() => {
+    console.log("🔄 WebSocket useEffect triggered, userId:", userId);
+    
+    if (!userId) {
+      console.log("❌ WebSocket: No userId provided");
+      return;
+    }
+
+    const initWebSocket = async () => {
+      try {
+        const websocket = await getWebsocket();
+        console.log('WebSocket instance:', websocket);
+        console.log('WebSocket connect function exists:', typeof websocket.connect);
+        
+        if (!websocket || typeof websocket.connect !== 'function') {
+          console.error('❌ Invalid websocket instance:', websocket);
+          return;
+        }
+        
+        // Connect WebSocket
+        websocket.connect(userId);
+
+        // Listen for notifications
+        const unsubscribeNotification = websocket.on('notification', (notification) => {
+          console.log("📨 WebSocket: Notification received:", notification);
+          
+          // Update notifications list
+          setNotifications(prev => [notification.data || notification, ...prev]);
+          
+          // Play sound
+          playNotificationSound();
+          
+          // Show desktop notification
+          console.log("🔔 WebSocket: Calling showDesktopNotification");
+          showDesktopNotification(notification.data || notification);
+        });
+
+        // Listen for connection events
+        const unsubscribeConnected = websocket.on('connected', () => {
+          console.log("✅ WebSocket: Connected event received");
+          wsInitializedRef.current = true;
+        });
+
+        const unsubscribeDisconnected = websocket.on('disconnected', () => {
+          console.log("⚠️ WebSocket: Disconnected event received");
+          wsInitializedRef.current = false;
+        });
+
+        // Listen for messages (for debugging)
+        const unsubscribeMessage = websocket.on('message', (data) => {
+          console.log("📨 WebSocket raw message:", data);
+        });
+
+        // Store unsubscribe functions
+        wsListenersRef.current = [
+          unsubscribeNotification,
+          unsubscribeConnected,
+          unsubscribeDisconnected,
+          unsubscribeMessage
+        ];
+
+        console.log('✅ WebSocket initialized successfully');
+
+      } catch (error) {
+        console.error("❌ Failed to initialize WebSocket:", error);
+      }
+    };
+
+    initWebSocket();
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🧹 Cleaning up WebSocket listeners');
+      // Remove all listeners
+      wsListenersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      wsListenersRef.current = [];
+    };
+  }, [userId]);
+
+  /* ---------------- FETCH NOTIFICATIONS (ONLY ON MOUNT) ---------------- */
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
+    
     try {
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL}api/notifications.php?user_id=${userId}`
@@ -90,99 +194,10 @@ export default function NotificationBell({ userId }) {
     }
   }, [userId]);
 
-  /* ---------------- INITIAL FETCH & POLLING ---------------- */
   useEffect(() => {
-    if (!userId) return;
-    
-    // Initial fetch
     fetchNotifications();
-    
-    // Set up polling every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    
-    return () => clearInterval(interval);
-  }, [userId, fetchNotifications]);
-
-  /* ---------------- REAL-TIME SSE CONNECTION ---------------- */
-  useEffect(() => {
-    console.log("🔄 SSE useEffect triggered, userId:", userId);
-    
-    // Skip if no userId or notification permission not granted
-    if (!userId || Notification.permission !== "granted") {
-      console.log("❌ SSE: Skipping - missing userId or permission");
-      if (sseRef.current) {
-        sseRef.current.close();
-        sseRef.current = null;
-        hasSetupSSERef.current = false;
-      }
-      return;
-    }
-
-    // Prevent multiple SSE connections
-    if (hasSetupSSERef.current) {
-      console.log("⚠️ SSE: Already initialized, skipping");
-      return;
-    }
-
-    console.log("🚀 SSE: Creating connection for user:", userId);
-    
-    const eventSource = new EventSource(
-      `${import.meta.env.VITE_API_URL}api/notification-stream.php?user_id=${userId}`
-    );
-    
-    sseRef.current = eventSource;
-    hasSetupSSERef.current = true;
-
-    eventSource.onopen = () => {
-      console.log("✅ SSE: Connection established");
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        console.log("📨 SSE: Raw data received:", event.data);
-        const notification = JSON.parse(event.data);
-        console.log("📊 SSE: Parsed notification:", notification);
-        
-        // Update notifications list
-        setNotifications(prev => [notification, ...prev]);
-        
-        // Play sound
-        playNotificationSound();
-        
-        // Show desktop notification
-        console.log("🔔 SSE: Calling showDesktopNotification");
-        showDesktopNotification(notification);
-        
-      } catch (err) {
-        console.error("❌ SSE: Error parsing notification:", err);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("⚠️ SSE: Connection error:", error);
-      eventSource.close();
-      sseRef.current = null;
-      hasSetupSSERef.current = false;
-      
-      // Try to reconnect after 5 seconds
-      setTimeout(() => {
-        if (userId && Notification.permission === "granted") {
-          console.log("🔄 SSE: Attempting to reconnect...");
-          hasSetupSSERef.current = false; // Reset flag to allow reconnection
-        }
-      }, 5000);
-    };
-
-    // Cleanup only on unmount
-    return () => {
-      console.log("🧹 SSE: Component unmounting, closing connection");
-      if (sseRef.current) {
-        sseRef.current.close();
-        sseRef.current = null;
-        hasSetupSSERef.current = false;
-      }
-    };
-  }, [userId]); // Only depend on userId
+    // Remove polling - WebSocket will handle real-time updates
+  }, [fetchNotifications]);
 
   /* ---------------- MARK AS READ FUNCTIONS ---------------- */
   const markRead = async (id) => {
@@ -215,9 +230,110 @@ export default function NotificationBell({ userId }) {
     );
   };
 
+  /* ---------------- TEST WEBSOCKET FUNCTIONS ---------------- */
+  const testWebSocket = async () => {
+    try {
+      console.log('Testing WebSocket connection...');
+      
+      // Get websocket instance
+      const websocket = await getWebsocket();
+      
+      if (!websocket) {
+        console.error('WebSocket instance not found');
+        return;
+      }
+      
+      console.log('WebSocket instance:', websocket);
+      console.log('WebSocket isConnected:', websocket.isConnected);
+      console.log('WebSocket userId:', websocket.userId);
+      
+      // Test 1: Send ping
+      const pingSent = websocket.send({type: 'ping'});
+      console.log('Ping sent:', pingSent);
+      
+      // Test 2: Send test notification request
+      setTimeout(() => {
+        websocket.send({type: 'test_notification'});
+        console.log('Test notification request sent');
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error testing WebSocket:', error);
+    }
+  };
+
+  // Add a direct test function
+  const testDirectWebSocket = () => {
+    console.log('Testing direct WebSocket connection...');
+    
+    const testWs = new WebSocket('ws://localhost:8080?user_id=' + userId);
+    
+    testWs.onopen = () => {
+      console.log('✅ Direct test: WebSocket connected');
+      testWs.send(JSON.stringify({type: 'ping'}));
+      
+      setTimeout(() => {
+        testWs.send(JSON.stringify({type: 'test_notification'}));
+        console.log('Direct test: Test notification sent');
+      }, 1000);
+    };
+    
+    testWs.onmessage = (e) => {
+      console.log('✅ Direct test received:', e.data);
+    };
+    
+    testWs.onerror = (e) => {
+      console.error('❌ Direct test error:', e);
+    };
+    
+    testWs.onclose = (e) => {
+      console.log('Direct test closed:', e.code, e.reason);
+    };
+  };
+
   /* ---------------- RENDER ---------------- */
   return (
-    <div ref={dropdownRef} style={{ position: "relative" }}>
+    <div ref={dropdownRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: "8px" }}>
+      {/* Direct Test Button */}
+      {/* <button 
+        onClick={testDirectWebSocket}
+        style={{
+          padding: "6px 12px",
+          background: "#3b82f6",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "12px",
+          fontWeight: "500"
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#2563eb"}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#3b82f6"}
+        title="Test direct WebSocket connection"
+      >
+        Test Direct
+      </button> */}
+
+      {/* Test WebSocket Button */}
+      {/* <button 
+        onClick={testWebSocket}
+        style={{
+          padding: "6px 12px",
+          background: "#10b981",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "12px",
+          fontWeight: "500"
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#059669"}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#10b981"}
+        title="Test WebSocket connection"
+      >
+        Test WS
+      </button> */}
+
       {/* Notification Bell Button */}
       <button
         onClick={() => setOpen(!open)}
@@ -236,6 +352,7 @@ export default function NotificationBell({ userId }) {
         }}
         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.1)"}
         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = open ? "rgba(59, 130, 246, 0.1)" : "transparent"}
+        title="Notifications"
       >
         <Bell size={22} strokeWidth={1.5} style={{ color: "#4b5563" }} />
         {unreadCount > 0 && (
@@ -341,7 +458,7 @@ export default function NotificationBell({ userId }) {
             ) : (
               notifications.map((n, index) => (
                 <div
-                  key={n.id}
+                  key={n.id || index}
                   style={{
                     padding: "16px 20px",
                     borderBottom: index === notifications.length - 1 ? "none" : "1px solid #f3f4f6",
@@ -351,7 +468,7 @@ export default function NotificationBell({ userId }) {
                     position: "relative",
                     borderLeft: n.is_read == 0 ? "3px solid #3b82f6" : "3px solid transparent"
                   }}
-                  onClick={() => markRead(n.id)}
+                  onClick={() => n.id && markRead(n.id)}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = n.is_read == 0 ? "#e0f2fe" : "#f9fafb"}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = n.is_read == 0 ? "#f0f9ff" : "white"}
                 >
@@ -395,7 +512,7 @@ export default function NotificationBell({ userId }) {
                           color: "#111827",
                           fontWeight: n.is_read == 0 ? 600 : 500
                         }}>
-                          {n.sender_name}
+                          {n.sender_name || 'System'}
                         </strong>
                         <small 
                           style={{ 
@@ -416,7 +533,7 @@ export default function NotificationBell({ userId }) {
                         color: "#374151",
                         lineHeight: "1.4"
                       }}>
-                        {n.message}
+                        {n.message || 'New notification'}
                       </p>
                       
                       {/* Status Badge */}

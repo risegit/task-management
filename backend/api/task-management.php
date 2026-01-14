@@ -6,6 +6,8 @@ header("Content-Type: application/json");
 
 include('../inc/config.php');
 
+// include('send-notification.php');
+
 $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $taskId = $_GET['task_id'] ?? null;
@@ -21,6 +23,25 @@ if ($method === 'POST' && isset($_POST['_method'])) {
 date_default_timezone_set('Asia/Kolkata');
 $date = date("Y-m-d");
 $time = date("H:i:s");
+
+function pushNotification(array $notification) {
+
+    // Send FULL notification directly (no nesting)
+    $payload = json_encode($notification);
+
+    $context = stream_context_create([
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Content-Type: application/json\r\n",
+            'content' => $payload,
+            'timeout' => 2
+        ]
+    ]);
+
+    @file_get_contents('http://127.0.0.1:8090', false, $context);
+}
+
+
 
 switch ($method) { 
 
@@ -60,7 +81,8 @@ switch ($method) {
         }else if($viewTask){
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
-                    $taskStatusCond = "MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END)";
+                    // $taskStatusCond = "MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END)";
+                    $taskStatusCond = "CASE WHEN t.created_by = '$userId' THEN CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END ELSE MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END) END";
                     $whereClause = "WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId'";
                 } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
                     $taskStatusCond = "CASE 
@@ -168,6 +190,21 @@ switch ($method) {
             ";
 
             $conn->query($sqlNotify);
+            $notificationId = $conn->insert_id; // Get the inserted notification ID
+            // echo json_encode(["status" => "success","notificationId" => $notificationId]); 
+            // Fetch full notification details
+            $query = "SELECT n.*, u.name as sender_name 
+                    FROM notifications n 
+                    LEFT JOIN users u ON n.sender_id = u.id 
+                    WHERE n.id = $notificationId";
+            $result = $conn->query($query);
+            $notification = $result->fetch_assoc();
+
+            // Push to WebSocket
+            // sendToWebSocket($notification['user_id'], $notification);
+            $notification['url'] = "/tasks/view/".$taskId;
+            $notification['title'] = "Task Assigned";
+            // pushNotification($notification);
         }
         echo json_encode(["status" => "success", "message" => "Task created successfully!", "query1" => $query1, "query2" => $query2]);
         
@@ -176,8 +213,9 @@ switch ($method) {
 
 case 'PUT':
     if(empty($_POST['update_status'])){
-        $taskID   = (int)($_POST['taskId'] ?? 0);
-        $userID   = (int)($_GET['id'] ?? 0);
+        $taskId   = (int)($_POST['taskId'] ?? 0);
+        $userId   = (int)($_GET['id'] ?? 0);
+        $userName  = $_POST['userName'] ?? '';
         $taskName = trim($_POST['taskName'] ?? '');
         $deadline = $_POST['deadline'] ?? '';
         $remarks  = $_POST['remarks'] ?? '';
@@ -185,7 +223,7 @@ case 'PUT':
         $status   = $_POST['status'] ?? '';
         $assignedBy = (int)($_POST['assignedBy'] ?? 0);
 
-        if ($taskID <= 0) {
+        if ($taskId <= 0) {
             echo json_encode(["status" => "error", "message" => "Invalid task"]);
             exit;
         }
@@ -205,6 +243,10 @@ case 'PUT':
             --------------------------*/
             $stmt = $conn->prepare("UPDATE tasks SET task_name=?, deadline=?, remarks=?, priority=?, updated_date=?, updated_time=? WHERE id=?");
 
+            $query1 = "UPDATE tasks SET task_name='$taskName', deadline='$deadline', remarks='$remarks', priority='$priority', updated_date='$date', updated_time='$time' WHERE id='$taskId'";
+
+            // echo json_encode(["status" => "success","query1" => $query1]);
+
             $stmt->bind_param(
                 "ssssssi",
                 $taskName,
@@ -213,37 +255,39 @@ case 'PUT':
                 $priority,
                 $date,
                 $time,
-                $taskID
+                $taskId
             );
 
             $stmt->execute();
 
             // Existing assignees
             $existing = [];
-            $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskID'");
+            $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskId'");
             while ($row = $res->fetch_assoc()) {
                 $existing[] = $row['user_id'];
             }
-
+            $query2 = '';
             // Add new assignees (default = not-acknowledge)
-            foreach ($assignedTos as $userId) {
-                if (!in_array($userId, $existing)) {
+            foreach ($assignedTos as $assigneeId) {
+                if (!in_array($assigneeId, $existing)) {
                     $stmt = $conn->prepare("
                         INSERT INTO task_assignees 
                         (task_id, user_id, status, created_date, created_time)
                         VALUES (?, ?, 'not-acknowledge', ?, ?)
                     ");
-                    $stmt->bind_param("iiss", $taskID, $userId, $date, $time);
+                    $query2 .= "INSERT INTO task_assignees(task_id, user_id, status, created_date, created_time) VALUES ('$taskId', '$assigneeId', 'not-acknowledge', '$date', '$time')";
+                    $stmt->bind_param("iiss", $taskId, $assigneeId, $date, $time);
                     $stmt->execute();
                 }
             }
+            // echo json_encode(["status" => "success","query2" => $query2]);
 
             // Remove unassigned users
             if (!empty($existing)) {
                 $ids = implode(',', array_map('intval', $assignedTos));
                 $conn->query("
                     DELETE FROM task_assignees 
-                    WHERE task_id='$taskID' 
+                    WHERE task_id='$taskId' 
                     AND user_id NOT IN ($ids)
                 ");
             }
@@ -262,16 +306,18 @@ case 'PUT':
                 FROM task_assignees
                 WHERE task_id=?
             ");
-            $stmt->bind_param("i", $taskID);
+            $stmt->bind_param("i", $taskId);
             $stmt->execute();
             $statusRow = $stmt->get_result()->fetch_assoc();
 
             // Update only THIS user's status
-            $sql = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskID' AND user_id='$userID'";
+            $query3 = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskId' AND user_id='$userId'";
+            
             $stmt = $conn->prepare("UPDATE task_assignees SET status=?, updated_date=?, updated_time=? WHERE task_id=? AND user_id=?");
-            $stmt->bind_param("sssii", $status, $date, $time, $taskID, $userID);
+            $stmt->bind_param("sssii", $status, $date, $time, $taskId, $userId);
             $stmt->execute();
-            // echo json_encode(["status" => "success","sql" => $sql]); 
+            // echo json_encode(["status" => "success","query3" => $query3]); 
+
             if ($statusRow['completed'] == $statusRow['total'] && $statusRow['total'] > 0) {
                 $taskStatus = 'completed';
             } elseif ($statusRow['in_progress'] > 0) {
@@ -285,10 +331,21 @@ case 'PUT':
             $stmt = $conn->prepare("
                 UPDATE tasks SET status=? WHERE id=?
             ");
-            $stmt->bind_param("si", $taskStatus, $taskID);
+            
+            $stmt->bind_param("si", $taskStatus, $taskId);
             $stmt->execute();
 
+            $query4 = "UPDATE tasks SET status='$taskStatus' WHERE id='$taskId'";
+            // echo json_encode(["status" => "success","query4" => $query4]);
+            
+            $rtvSenderIdResult = $conn->query("SELECT created_by FROM tasks WHERE id='$taskId'");
+            $row = $rtvSenderIdResult->fetch_assoc();
+            $rtvSenderId = $row['created_by'] ?? 0;
 
+            $msg = $userName." updated task status to ".$status;
+            $sqlNotify = "INSERT INTO notifications (user_id, sender_id, type, reference_id, message, created_date, created_time) VALUES('$rtvSenderId', '$userId', 'task_updated', '$taskId', '$msg', '$date', '$time');";
+            // echo json_encode(["status" => "success","sql1" => $sqlNotify]);
+            $conn->query($sqlNotify);
             /* ---------------------------
             COMMIT
             ----------------------------*/
@@ -297,7 +354,7 @@ case 'PUT':
             echo json_encode([
                 "status" => "success",
                 "message" => "Task updated successfully",
-                "task_status" => $taskStatus
+                "task_status1" => $taskStatus
             ]);
 
             // /* -------------------------
@@ -306,7 +363,7 @@ case 'PUT':
             // $stmtDel = $conn->prepare(
             //     "DELETE FROM task_assignees WHERE task_id=?"
             // );
-            // $stmtDel->bind_param("i", $taskID);
+            // $stmtDel->bind_param("i", $taskId);
             // $stmtDel->execute();
 
             // /* -------------------------
@@ -348,6 +405,7 @@ case 'PUT':
     }else{
         $taskId     = (int)($_POST['task_id'] ?? 0);
         $userId     = (int)($_POST['userId'] ?? 0);
+        $userName  = $_POST['userName'] ?? '';
         $newStatus  = $_POST['task_status'] ?? '';
         $update_status = $_POST['update_status'] ?? '';
 
@@ -380,11 +438,22 @@ case 'PUT':
                 throw new Exception("No rows updated");
             }
 
+            $rtvSenderIdResult = $conn->query("SELECT created_by FROM tasks WHERE id='$taskId'");
+            $row = $rtvSenderIdResult->fetch_assoc();
+            $rtvSenderId = $row['created_by'] ?? 0;
+
+            $msg = $userName." updated task status to ".$newStatus;
+            $sqlNotify = "INSERT INTO notifications (user_id, sender_id, type, reference_id, message, created_date, created_time) VALUES('$rtvSenderId', '$userId', 'task_updated', '$taskId', '$msg', '$date', '$time');";
+
+            // echo json_encode(["status" => "success","sql2" => $sqlNotify]);
+
+            $conn->query($sqlNotify);
+
             $conn->commit();
 
             echo json_encode([
                 "status" => "success",
-                "message" => "Task status updated successfully"
+                "message1" => "Task status updated successfully"
             ]);
 
         } catch (Exception $e) {

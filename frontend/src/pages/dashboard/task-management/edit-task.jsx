@@ -385,11 +385,11 @@ export default function EditTask() {
           // Get all available users for dropdown - FILTER OUT CURRENT USER
           const allUsers = data.userBelongsToProject || [];
           const formattedUsers = allUsers
-            .filter(user => {
-              // Filter out the current logged-in user
-              const isCurrentUser = user.emp_id === userId;
-              return !isCurrentUser;
-            })
+            // .filter(user => {
+            //   // Filter out the current logged-in user
+            //   const isCurrentUser = user.emp_id === userId;
+            //   return !isCurrentUser;
+            // })
             .map(user => ({
               value: user.emp_id,
               label: user.name + (user.is_poc === "1" ? " (POC)" : ""),
@@ -495,6 +495,7 @@ export default function EditTask() {
       // Basic task information
       formData.append("taskName", taskData.name.trim());
       formData.append("assignedBy", taskData.assignedBy);
+      formData.append("userName", user?.name);
       formData.append("priority", taskData.priority.value);
       
       // Only include status if user is assigned to the task or is the creator

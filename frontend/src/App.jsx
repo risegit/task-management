@@ -24,7 +24,7 @@ function App() {
 
   useEffect(() => {
     // 🔔 Request notification permission once
-    requestNotificationPermission();
+    // requestNotificationPermission();
 
     // 🔊 Unlock notification sound after first user interaction
     const unlockAudio = () => {

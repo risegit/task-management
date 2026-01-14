@@ -29,13 +29,14 @@ while (true) {
         exit;
     }
 
-    $sql = "SELECT id, message, type, user_id, reference_id, is_read, created_date, created_time 
-            FROM notifications 
-            WHERE user_id = '$userId' 
-            AND is_read = 0 
-            AND id > $lastId 
-            ORDER BY id ASC"; // Use ASC to get in correct order
-
+    // $sql = "SELECT id, message, type, user_id, reference_id, is_read, created_date, created_time 
+    //         FROM notifications 
+    //         WHERE user_id = '$userId' 
+    //         AND is_read = 0 
+    //         AND id > $lastId 
+    //         ORDER BY id ASC"; // Use ASC to get in correct order
+    $sql = "SELECT n.id, n.message, n.type, n.user_id, n.sender_id, n.reference_id, n.is_read, n.created_date, n.created_time,u.name sender_name,ta.status FROM notifications n INNER JOIN users u ON n.user_id=u.id INNER JOIN task_assignees ta ON n.reference_id=ta.task_id WHERE n.user_id = '$userId' AND n.is_read = 0 AND n.id > $lastId ORDER BY n.id ASC";
+    
     $result = $conn->query($sql);
     
     $newMaxId = $lastId;
