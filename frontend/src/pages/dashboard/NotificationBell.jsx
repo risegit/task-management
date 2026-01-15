@@ -97,88 +97,88 @@ export default function NotificationBell({ userId }) {
   }, []);
 
   /* ---------------- WEB SOCKET CONNECTION ---------------- */
-  useEffect(() => {
-    console.log("🔄 WebSocket useEffect triggered, userId:", userId);
+  // useEffect(() => {
+  //   console.log("🔄 WebSocket useEffect triggered, userId:", userId);
     
-    if (!userId) {
-      console.log("❌ WebSocket: No userId provided");
-      return;
-    }
+  //   if (!userId) {
+  //     console.log("❌ WebSocket: No userId provided");
+  //     return;
+  //   }
 
-    const initWebSocket = async () => {
-      try {
-        const websocket = await getWebsocket();
-        console.log('WebSocket instance:', websocket);
-        console.log('WebSocket connect function exists:', typeof websocket.connect);
+  //   const initWebSocket = async () => {
+  //     try {
+  //       const websocket = await getWebsocket();
+  //       console.log('WebSocket instance:', websocket);
+  //       console.log('WebSocket connect function exists:', typeof websocket.connect);
         
-        if (!websocket || typeof websocket.connect !== 'function') {
-          console.error('❌ Invalid websocket instance:', websocket);
-          return;
-        }
+  //       if (!websocket || typeof websocket.connect !== 'function') {
+  //         console.error('❌ Invalid websocket instance:', websocket);
+  //         return;
+  //       }
         
-        // Connect WebSocket
-        websocket.connect(userId);
+  //       // Connect WebSocket
+  //       websocket.connect(userId);
 
-        // Listen for notifications
-        const unsubscribeNotification = websocket.on('notification', (notification) => {
-          console.log("📨 WebSocket: Notification received:", notification);
+  //       // Listen for notifications
+  //       const unsubscribeNotification = websocket.on('notification', (notification) => {
+  //         console.log("📨 WebSocket: Notification received:", notification);
           
-          // Update notifications list
-          setNotifications(prev => [notification.data || notification, ...prev]);
+  //         // Update notifications list
+  //         setNotifications(prev => [notification.data || notification, ...prev]);
           
-          // Play sound
-          playNotificationSound();
+  //         // Play sound
+  //         playNotificationSound();
           
-          // Show desktop notification
-          console.log("🔔 WebSocket: Calling showDesktopNotification");
-          showDesktopNotification(notification.data || notification);
-        });
+  //         // Show desktop notification
+  //         console.log("🔔 WebSocket: Calling showDesktopNotification");
+  //         showDesktopNotification(notification.data || notification);
+  //       });
 
-        // Listen for connection events
-        const unsubscribeConnected = websocket.on('connected', () => {
-          console.log("✅ WebSocket: Connected event received");
-          wsInitializedRef.current = true;
-        });
+  //       // Listen for connection events
+  //       const unsubscribeConnected = websocket.on('connected', () => {
+  //         console.log("✅ WebSocket: Connected event received");
+  //         wsInitializedRef.current = true;
+  //       });
 
-        const unsubscribeDisconnected = websocket.on('disconnected', () => {
-          console.log("⚠️ WebSocket: Disconnected event received");
-          wsInitializedRef.current = false;
-        });
+  //       const unsubscribeDisconnected = websocket.on('disconnected', () => {
+  //         console.log("⚠️ WebSocket: Disconnected event received");
+  //         wsInitializedRef.current = false;
+  //       });
 
-        // Listen for messages (for debugging)
-        const unsubscribeMessage = websocket.on('message', (data) => {
-          console.log("📨 WebSocket raw message:", data);
-        });
+  //       // Listen for messages (for debugging)
+  //       const unsubscribeMessage = websocket.on('message', (data) => {
+  //         console.log("📨 WebSocket raw message:", data);
+  //       });
 
-        // Store unsubscribe functions
-        wsListenersRef.current = [
-          unsubscribeNotification,
-          unsubscribeConnected,
-          unsubscribeDisconnected,
-          unsubscribeMessage
-        ];
+  //       // Store unsubscribe functions
+  //       wsListenersRef.current = [
+  //         unsubscribeNotification,
+  //         unsubscribeConnected,
+  //         unsubscribeDisconnected,
+  //         unsubscribeMessage
+  //       ];
 
-        console.log('✅ WebSocket initialized successfully');
+  //       console.log('✅ WebSocket initialized successfully');
 
-      } catch (error) {
-        console.error("❌ Failed to initialize WebSocket:", error);
-      }
-    };
+  //     } catch (error) {
+  //       console.error("❌ Failed to initialize WebSocket:", error);
+  //     }
+  //   };
 
-    initWebSocket();
+  //   initWebSocket();
 
-    // Cleanup on unmount
-    return () => {
-      console.log('🧹 Cleaning up WebSocket listeners');
-      // Remove all listeners
-      wsListenersRef.current.forEach(unsubscribe => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      });
-      wsListenersRef.current = [];
-    };
-  }, [userId]);
+  //   // Cleanup on unmount
+  //   return () => {
+  //     console.log('🧹 Cleaning up WebSocket listeners');
+  //     // Remove all listeners
+  //     wsListenersRef.current.forEach(unsubscribe => {
+  //       if (typeof unsubscribe === 'function') {
+  //         unsubscribe();
+  //       }
+  //     });
+  //     wsListenersRef.current = [];
+  //   };
+  // }, [userId]);
 
   /* ---------------- FETCH NOTIFICATIONS (ONLY ON MOUNT) ---------------- */
   const fetchNotifications = useCallback(async () => {
