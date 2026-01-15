@@ -60,7 +60,7 @@ switch ($method) {
                 $data[] = $row;
             }
 
-            $sql2 = "SELECT ta.task_id,ta.user_id,u.name,ta.status FROM task_assignees ta INNER JOIN users u ON ta.user_id=u.id WHERE task_id='$taskId'";
+            $sql2 = "SELECT ta.task_id,ta.user_id,u.name,ta.status,ta.graphic_creative_type FROM task_assignees ta INNER JOIN users u ON ta.user_id=u.id WHERE task_id='$taskId'";
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result2 = $conn->query($sql2);
             $assignedTo = [];
@@ -68,7 +68,7 @@ switch ($method) {
                 $assignedTo[] = $row;
             }
 
-            $sql3 = "SELECT cu.client_id,cu.emp_id,cu.is_poc,u.name FROM client_users cu INNER JOIN users u ON u.id=cu.emp_id WHERE cu.client_id='$clientId'";
+            $sql3 = "SELECT cu.client_id,cu.emp_id,cu.is_poc,u.name,d.name dept_name FROM client_users cu INNER JOIN users u ON u.id=cu.emp_id INNER JOIN departments d ON d.id=u.department_id WHERE cu.client_id='$clientId'";
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result3 = $conn->query($sql3);
             $userBelongsToProject = [];
@@ -127,7 +127,7 @@ switch ($method) {
             echo json_encode(["status" => "success","data" => $data]);
 
         }else if($project_id){
-            $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id WHERE c.id='$project_id'";
+            $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc,d.name dept_name FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id INNER JOIN departments d ON d.id=u.department_id WHERE c.id='$project_id'";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
@@ -158,58 +158,79 @@ switch ($method) {
         break;
     
     case 'POST':
-        $clientId=$_POST['project_id'] ?? '';
-        $taskName=$_POST['task_name'] ?? '';
+        $clientId = $_POST['project_id'] ?? '';
+        $taskName = $_POST['task_name'] ?? '';
+        $graphicCreativeType = $_POST['graphic_type'] ?? '';
         $assignedBy = $_POST['assignedBy'] ?? '';
         $email = $_POST['email'] ?? '';
         $deadline = $_POST['deadline'] ?? '';
         $remarks = $_POST['remarks'] ?? '';
         $priority = $_POST['priority'] ?? '';
-        
-        $jsonAssignedTo = isset($_POST['assignedTo']) ? $_POST['assignedTo'] : '';
+
+        // Decode assignedTo JSON
+        $jsonAssignedTo = $_POST['assignedTo'] ?? '[]';
         $assignedTos = json_decode($jsonAssignedTo, true);
-        $query1='';
-        $query2='';
-        $sql1 = "INSERT INTO `tasks`(`client_id`,`task_name`, `deadline`, `remarks`, `priority` , `created_by`, `created_date`, `created_time`) VALUES ('$clientId','$taskName','$deadline','$remarks','$priority','$userId','$date','$time')";
-        $taskId=0;
-        if($conn->query($sql1)){
+
+        if (!is_array($assignedTos)) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Invalid assignedTo data"
+            ]);
+            exit;
+        }
+
+        $sql1 = "INSERT INTO `tasks` (`client_id`, `task_name`, `deadline`, `remarks`, `priority`, `created_by`, `created_date`, `created_time`) VALUES ('$clientId','$taskName','$deadline','$remarks','$priority','$userId','$date','$time')";
+
+        if ($conn->query($sql1)) {
+
             $taskId = $conn->insert_id;
-            foreach ($assignedTos as $assignedTo) {
-                $sql2 = "INSERT INTO `task_assignees`(`task_id`, `user_id`, `created_date`, `created_time`) VALUES ('$taskId','$assignedTo','$date','$time')";
-                $query2 .= $sql2;
+            $creative_type = '';
+            $query1 = '';
+            foreach ($assignedTos as $assigned) {
+
+                $userIdAssigned = $assigned['user_id'] ?? null;
+                $deptName = $assigned['dept_name'] ?? '';
+
+                if (!$userIdAssigned) {
+                    continue;
+                }
+                if (stripos($deptName, 'Graphic Design') !== false) {
+                    $creative_type = $graphicCreativeType;
+                }else{
+                    $creative_type = '';
+                }
+
+                // 🔹 Insert into task_assignees
+                $sql2 = "INSERT INTO `task_assignees` (`task_id`, `user_id`, `graphic_creative_type`, `created_date`, `created_time`) VALUES ('$taskId','$userIdAssigned','$creative_type','$date','$time')";
+
                 $conn->query($sql2);
+
+                // 🔔 Insert notification
+                $msg = "You have been assigned a new task";
+
+                $sqlNotify = "
+                    INSERT INTO notifications
+                    (user_id, sender_id, type, reference_id, message, created_date, created_time)
+                    VALUES
+                    ('$userIdAssigned', '$userId', 'task_assigned', '$taskId', '$msg', '$date', '$time')
+                ";
+
+                $conn->query($sqlNotify);
             }
-        }
-        foreach ($assignedTos as $empId) {
-            $msg = "You have been assigned a new task";
-            $sqlNotify = "
-                INSERT INTO notifications
-                (user_id, sender_id, type, reference_id, message, created_date, created_time)
-                VALUES
-                ('$empId', '$userId', 'task_assigned', '$taskId', '$msg', '$date', '$time');
-            ";
 
-            $conn->query($sqlNotify);
-            $notificationId = $conn->insert_id; // Get the inserted notification ID
-            // echo json_encode(["status" => "success","notificationId" => $notificationId]); 
-            // Fetch full notification details
-            $query = "SELECT n.*, u.name as sender_name 
-                    FROM notifications n 
-                    LEFT JOIN users u ON n.sender_id = u.id 
-                    WHERE n.id = $notificationId";
-            $result = $conn->query($query);
-            $notification = $result->fetch_assoc();
-
-            // Push to WebSocket
-            // sendToWebSocket($notification['user_id'], $notification);
-            $notification['url'] = "/tasks/view/".$taskId;
-            $notification['title'] = "Task Assigned";
-            // pushNotification($notification);
+            echo json_encode([
+                "status" => "success",
+                "message" => "Task created successfully!"
+            ]);
+        } else {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Failed to create task"
+            ]);
         }
-        echo json_encode(["status" => "success", "message" => "Task created successfully!", "query1" => $query1, "query2" => $query2]);
-        
-        
+
         break;
+
 
 case 'PUT':
     if(empty($_POST['update_status'])){
