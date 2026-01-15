@@ -375,7 +375,7 @@ const Home = () => {
                               </p>
                             </>
                           )}
-                        </h4>
+                        </div>
                         {user.role === "staff" && (
                           <em className="text-xs">{task.clients}</em>
                         )}
@@ -494,6 +494,7 @@ const Home = () => {
                 ))
               )}
             </div>
+            
             <PaginationControls
               currentPage={completedPage}
               totalPages={getTotalPages(completedTasks)}
