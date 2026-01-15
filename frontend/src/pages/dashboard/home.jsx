@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import axios from 'axios';
 import { getCurrentUser } from "../../utils/api";
 import { jwtDecode } from 'jwt-decode';
+import CapsuleGridMarquee from './task-management/CapsuleGridPreview';
 
 const Home = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -22,8 +23,23 @@ const Home = () => {
   const [completedPage, setCompletedPage] = useState(1);
   const [overduePage, setOverduePage] = useState(1);
   const user = getCurrentUser();
-  
+
   const itemsPerPage = 3; // Increased back to 3 for larger boxes
+
+  const items = [
+    { employeeName: "Rahul Gupta", count_tasks: 31 },
+    { employeeName: "Nimish", count_tasks: 1 },
+    { employeeName: "Dilip Gupta", count_tasks: 11 }
+  ];
+
+
+  // const items = [
+  //   `⚠️ Rahul Gupta has ${getTotalOverdueTaskCount("Rahul Gupta")} Pending Tasks`,
+  //   `⚠️ Nimish has ${getTotalOverdueTaskCount("Nimish")} Pending Tasks`,
+  //   `⚠️ Dilip Gupta has ${getTotalOverdueTaskCount("Dilip Gupta")} Pending Tasks`,
+  //   `⚠️ Aditya has ${getTotalOverdueTaskCount("Aditya")} Pending Tasks`
+  // ];
+
 
   // Clock update (keeping for time display)
   useEffect(() => {
@@ -56,7 +72,7 @@ const Home = () => {
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}api/task-management.php`,
           {
-            params: { 
+            params: {
               id: user?.id,
               user_code: user?.user_code,
               dashboard_task: true
@@ -66,25 +82,25 @@ const Home = () => {
 
         const data = response.data;
         // console.log("task data=", data.data);
-        
+
         // Check if data is empty or has null values
-        const validTasks = data.data.filter(task => 
+        const validTasks = data.data.filter(task =>
           task && ["acknowledge"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
         );
 
-        const validTasks1 = data.data.filter(task => 
+        const validTasks1 = data.data.filter(task =>
           task && ["in-progress"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
         );
 
-        const validTasks2 = data.data.filter(task => 
+        const validTasks2 = data.data.filter(task =>
           task && ["completed"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
         );
 
         // Overdue tasks - you'll need to adjust the filter condition based on your API response
-        const validOverdueTasks = data.data.filter(task => 
+        const validOverdueTasks = data.data.filter(task =>
           task && ["overdue", "pending"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
         );
-        
+
         setTodoTasks(validTasks);
         setInProgressTasks(validTasks1);
         setCompletedTasks(validTasks2);
@@ -155,7 +171,7 @@ const Home = () => {
           <ChevronLeft className="w-4 h-4 mr-1" />
           Previous
         </button>
-        
+
         <div className="flex items-center space-x-1">
           {[...Array(totalPages)].map((_, index) => {
             const pageNumber = index + 1;
@@ -183,7 +199,7 @@ const Home = () => {
             return null;
           })}
         </div>
-        
+
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
@@ -200,8 +216,9 @@ const Home = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto">
         {/* Header */}
+        <CapsuleGridMarquee items={items} speed={25} />
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name: " "}!</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name : " "}!</h1>
           <p className="text-gray-600 mt-2">{formatDate(currentTime)} • {formatTime(currentTime)}</p>
         </div>
 
@@ -265,32 +282,32 @@ const Home = () => {
             <div className="space-y-3 flex-grow">
               {getPaginatedTasks(inProgressTasks, inProgressPage).map(task => (
                 <Link to="/dashboard/task-management/view-task" key={task.id}>
-                    <div
-                      className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-progress-500 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start">
-                        <ClipboardDocumentCheckIcon className="w-5 h-5 text-progress-600 mt-0.5 mr-3 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-semibold text-black-800 text-sm mb-1">
-                             {user.role !== "staff" && (
-                              <> 
+                  <div
+                    className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-progress-500 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start">
+                      <ClipboardDocumentCheckIcon className="w-5 h-5 text-progress-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-black-800 text-sm mb-1">
+                          {user.role !== "staff" && (
+                            <>
                               {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Progress Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
-                              </>
-                             )}
-                             
-                             {user.role === "staff" && ( 
-                              <>
-                              <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
-                              </>
-                              )}
-                          </h4>
-                          {user.role === "staff" && (
-                            <em className="text-xs">{task.clients}</em>
+                            </>
                           )}
-                        </div>
+
+                          {user.role === "staff" && (
+                            <>
+                              <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                            </>
+                          )}
+                        </h4>
+                        {user.role === "staff" && (
+                          <em className="text-xs">{task.clients}</em>
+                        )}
                       </div>
                     </div>
-                  </Link>
+                  </div>
+                </Link>
               ))}
             </div>
             <PaginationControls
@@ -329,13 +346,13 @@ const Home = () => {
                         <div>
                           <h4 className="font-semibold text-black-800 text-sm mb-1">
                             {user.role !== "staff" && (
-                              <> 
-                              {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Overdue Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                              <>
+                                {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Overdue Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
                               </>
                             )}
-                            {user.role === "staff" && ( 
+                            {user.role === "staff" && (
                               <>
-                              <span className="text-red-900">{task.count_tasks}</span> Overdue Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
+                                <span className="text-red-900">{task.count_tasks}</span> Overdue Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
                               </>
                             )}
                           </h4>
@@ -378,16 +395,16 @@ const Home = () => {
                   <div>
                     <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
                       {user.role !== "staff" && (
-                        <> 
-                        {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed 
-                      Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
-                        </>
-                        )}
-                        {user.role === "staff" && ( 
                         <>
-                        <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
+                          {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed
+                          Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
                         </>
-                        )}
+                      )}
+                      {user.role === "staff" && (
+                        <>
+                          <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
+                        </>
+                      )}
                     </h4>
                     {user.role === "staff" && (
                       <em className="text-xs">{task.clients}</em>
@@ -480,7 +497,7 @@ const Home = () => {
               <h2 className="text-lg font-semibold text-gray-800">Celebrations</h2>
               <Calendar className="w-5 h-5 text-gray-400" />
             </div>
-            
+
             {/* Birthday Section */}
             <div className="mb-6">
               <div className="flex items-center mb-3">
