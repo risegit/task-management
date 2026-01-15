@@ -10,7 +10,7 @@ export default function CapsuleGridMarquee({ items, speed = 20 }) {
     <div className="capsule-marquee__grid">
       {items?.map((item, index) => (
         <div className="capsule" key={index}>
-          ⚠️ {item.employeeName} has {parseInt(item.count_tasks) || 0} Pending Tasks
+          ⚠️ {item.employeeName} has {parseInt(item.count_tasks) || 0} Overdue Task
         </div>
       ))}
     </div>

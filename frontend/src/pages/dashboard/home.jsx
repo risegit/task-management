@@ -4,7 +4,6 @@ import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/solid";
 import { Link } from "react-router-dom";
 import axios from 'axios';
 import { getCurrentUser } from "../../utils/api";
-import { jwtDecode } from 'jwt-decode';
 import CapsuleGridMarquee from './task-management/CapsuleGridPreview';
 
 const Home = () => {
@@ -16,6 +15,7 @@ const Home = () => {
   const [inProgressTasks, setInProgressTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [overdueTasks, setOverdueTasks] = useState([]);
+  const [marqueeItems, setMarqueeItems] = useState([]);
 
   // Pagination states for each task category
   const [todoPage, setTodoPage] = useState(1);
@@ -25,21 +25,6 @@ const Home = () => {
   const user = getCurrentUser();
   
   const itemsPerPage = 3;
-
-  const items = [
-    { employeeName: "Rahul Gupta", count_tasks: 31 },
-    { employeeName: "Nimish", count_tasks: 1 },
-    { employeeName: "Dilip Gupta", count_tasks: 11 }
-  ];
-
-
-  // const items = [
-  //   `⚠️ Rahul Gupta has ${getTotalOverdueTaskCount("Rahul Gupta")} Pending Tasks`,
-  //   `⚠️ Nimish has ${getTotalOverdueTaskCount("Nimish")} Pending Tasks`,
-  //   `⚠️ Dilip Gupta has ${getTotalOverdueTaskCount("Dilip Gupta")} Pending Tasks`,
-  //   `⚠️ Aditya has ${getTotalOverdueTaskCount("Aditya")} Pending Tasks`
-  // ];
-
 
   // Clock update (keeping for time display)
   useEffect(() => {
@@ -127,6 +112,10 @@ const Home = () => {
         setInProgressTasks(validTasks1);
         setCompletedTasks(validTasks2);
         setOverdueTasks(validOverdueTasks);
+
+        // Generate marquee items based on overdue tasks
+        generateMarqueeItems(validOverdueTasks, isAdmin);
+
       } catch (err) {
         console.error("Error fetching task:", err);
         setError("Unable to load task");
@@ -137,6 +126,58 @@ const Home = () => {
 
     fetchTask();
   }, []);
+
+  // Function to generate marquee items based on overdue tasks
+  const generateMarqueeItems = (overdueTasks, isAdmin) => {
+    if (overdueTasks.length === 0) {
+      setMarqueeItems([{ employeeName: "No overdue tasks", count_tasks: 0 }]);
+      return;
+    }
+
+    if (isAdmin) {
+      // For admin: Group tasks by user name and sum count_tasks
+      const userTaskMap = new Map();
+      
+      overdueTasks.forEach(task => {
+        const userName = task.name || "Unknown User";
+        const count = parseInt(task.count_tasks) || 1;
+        
+        if (userTaskMap.has(userName)) {
+          userTaskMap.set(userName, userTaskMap.get(userName) + count);
+        } else {
+          userTaskMap.set(userName, count);
+        }
+      });
+
+      // Convert map to array of marquee items
+      const items = Array.from(userTaskMap.entries()).map(([userName, taskCount]) => ({
+        employeeName: userName,
+        count_tasks: taskCount
+      }));
+
+      setMarqueeItems(items);
+    } else {
+      
+      // For regular user: Show individual tasks or count
+      const userName = user?.name || "You";
+      const totalTasks = overdueTasks.length;
+      
+      if (totalTasks === 1) {
+        // Show the specific task if there's only one
+        const task = overdueTasks[0];
+        setMarqueeItems([{
+          employeeName: `${userName}: ${task.task_name || "Task"}`,
+          count_tasks: 1
+        }]);
+      } else {
+        // Show count if multiple tasks
+        setMarqueeItems([{
+          employeeName: userName,
+          count_tasks: totalTasks
+        }]);
+      }
+    }
+  };
 
   // Function to get paginated tasks for each category
   const getPaginatedTasks = (tasks, currentPage) => {
@@ -294,8 +335,17 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto">
+        {/* Marquee for Overdue Tasks */}
+        {marqueeItems.length > 0 && (
+          <CapsuleGridMarquee 
+            items={marqueeItems} 
+            speed={25} 
+            type="overdue"
+            userRole={user?.role}
+          />
+        )}
+
         {/* Header */}
-        <CapsuleGridMarquee items={items} speed={25} />
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name : " "}!</h1>
           <p className="text-gray-600 mt-2">{formatDate(currentTime)} • {formatTime(currentTime)}</p>
@@ -376,9 +426,6 @@ const Home = () => {
                             </>
                           )}
                         </div>
-                        {user.role === "staff" && (
-                          <em className="text-xs">{task.clients}</em>
-                        )}
                       </div>
                     </div>
                   </Link>
@@ -494,7 +541,6 @@ const Home = () => {
                 ))
               )}
             </div>
-            
             <PaginationControls
               currentPage={completedPage}
               totalPages={getTotalPages(completedTasks)}
