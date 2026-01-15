@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import axios from 'axios';
 import { getCurrentUser } from "../../utils/api";
 import { jwtDecode } from 'jwt-decode';
+import CapsuleGridMarquee from './task-management/CapsuleGridPreview';
 
 const Home = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -24,6 +25,21 @@ const Home = () => {
   const user = getCurrentUser();
   
   const itemsPerPage = 3;
+
+  const items = [
+    { employeeName: "Rahul Gupta", count_tasks: 31 },
+    { employeeName: "Nimish", count_tasks: 1 },
+    { employeeName: "Dilip Gupta", count_tasks: 11 }
+  ];
+
+
+  // const items = [
+  //   `⚠️ Rahul Gupta has ${getTotalOverdueTaskCount("Rahul Gupta")} Pending Tasks`,
+  //   `⚠️ Nimish has ${getTotalOverdueTaskCount("Nimish")} Pending Tasks`,
+  //   `⚠️ Dilip Gupta has ${getTotalOverdueTaskCount("Dilip Gupta")} Pending Tasks`,
+  //   `⚠️ Aditya has ${getTotalOverdueTaskCount("Aditya")} Pending Tasks`
+  // ];
+
 
   // Clock update (keeping for time display)
   useEffect(() => {
@@ -54,7 +70,7 @@ const Home = () => {
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}api/task-management.php`,
           {
-            params: { 
+            params: {
               id: user?.id,
               user_code: user?.user_code,
               dashboard_task: true
@@ -106,7 +122,7 @@ const Home = () => {
         const validOverdueTasks = processedData.filter(task => 
           task && ["overdue", "pending"].includes(task.status)
         );
-        
+
         setTodoTasks(validTasks);
         setInProgressTasks(validTasks1);
         setCompletedTasks(validTasks2);
@@ -195,7 +211,7 @@ const Home = () => {
           <ChevronLeft className="w-4 h-4 mr-1" />
           Previous
         </button>
-        
+
         <div className="flex items-center space-x-1">
           {[...Array(totalPages)].map((_, index) => {
             const pageNumber = index + 1;
@@ -223,7 +239,7 @@ const Home = () => {
             return null;
           })}
         </div>
-        
+
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
@@ -279,6 +295,7 @@ const Home = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto">
         {/* Header */}
+        <CapsuleGridMarquee items={items} speed={25} />
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name : " "}!</h1>
           <p className="text-gray-600 mt-2">{formatDate(currentTime)} • {formatTime(currentTime)}</p>
@@ -358,7 +375,10 @@ const Home = () => {
                               </p>
                             </>
                           )}
-                        </div>
+                        </h4>
+                        {user.role === "staff" && (
+                          <em className="text-xs">{task.clients}</em>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -558,7 +578,7 @@ const Home = () => {
               <h2 className="text-lg font-semibold text-gray-800">Celebrations</h2>
               <Calendar className="w-5 h-5 text-gray-400" />
             </div>
-            
+
             {/* Birthday Section */}
             <div className="mb-6">
               <div className="flex items-center mb-3">

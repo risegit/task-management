@@ -29,6 +29,7 @@ import Viewtask from "@/pages/dashboard/task-management/view-task";
 import EditTask from "@/pages/dashboard/task-management/edit-task";
 import Profile from "@/pages/dashboard/profile";
 import OthersActivities from "@/pages/dashboard/otheractivities";
+import OthersActivitiesDepartment from "@/pages/dashboard/otheractivitiesdepartment";
 
 import Adddept from "@/pages/dashboard/department/add-deptartment";
 import Managedept from "@/pages/dashboard/department/manage-deptartment";
@@ -42,6 +43,7 @@ import EditTaskComment from "@/pages/dashboard/task-management/edittask";
 import { SignIn, SignUp } from "@/pages/auth";
 import LogoutButton from "./Components/LogoutButton";
 import RoleProtectedRoute from "./Components/RoleProtectedRoute";
+
 
 
 const icon = { className: "w-5 h-5 text-inherit" };
@@ -243,6 +245,18 @@ const routes = [
         element: (
           <RoleProtectedRoute
             element={<OthersActivities />}
+            allowedRoles={["admin", "staff", "manager"]}
+          />
+        ),
+      },
+      {
+        icon: <SpeakerWaveIcon {...icon} />,
+        name: "Project Announcements",
+        allowedRoles: ["admin", "", "manager"],
+        path: "/otheractivitiesdepartment",
+        element: (
+          <RoleProtectedRoute
+            element={<OthersActivitiesDepartment />}
             allowedRoles={["admin", "staff", "manager"]}
           />
         ),
