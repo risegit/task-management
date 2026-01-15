@@ -23,7 +23,7 @@ const Home = () => {
   const [overduePage, setOverduePage] = useState(1);
   const user = getCurrentUser();
   
-  const itemsPerPage = 3; // Increased back to 3 for larger boxes
+  const itemsPerPage = 3;
 
   // Clock update (keeping for time display)
   useEffect(() => {
@@ -37,10 +37,8 @@ const Home = () => {
       try {
         const response = await axios.get(`${import.meta.env.VITE_API_URL}api/announcement.php`)
         const data = response.data;
-        // console.log("data=", data.data);
         setCurrentAnnouncements(data.data);
       } catch (err) {
-        // console.error("Error fetching announcements:", err);
         setError("Unable to load announcements");
       } finally {
         setLoading(false);
@@ -65,24 +63,48 @@ const Home = () => {
         );
 
         const data = response.data;
-        // console.log("task data=", data.data);
+        console.log("task data=", data.data);
         
-        // Check if data is empty or has null values
-        const validTasks = data.data.filter(task => 
-          task && ["acknowledge"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        // Check if user is admin or regular user
+        const isAdmin = user?.role !== "staff";
+        
+        // Process data based on user role
+        const processedData = data.data.map(task => {
+          if (isAdmin && task.count_tasks) {
+            // For admin - use aggregated data with count_tasks
+            return {
+              ...task,
+              count_tasks: parseInt(task.count_tasks) || 1,
+              task_name: task.task_name || "Task",
+              clients: task.clients || "Client"
+            };
+          } else {
+            // For regular users - create individual task entries
+            return {
+              ...task,
+              count_tasks: 1, // Each item is a single task
+              task_name: task.task_name || "Task",
+              clients: task.clients || "Client",
+              name: task.name || "Unknown"
+            };
+          }
+        });
+
+        // Filter tasks based on status
+        const validTasks = processedData.filter(task => 
+          task && ["acknowledge"].includes(task.status)
         );
 
-        const validTasks1 = data.data.filter(task => 
-          task && ["in-progress"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        const validTasks1 = processedData.filter(task => 
+          task && ["in-progress"].includes(task.status)
         );
 
-        const validTasks2 = data.data.filter(task => 
-          task && ["completed"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        const validTasks2 = processedData.filter(task => 
+          task && ["completed"].includes(task.status)
         );
 
-        // Overdue tasks - you'll need to adjust the filter condition based on your API response
-        const validOverdueTasks = data.data.filter(task => 
-          task && ["overdue", "pending"].includes(task.status) && task.name && task.count_tasks && parseInt(task.count_tasks) > 0
+        const validOverdueTasks = processedData.filter(task => 
+          task && ["overdue", "pending"].includes(task.status)
         );
         
         setTodoTasks(validTasks);
@@ -114,22 +136,40 @@ const Home = () => {
 
   // Calculate total task count for To Do section
   const getTotalTodoTaskCount = () => {
-    return todoTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
+    if (user?.role !== "staff") {
+      // Admin - sum up count_tasks
+      return todoTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 1), 0);
+    } else {
+      // Regular user - just count number of tasks
+      return todoTasks.length;
+    }
   };
 
   // Calculate total task count for In Progress section
   const getTotalInProgressTaskCount = () => {
-    return inProgressTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
+    if (user?.role !== "staff") {
+      return inProgressTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 1), 0);
+    } else {
+      return inProgressTasks.length;
+    }
   };
 
   // Calculate total task count for Completed section
   const getTotalCompletedTaskCount = () => {
-    return completedTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
+    if (user?.role !== "staff") {
+      return completedTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 1), 0);
+    } else {
+      return completedTasks.length;
+    }
   };
 
   // Calculate total task count for Overdue section
   const getTotalOverdueTaskCount = () => {
-    return overdueTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 0), 0);
+    if (user?.role !== "staff") {
+      return overdueTasks.reduce((total, task) => total + (parseInt(task.count_tasks) || 1), 0);
+    } else {
+      return overdueTasks.length;
+    }
   };
 
   // Format time and date functions
@@ -196,17 +236,56 @@ const Home = () => {
     );
   };
 
+  // Helper function to render task card based on user role
+  const renderTaskCard = (task, index, status) => {
+    const isAdmin = user?.role !== "staff";
+    
+    if (isAdmin) {
+      // Admin view
+      return (
+        <div key={task.user_id || index} className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow">
+          <div className="flex items-start">
+            <ClipboardDocumentCheckIcon className="w-5 h-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+              </h4>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      // Regular user view
+      return (
+        <div key={task.ta_id || index} className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow">
+          <div className="flex items-start">
+            <ClipboardDocumentCheckIcon className="w-5 h-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                {task.task_name || "Task"}
+              </h4>
+              <p className="text-xs text-gray-600">
+                {task.clients} • Priority: {task.priority}
+                {task.deadline && <span> • Deadline: {task.deadline}</span>}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name: " "}!</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name : " "}!</h1>
           <p className="text-gray-600 mt-2">{formatDate(currentTime)} • {formatTime(currentTime)}</p>
         </div>
 
         {/* First Row - 3 Task Boxes (Larger) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"> {/* Increased mb-8 for more space */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* To Do Tasks */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
             <div className="flex items-center mb-4">
@@ -226,19 +305,8 @@ const Home = () => {
                 </div>
               ) : (
                 getPaginatedTasks(todoTasks, todoPage).map((task, index) => (
-                  <Link to="/dashboard/task-management/view-task" key={task.id || index}>
-                    <div
-                      className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start">
-                        <ClipboardDocumentCheckIcon className="w-5 h-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-semibold text-black-800 text-sm mb-1">
-                            {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Pending Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
-                          </h4>
-                        </div>
-                      </div>
-                    </div>
+                  <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                    {renderTaskCard(task, index, "To Do")}
                   </Link>
                 ))
               )}
@@ -263,35 +331,39 @@ const Home = () => {
               </span>
             </div>
             <div className="space-y-3 flex-grow">
-              {getPaginatedTasks(inProgressTasks, inProgressPage).map(task => (
-                <Link to="/dashboard/task-management/view-task" key={task.id}>
-                    <div
-                      className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-progress-500 hover:shadow-md transition-shadow"
-                    >
+              {inProgressTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No tasks in progress</p>
+                </div>
+              ) : (
+                getPaginatedTasks(inProgressTasks, inProgressPage).map((task, index) => (
+                  <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                    <div className="p-4 bg-gradient-to-r mb-2 from-orange-50 to-yellow-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow">
                       <div className="flex items-start">
-                        <ClipboardDocumentCheckIcon className="w-5 h-5 text-progress-600 mt-0.5 mr-3 flex-shrink-0" />
+                        <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5 mr-3 flex-shrink-0" />
                         <div>
-                          <h4 className="font-semibold text-black-800 text-sm mb-1">
-                             {user.role !== "staff" && (
-                              <> 
-                              {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Progress Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
-                              </>
-                             )}
-                             
-                             {user.role === "staff" && ( 
-                              <>
-                              <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
-                              </>
-                              )}
-                          </h4>
-                          {user.role === "staff" && (
-                            <em className="text-xs">{task.clients}</em>
+                          {user?.role !== "staff" ? (
+                            <h4 className="font-semibold text-black-800 text-sm mb-1">
+                              {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
+                            </h4>
+                          ) : (
+                            <>
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.task_name || "Task"}
+                              </h4>
+                              <p className="text-xs text-gray-600">
+                                {task.clients} • Priority: {task.priority}
+                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                              </p>
+                            </>
                           )}
                         </div>
                       </div>
                     </div>
                   </Link>
-              ))}
+                ))
+              )}
             </div>
             <PaginationControls
               currentPage={inProgressPage}
@@ -319,28 +391,26 @@ const Home = () => {
                   <p className="text-gray-500 text-sm">No overdue tasks</p>
                 </div>
               ) : (
-                getPaginatedTasks(overdueTasks, overduePage).map(task => (
-                  <Link to="/dashboard/task-management/view-task" key={task.id}>
-                    <div
-                      className="p-4 bg-gradient-to-r mb-2 from-red-50 to-red-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow"
-                    >
+                getPaginatedTasks(overdueTasks, overduePage).map((task, index) => (
+                  <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                    <div className="p-4 bg-gradient-to-r mb-2 from-red-50 to-pink-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow">
                       <div className="flex items-start">
                         <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
                         <div>
-                          <h4 className="font-semibold text-black-800 text-sm mb-1">
-                            {user.role !== "staff" && (
-                              <> 
-                              {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> Overdue Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
-                              </>
-                            )}
-                            {user.role === "staff" && ( 
-                              <>
-                              <span className="text-red-900">{task.count_tasks}</span> Overdue Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
-                              </>
-                            )}
-                          </h4>
-                          {user.role === "staff" && (
-                            <em className="text-xs">{task.clients}</em>
+                          {user?.role !== "staff" ? (
+                            <h4 className="font-semibold text-black-800 text-sm mb-1">
+                              {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                            </h4>
+                          ) : (
+                            <>
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.task_name || "Task"}
+                              </h4>
+                              <p className="text-xs text-gray-600">
+                                {task.clients} • Priority: {task.priority}
+                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                              </p>
+                            </>
                           )}
                         </div>
                       </div>
@@ -372,29 +442,37 @@ const Home = () => {
               </span>
             </div>
             <div className="space-y-3 flex-grow">
-              {getPaginatedTasks(completedTasks, completedPage).map(task => (
-                <div key={task.id} className="flex items-start p-3 pb-0 bg-gray-50 rounded-lg">
-                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 mr-3" />
-                  <div>
-                    <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
-                      {user.role !== "staff" && (
-                        <> 
-                        {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks}</span> completed 
-                      Task{parseInt(task.count_tasks) !== 1 ? 's' : ''}
-                        </>
-                        )}
-                        {user.role === "staff" && ( 
-                        <>
-                        <span className="text-red-900">{task.count_tasks}</span> Task{parseInt(task.count_tasks) !== 1 ? 's' : ''} 
-                        </>
-                        )}
-                    </h4>
-                    {user.role === "staff" && (
-                      <em className="text-xs">{task.clients}</em>
-                    )}
-                  </div>
+              {completedTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No completed tasks</p>
                 </div>
-              ))}
+              ) : (
+                getPaginatedTasks(completedTasks, completedPage).map((task, index) => (
+                  <div key={task.ta_id || task.user_id || index} className="p-4 bg-gradient-to-r mb-2 from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition-shadow">
+                    <div className="flex items-start">
+                      <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                      <div>
+                        {user?.role !== "staff" ? (
+                          <h4 className="font-semibold text-black-800 text-sm mb-1">
+                            {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Completed Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                          </h4>
+                        ) : (
+                          <>
+                            <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
+                              {task.task_name || "Task"}
+                            </h4>
+                            <p className="text-xs text-gray-600 line-through">
+                              {task.clients} • Priority: {task.priority}
+                              {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
             <PaginationControls
               currentPage={completedPage}
