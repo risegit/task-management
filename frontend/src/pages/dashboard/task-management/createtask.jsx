@@ -12,15 +12,16 @@ export default function CreateTask() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
+  const [assignedUsersDetails, setAssignedUsersDetails] = useState([]); // Store user details including department
 
   const user = getCurrentUser();
   const userId = user?.id;
 
   // Priority options for dropdown
   const priorityOptions = [
-    { value: "low", label: "Low", color: "#10b981" }, // Green
-    { value: "medium", label: "Medium", color: "#f59e0b" }, // Amber
-    { value: "high", label: "High", color: "#ef4444" }, // Red
+    { value: "low", label: "Low", color: "#10b981" },
+    { value: "medium", label: "Medium", color: "#f59e0b" },
+    { value: "high", label: "High", color: "#ef4444" },
   ];
 
   const [taskData, setTaskData] = useState({
@@ -28,8 +29,36 @@ export default function CreateTask() {
     assignedTo: [],
     deadline: "",
     remarks: "",
-    priority: "", // New priority field
+    priority: "",
+    graphicType: "", // New field for graphic type
   });
+
+  const graphicOptions = [
+    { value: "Logo Design", label: "Logo Design" },
+    { value: "Flyer Design", label: "Flyer Design" },
+    { value: "Brochure Design", label: "Brochure Design" },
+    { value: "Social Media Graphics", label: "Social Media Graphics" },
+    { value: "Banner Design", label: "Banner Design" },
+    { value: "Infographic Design", label: "Infographic Design" },
+    { value: "Packaging Design", label: "Packaging Design" },
+    { value: "Icon Design", label: "Icon Design" },
+    { value: "Post", label: "Post" },
+    { value: "Reels", label: "Reels" },
+  ];
+
+  // Check if any assigned user is from Graphic Design department
+  const hasGraphicDesignMember = () => {
+    if (taskData.assignedTo.length === 0) return false;
+    
+    // Get the IDs of selected users
+    const selectedUserIds = taskData.assignedTo.map(user => user.value);
+    
+    // Check if any selected user is from Graphic Design department
+    return assignedUsersDetails.some(user => 
+      selectedUserIds.includes(user.emp_id || user.id) && 
+      user.dept_name === "Graphic Design / Video Editor"
+    );
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,12 +72,17 @@ export default function CreateTask() {
   const handleSelectChange = (field, selected) => {
     setTaskData({ ...taskData, [field]: selected });
     
+    // Clear graphicType if no graphic design members are selected anymore
+    if (field === "assignedTo" && !hasGraphicDesignMember() && taskData.graphicType) {
+      setTaskData(prev => ({ ...prev, graphicType: "" }));
+    }
+    
     if (errors[field]) {
       setErrors({ ...errors, [field]: "" });
     }
   };
 
-  // Validation function - Updated to include priority
+  // Updated validation function to include graphicType
   const validate = () => {
     let newErrors = {};
 
@@ -64,6 +98,11 @@ export default function CreateTask() {
     // Assigned To validation
     if (taskData.assignedTo.length === 0) {
       newErrors.assignedTo = "Please select at least one assignee";
+    }
+
+    // Graphic Type validation (only if graphic design member is selected)
+    if (hasGraphicDesignMember() && !taskData.graphicType) {
+      newErrors.graphicType = "Graphic type is required for Graphic Design members";
     }
 
     // Priority validation
@@ -84,7 +123,7 @@ export default function CreateTask() {
       }
     }
 
-    // Remarks validation (optional but with max length)
+    // Remarks validation
     if (taskData.remarks && taskData.remarks.length > 500) {
       newErrors.remarks = "Remarks cannot exceed 500 characters";
     }
@@ -93,7 +132,7 @@ export default function CreateTask() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🔹 Fetch data from backend API
+  // Fetch data from backend API
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -107,12 +146,10 @@ export default function CreateTask() {
           }
         );
 
-        // Axios already parses JSON
         const data = response.data;
-
         console.log("API response:", data);
 
-        // Projects dropdown - no change needed here
+        // Projects dropdown
         const projects = data.data
           .filter(user => user.emp_id !== userId || user.id !== userId)
           .map(user => ({
@@ -135,16 +172,18 @@ export default function CreateTask() {
     fetchUsers();
   }, []);
 
-  // Fetch users when project changes - UPDATED TO FILTER OUT CURRENT USER
+  // Fetch users when project changes
   useEffect(() => {
     if (!selectedProject) {
       setAssignedTo([]);
+      setAssignedUsersDetails([]);
       return;
     }
 
     const fetchProjectUsers = async () => {
       if (!selectedProject) {
         setAssignedTo([]);
+        setAssignedUsersDetails([]);
         return;
       }
 
@@ -160,17 +199,15 @@ export default function CreateTask() {
 
         const users = response.data?.data || [];
         
-        // Filter out the current logged-in user from assigned users
+        // Store user details including department
+        setAssignedUsersDetails(users);
+        
+        // Create options for dropdown
         const assignedUsers = users
-          // .filter(user => {
-          //   // Filter out the current user based on emp_id or id
-          //   const isCurrentUser = (user.emp_id && user.emp_id === userId) || 
-          //                        (user.id && user.id === userId);
-          //   return !isCurrentUser;
-          // })
           .map(user => ({
             value: user.emp_id || user.id,
-            label: user.name + (user.is_poc == 1 ? " (POC)" : "")
+            label: user.name + (user.is_poc == 1 ? " (POC)" : ""),
+            department: user.dept_name // Include department in option
           }));
 
         setAssignedTo(assignedUsers);
@@ -187,17 +224,17 @@ export default function CreateTask() {
           setTaskData(prev => ({ ...prev, assignedTo: filteredAssignedTo }));
         }
 
-        // Show info if no users available (only current user in project)
-        if (assignedUsers.length === 0) {
-          console.log("No other team members available in this project");
+        // Clear graphicType if graphic design members are no longer available
+        if (!hasGraphicDesignMember() && taskData.graphicType) {
+          setTaskData(prev => ({ ...prev, graphicType: "" }));
         }
 
       } catch (error) {
         console.error("Error fetching project team members:", error);
         setAssignedTo([]);
+        setAssignedUsersDetails([]);
         setTaskData(prev => ({ ...prev, assignedTo: [] }));
         
-        // Show error in dropdown
         Swal.fire({
           icon: 'error',
           title: 'Failed to load team members',
@@ -232,16 +269,30 @@ export default function CreateTask() {
 
     try {
       const form = new FormData();
+
+      const assignedToPayload = taskData.assignedTo.map(selectedUser => {
+        const userDetails = assignedUsersDetails.find(
+          u => (u.emp_id || u.id) === selectedUser.value
+        );
+
+        return {
+          user_id: selectedUser.value,
+          dept_name: userDetails?.dept_name || null
+        };
+      });
+
       form.append("project_id", selectedProject.value);
       form.append("task_name", taskData.name);
       form.append("assignedBy", userId);
-      form.append(
-        "assignedTo",
-        JSON.stringify(taskData.assignedTo.map(u => u.value))
-      );
+      form.append("assignedTo", JSON.stringify(assignedToPayload));
       form.append("deadline", taskData.deadline);
       form.append("remarks", taskData.remarks);
       form.append("priority", taskData.priority.value);
+      
+      // Add graphicType if it exists
+      if (taskData.graphicType) {
+        form.append("graphic_type", taskData.graphicType.value);
+      }
 
       console.log("Submitting form data...");
       for (let pair of form.entries()) {
@@ -282,9 +333,11 @@ export default function CreateTask() {
           deadline: "",
           remarks: "",
           priority: "",
+          graphicType: "",
         });
         setErrors({});
-        setSelectedProject(null); // Also reset project selection
+        setSelectedProject(null);
+        setAssignedUsersDetails([]);
       } else {
         Swal.fire({
           icon: "error",
@@ -353,7 +406,6 @@ export default function CreateTask() {
     }),
   };
 
-  // Custom format option label for priority
   const formatOptionLabel = ({ value, label, color }) => (
     <div className="flex items-center gap-3">
       <div 
@@ -366,10 +418,8 @@ export default function CreateTask() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
-      {/* Main Form Card */}
       <div className="mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-          {/* Card Header with Gradient */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -382,11 +432,10 @@ export default function CreateTask() {
             <p className="text-blue-100 mt-2">Fill in the details to create a new task</p>
           </div>
 
-          {/* Form Content */}
           <div className="p-8">
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Assigned To */}
+                {/* Select Project */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     Select Project
@@ -456,6 +505,8 @@ export default function CreateTask() {
                     </p>
                   )}
                 </div>
+                
+                {/* Assigned To */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     Assigned To
@@ -577,37 +628,137 @@ export default function CreateTask() {
                   </div>
                 </div>
               </div>
-              {/* Task Name */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                  Task Name
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={taskData.name}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    errors.name 
-                      ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                      : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                  } focus:ring-4 outline-none transition-all`}
-                  placeholder="Enter task name"
-                />
-                {errors.name && (
-                  <p className="text-red-500 text-sm flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {errors.name}
-                  </p>
-                )}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Required field</span>
-                  <span className="text-slate-500">{taskData.name.length}/100 characters</span>
+
+              {/* Conditional Graphic Type Field */}
+              {hasGraphicDesignMember() && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Task Name (half width when graphic type is shown) */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      Task Name
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={taskData.name}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 rounded-xl border-2 ${
+                        errors.name 
+                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                      } focus:ring-4 outline-none transition-all`}
+                      placeholder="Enter task name"
+                    />
+                    {errors.name && (
+                      <p className="text-red-500 text-sm flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.name}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Required field</span>
+                      <span className="text-slate-500">{taskData.name.length}/100 characters</span>
+                    </div>
+                  </div>
+
+                  {/* Graphic Type Dropdown */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      For Graphic (Creative Type)
+                      <span className="text-red-500">*</span>
+                      <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                        Graphic Design Only
+                      </span>
+                    </label>
+                    <Select
+                      options={graphicOptions}
+                      value={taskData.graphicType}
+                      onChange={(selected) => handleSelectChange("graphicType", selected)}
+                      classNamePrefix="react-select"
+                      className={`react-select-container ${errors.graphicType ? 'error' : ''}`}
+                      styles={{
+                        menu: (provided) => ({ 
+                          ...provided, 
+                          zIndex: 9999,
+                          borderRadius: '0.75rem',
+                          marginTop: '4px',
+                          boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                        }),
+                        control: (provided, state) => ({
+                          ...provided,
+                          border: `2px solid ${errors.graphicType ? '#fca5a5' : state.isFocused ? '#8b5cf6' : '#e2e8f0'}`,
+                          borderRadius: '0.75rem',
+                          padding: '8px 4px',
+                          backgroundColor: errors.graphicType ? '#fef2f2' : 'white',
+                          minHeight: '52px',
+                          boxShadow: state.isFocused ? (errors.graphicType ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                          "&:hover": {
+                            borderColor: errors.graphicType ? '#f87171' : '#94a3b8',
+                          },
+                        }),
+                        placeholder: (provided) => ({
+                          ...provided,
+                          color: '#94a3b8',
+                        }),
+                        singleValue: (provided) => ({
+                          ...provided,
+                          color: '#7c3aed',
+                          fontWeight: '500',
+                        }),
+                      }}
+                      placeholder="Select graphic type..."
+                    />
+                    {errors.graphicType && (
+                      <p className="text-red-500 text-sm flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.graphicType}
+                      </p>
+                    )}
+                    <p className="text-xs text-purple-600">
+                      Only shown when Graphic Design members are selected
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Regular Task Name (full width when no graphic type) */}
+              {!hasGraphicDesignMember() && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    Task Name
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={taskData.name}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 rounded-xl border-2 ${
+                      errors.name 
+                        ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                        : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                    } focus:ring-4 outline-none transition-all`}
+                    placeholder="Enter task name"
+                  />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.name}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Required field</span>
+                    <span className="text-slate-500">{taskData.name.length}/100 characters</span>
+                  </div>
+                </div>
+              )}
 
               {/* Second Row: Priority and Deadline */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -635,6 +786,7 @@ export default function CreateTask() {
                     </p>
                   )}
                 </div>
+                
                 {/* Deadline */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -729,9 +881,11 @@ export default function CreateTask() {
                     deadline: "",
                     remarks: "",
                     priority: "",
+                    graphicType: "",
                   });
                   setErrors({});
-                  setSelectedProject(null); // Also reset project selection
+                  setSelectedProject(null);
+                  setAssignedUsersDetails([]);
                 }}
               >
                 Cancel
