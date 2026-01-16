@@ -12,7 +12,7 @@ export default function CreateTask() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
-  const [assignedUsersDetails, setAssignedUsersDetails] = useState([]); // Store user details including department
+  const [assignedUsersDetails, setAssignedUsersDetails] = useState([]);
 
   const user = getCurrentUser();
   const userId = user?.id;
@@ -28,11 +28,13 @@ export default function CreateTask() {
     name: "",
     assignedTo: [],
     deadline: "",
+    time: "",
     remarks: "",
     priority: "",
-    graphicType: "", // New field for graphic type
+    graphicType: "",
   });
 
+  // Graphic type options
   const graphicOptions = [
     { value: "Logo Design", label: "Logo Design" },
     { value: "Flyer Design", label: "Flyer Design" },
@@ -46,14 +48,26 @@ export default function CreateTask() {
     { value: "Reels", label: "Reels" },
   ];
 
+  // Time slot options from 10AM to 7PM
+  const timeSlotOptions = [
+    { value: "10:00", label: "10:00 AM" },
+    { value: "11:00", label: "11:00 AM" },
+    { value: "12:00", label: "12:00 PM" },
+    { value: "13:00", label: "1:00 PM" },
+    { value: "14:00", label: "2:00 PM" },
+    { value: "15:00", label: "3:00 PM" },
+    { value: "16:00", label: "4:00 PM" },
+    { value: "17:00", label: "5:00 PM" },
+    { value: "18:00", label: "6:00 PM" },
+    { value: "19:00", label: "7:00 PM" },
+  ];
+
   // Check if any assigned user is from Graphic Design department
   const hasGraphicDesignMember = () => {
     if (taskData.assignedTo.length === 0) return false;
     
-    // Get the IDs of selected users
     const selectedUserIds = taskData.assignedTo.map(user => user.value);
     
-    // Check if any selected user is from Graphic Design department
     return assignedUsersDetails.some(user => 
       selectedUserIds.includes(user.emp_id || user.id) && 
       user.dept_name === "Graphic Design / Video Editor"
@@ -72,9 +86,13 @@ export default function CreateTask() {
   const handleSelectChange = (field, selected) => {
     setTaskData({ ...taskData, [field]: selected });
     
-    // Clear graphicType if no graphic design members are selected anymore
-    if (field === "assignedTo" && !hasGraphicDesignMember() && taskData.graphicType) {
-      setTaskData(prev => ({ ...prev, graphicType: "" }));
+    // Clear graphicType and time if no graphic design members are selected anymore
+    if (field === "assignedTo" && !hasGraphicDesignMember()) {
+      setTaskData(prev => ({ 
+        ...prev, 
+        graphicType: "",
+        time: "" 
+      }));
     }
     
     if (errors[field]) {
@@ -82,7 +100,7 @@ export default function CreateTask() {
     }
   };
 
-  // Updated validation function to include graphicType
+  // Updated validation function to include graphicType and time slot
   const validate = () => {
     let newErrors = {};
 
@@ -103,6 +121,11 @@ export default function CreateTask() {
     // Graphic Type validation (only if graphic design member is selected)
     if (hasGraphicDesignMember() && !taskData.graphicType) {
       newErrors.graphicType = "Graphic type is required for Graphic Design members";
+    }
+
+    // Time Slot validation (only if graphic design member is selected)
+    if (hasGraphicDesignMember() && !taskData.time) {
+      newErrors.time = "Time slot is required for Graphic Design members";
     }
 
     // Priority validation
@@ -207,7 +230,7 @@ export default function CreateTask() {
           .map(user => ({
             value: user.emp_id || user.id,
             label: user.name + (user.is_poc == 1 ? " (POC)" : ""),
-            department: user.dept_name // Include department in option
+            department: user.dept_name
           }));
 
         setAssignedTo(assignedUsers);
@@ -224,9 +247,13 @@ export default function CreateTask() {
           setTaskData(prev => ({ ...prev, assignedTo: filteredAssignedTo }));
         }
 
-        // Clear graphicType if graphic design members are no longer available
-        if (!hasGraphicDesignMember() && taskData.graphicType) {
-          setTaskData(prev => ({ ...prev, graphicType: "" }));
+        // Clear graphicType and time if graphic design members are no longer available
+        if (!hasGraphicDesignMember()) {
+          setTaskData(prev => ({ 
+            ...prev, 
+            graphicType: "",
+            time: "" 
+          }));
         }
 
       } catch (error) {
@@ -293,6 +320,11 @@ export default function CreateTask() {
       if (taskData.graphicType) {
         form.append("graphic_type", taskData.graphicType.value);
       }
+      
+      // Add time slot if it exists
+      if (taskData.time) {
+        form.append("time_slot", taskData.time.value);
+      }
 
       console.log("Submitting form data...");
       for (let pair of form.entries()) {
@@ -331,6 +363,7 @@ export default function CreateTask() {
           name: "",
           assignedTo: [],
           deadline: "",
+          time: "",
           remarks: "",
           priority: "",
           graphicType: "",
@@ -434,6 +467,7 @@ export default function CreateTask() {
 
           <div className="p-8">
             <div className="space-y-6">
+              {/* First Row: Project and Assigned To */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Select Project */}
                 <div className="space-y-2">
@@ -629,10 +663,247 @@ export default function CreateTask() {
                 </div>
               </div>
 
-              {/* Conditional Graphic Type Field */}
+              {/* Conditional Fields for Graphic Design Members */}
               {hasGraphicDesignMember() && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Task Name (half width when graphic type is shown) */}
+                <>
+                  {/* Task Name Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Task Name (half width when graphic design member is selected) */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Task Name
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={taskData.name}
+                        onChange={handleChange}
+                        className={`w-full px-4 py-3 rounded-xl border-2 ${
+                          errors.name 
+                            ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                            : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                        } focus:ring-4 outline-none transition-all`}
+                        placeholder="Enter task name"
+                      />
+                      {errors.name && (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.name}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Required field</span>
+                        <span className="text-slate-500">{taskData.name.length}/100 characters</span>
+                      </div>
+                    </div>
+
+                    {/* Graphic Type Dropdown */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        For Graphic (Creative Type)
+                        <span className="text-red-500">*</span>
+                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                          Graphic Design Only
+                        </span>
+                      </label>
+                      <Select
+                        options={graphicOptions}
+                        value={taskData.graphicType}
+                        onChange={(selected) => handleSelectChange("graphicType", selected)}
+                        classNamePrefix="react-select"
+                        className={`react-select-container ${errors.graphicType ? 'error' : ''}`}
+                        styles={{
+                          menu: (provided) => ({ 
+                            ...provided, 
+                            zIndex: 9999,
+                            borderRadius: '0.75rem',
+                            marginTop: '4px',
+                            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                          }),
+                          control: (provided, state) => ({
+                            ...provided,
+                            border: `2px solid ${errors.graphicType ? '#fca5a5' : state.isFocused ? '#8b5cf6' : '#e2e8f0'}`,
+                            borderRadius: '0.75rem',
+                            padding: '8px 4px',
+                            backgroundColor: errors.graphicType ? '#fef2f2' : 'white',
+                            minHeight: '52px',
+                            boxShadow: state.isFocused ? (errors.graphicType ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                            "&:hover": {
+                              borderColor: errors.graphicType ? '#f87171' : '#94a3b8',
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: '#94a3b8',
+                          }),
+                          singleValue: (provided) => ({
+                            ...provided,
+                            color: '#7c3aed',
+                            fontWeight: '500',
+                          }),
+                        }}
+                        placeholder="Select graphic type..."
+                      />
+                      {errors.graphicType && (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.graphicType}
+                        </p>
+                      )}
+                      <p className="text-xs text-purple-600">
+                        Only shown when Graphic Design members are selected
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Priority, Deadline, and Time Slot Row - All in one row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Priority */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Priority
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <Select
+                        options={priorityOptions}
+                        value={taskData.priority}
+                        onChange={(selected) => handleSelectChange("priority", selected)}
+                        classNamePrefix="react-select"
+                        styles={priorityCustomStyles}
+                        formatOptionLabel={formatOptionLabel}
+                        placeholder="Select priority..."
+                        isSearchable={false}
+                      />
+                      {errors.priority && (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.priority}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Deadline */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Deadline
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          name="deadline"
+                          value={taskData.deadline}
+                          onChange={handleChange}
+                          min={new Date().toISOString().split('T')[0]}
+                          className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                            errors.deadline 
+                              ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                              : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                          } focus:ring-4 outline-none transition-all`}
+                        />
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg
+                            className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      {errors.deadline ? (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.deadline}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500">Cannot select past dates</p>
+                      )}
+                    </div>
+
+                    {/* Time Slot Dropdown */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Time Slot
+                        <span className="text-red-500">*</span>
+                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                          Graphic Design Only
+                        </span>
+                      </label>
+                      <Select
+                        options={timeSlotOptions}
+                        value={taskData.time}
+                        onChange={(selected) => handleSelectChange("time", selected)}
+                        classNamePrefix="react-select"
+                        className={`react-select-container ${errors.time ? 'error' : ''}`}
+                        styles={{
+                          menu: (provided) => ({ 
+                            ...provided, 
+                            zIndex: 9999,
+                            borderRadius: '0.75rem',
+                            marginTop: '4px',
+                            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                          }),
+                          control: (provided, state) => ({
+                            ...provided,
+                            border: `2px solid ${errors.time ? '#fca5a5' : state.isFocused ? '#8b5cf6' : '#e2e8f0'}`,
+                            borderRadius: '0.75rem',
+                            padding: '8px 4px',
+                            backgroundColor: errors.time ? '#fef2f2' : 'white',
+                            minHeight: '52px',
+                            boxShadow: state.isFocused ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                            "&:hover": {
+                              borderColor: errors.time ? '#f87171' : '#94a3b8',
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: '#94a3b8',
+                          }),
+                          singleValue: (provided) => ({
+                            ...provided,
+                            color: '#7c3aed',
+                            fontWeight: '500',
+                          }),
+                        }}
+                        placeholder="Select time..."
+                      />
+                      {errors.time && (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.time}
+                        </p>
+                      )}
+                      <p className="text-xs text-purple-600">
+                        Only shown when Graphic Design members are selected
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Regular Layout when no Graphic Design Member */}
+              {!hasGraphicDesignMember() && (
+                <>
+                  {/* Task Name */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       Task Name
@@ -664,177 +935,84 @@ export default function CreateTask() {
                     </div>
                   </div>
 
-                  {/* Graphic Type Dropdown */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      For Graphic (Creative Type)
-                      <span className="text-red-500">*</span>
-                      <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                        Graphic Design Only
-                      </span>
-                    </label>
-                    <Select
-                      options={graphicOptions}
-                      value={taskData.graphicType}
-                      onChange={(selected) => handleSelectChange("graphicType", selected)}
-                      classNamePrefix="react-select"
-                      className={`react-select-container ${errors.graphicType ? 'error' : ''}`}
-                      styles={{
-                        menu: (provided) => ({ 
-                          ...provided, 
-                          zIndex: 9999,
-                          borderRadius: '0.75rem',
-                          marginTop: '4px',
-                          boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-                        }),
-                        control: (provided, state) => ({
-                          ...provided,
-                          border: `2px solid ${errors.graphicType ? '#fca5a5' : state.isFocused ? '#8b5cf6' : '#e2e8f0'}`,
-                          borderRadius: '0.75rem',
-                          padding: '8px 4px',
-                          backgroundColor: errors.graphicType ? '#fef2f2' : 'white',
-                          minHeight: '52px',
-                          boxShadow: state.isFocused ? (errors.graphicType ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
-                          "&:hover": {
-                            borderColor: errors.graphicType ? '#f87171' : '#94a3b8',
-                          },
-                        }),
-                        placeholder: (provided) => ({
-                          ...provided,
-                          color: '#94a3b8',
-                        }),
-                        singleValue: (provided) => ({
-                          ...provided,
-                          color: '#7c3aed',
-                          fontWeight: '500',
-                        }),
-                      }}
-                      placeholder="Select graphic type..."
-                    />
-                    {errors.graphicType && (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.graphicType}
-                      </p>
-                    )}
-                    <p className="text-xs text-purple-600">
-                      Only shown when Graphic Design members are selected
-                    </p>
-                  </div>
-                </div>
-              )}
+                  {/* Priority and Deadline Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Priority */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Priority
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <Select
+                        options={priorityOptions}
+                        value={taskData.priority}
+                        onChange={(selected) => handleSelectChange("priority", selected)}
+                        classNamePrefix="react-select"
+                        styles={priorityCustomStyles}
+                        formatOptionLabel={formatOptionLabel}
+                        placeholder="Select priority..."
+                        isSearchable={false}
+                      />
+                      {errors.priority && (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.priority}
+                        </p>
+                      )}
+                    </div>
 
-              {/* Regular Task Name (full width when no graphic type) */}
-              {!hasGraphicDesignMember() && (
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    Task Name
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={taskData.name}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 rounded-xl border-2 ${
-                      errors.name 
-                        ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                        : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                    } focus:ring-4 outline-none transition-all`}
-                    placeholder="Enter task name"
-                  />
-                  {errors.name && (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.name}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Required field</span>
-                    <span className="text-slate-500">{taskData.name.length}/100 characters</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Second Row: Priority and Deadline */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    Priority
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    options={priorityOptions}
-                    value={taskData.priority}
-                    onChange={(selected) => handleSelectChange("priority", selected)}
-                    classNamePrefix="react-select"
-                    styles={priorityCustomStyles}
-                    formatOptionLabel={formatOptionLabel}
-                    placeholder="Select priority..."
-                    isSearchable={false}
-                  />
-                  {errors.priority && (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.priority}
-                    </p>
-                  )}
-                </div>
-                
-                {/* Deadline */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    Deadline
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      name="deadline"
-                      value={taskData.deadline}
-                      onChange={handleChange}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
-                        errors.deadline 
-                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                          : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                      } focus:ring-4 outline-none transition-all`}
-                    />
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg
-                        className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    {/* Deadline */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Deadline
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          name="deadline"
+                          value={taskData.deadline}
+                          onChange={handleChange}
+                          min={new Date().toISOString().split('T')[0]}
+                          className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                            errors.deadline 
+                              ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                              : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                          } focus:ring-4 outline-none transition-all`}
                         />
-                      </svg>
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg
+                            className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : 'text-blue-500'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      {errors.deadline ? (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.deadline}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500">Cannot select past dates</p>
+                      )}
                     </div>
                   </div>
-                  {errors.deadline ? (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      {errors.deadline}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-500">Cannot select past dates</p>
-                  )}
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Remarks */}
               <div className="space-y-2">
@@ -879,6 +1057,7 @@ export default function CreateTask() {
                     name: "",
                     assignedTo: [],
                     deadline: "",
+                    time: "",
                     remarks: "",
                     priority: "",
                     graphicType: "",
