@@ -105,56 +105,91 @@ const ProjectsTable = () => {
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
-  // Search function
-  const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    setCurrentPage(1);
-  };
   
-  const clearSearch = () => {
-    setSearchQuery('');
-    setCurrentPage(1);
-  };
 
-  // Handle edit
-  const handleEdit = (id) => {
-    navigate(`/dashboard/projects/edit-project/${id}`);
-  };
 
-  // Filter projects
-  const filteredProjects = projects.filter(project =>
-    project.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.poc.some(poc => poc.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    project.status.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const clearSearch = () => setSearchQuery("");
 
-  // Apply sorting to filtered results
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    if (!sortConfig.key) return 0;
 
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
+ // Search function
+const handleSearchChange = (e) => {
+  const query = e.target.value;
+  setSearchQuery(query);
+  setCurrentPage(1);
+};
 
-    if (sortConfig.key === 'startDate') {
-      const dateA = new Date(aValue);
-      const dateB = new Date(bValue);
-      if (dateA < dateB) return sortConfig.direction === "ascending" ? -1 : 1;
-      if (dateA > dateB) return sortConfig.direction === "ascending" ? 1 : -1;
-      return 0;
-    } else if (sortConfig.key === 'poc') {
-      // Sort by first POC name
-      const pocA = aValue[0] || '';
-      const pocB = bValue[0] || '';
-      if (pocA.toLowerCase() < pocB.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
-      if (pocA.toLowerCase() > pocB.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
-      return 0;
+// Filter projects - FIXED VERSION
+const filteredProjects = projects.filter(project => {
+  if (!searchQuery) return true;
+  
+  const query = searchQuery.toLowerCase();
+  
+  // Check project name
+  if (project.projectName?.toLowerCase().includes(query)) return true;
+  
+  // Check status
+  if (project.status?.toLowerCase().includes(query)) return true;
+  
+  // Check POC - handle both string and array cases
+  if (project.poc) {
+    if (Array.isArray(project.poc)) {
+      // If poc is an array, check each element
+      if (project.poc.some(poc => poc?.toLowerCase().includes(query))) return true;
     } else {
-      if (aValue.toLowerCase() < bValue.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
-      if (aValue.toLowerCase() > bValue.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
-      return 0;
+      // If poc is a string, check directly
+      if (project.poc.toLowerCase().includes(query)) return true;
     }
-  });
+  }
+  
+  // Check other_employees
+  if (project.other_employees?.toLowerCase().includes(query)) return true;
+  
+  return false;
+});
+
+// Also update the sorting logic to handle string POC
+const sortedProjects = [...filteredProjects].sort((a, b) => {
+  if (!sortConfig.key) return 0;
+
+  const aValue = a[sortConfig.key];
+  const bValue = b[sortConfig.key];
+
+  if (sortConfig.key === 'startDate') {
+    const dateA = new Date(aValue);
+    const dateB = new Date(bValue);
+    if (dateA < dateB) return sortConfig.direction === "ascending" ? -1 : 1;
+    if (dateA > dateB) return sortConfig.direction === "ascending" ? 1 : -1;
+    return 0;
+  } else if (sortConfig.key === 'poc') {
+    // Handle both string and array for POC sorting
+    let pocA = '';
+    let pocB = '';
+    
+    if (Array.isArray(aValue)) {
+      pocA = aValue[0] || '';
+    } else {
+      pocA = aValue || '';
+    }
+    
+    if (Array.isArray(bValue)) {
+      pocB = bValue[0] || '';
+    } else {
+      pocB = bValue || '';
+    }
+    
+    if (pocA.toLowerCase() < pocB.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
+    if (pocA.toLowerCase() > pocB.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
+    return 0;
+  } else {
+    const valA = String(aValue || '').toLowerCase();
+    const valB = String(bValue || '').toLowerCase();
+    if (valA < valB) return sortConfig.direction === "ascending" ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === "ascending" ? 1 : -1;
+    return 0;
+  }
+});
+
+
 
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -339,15 +374,26 @@ const ProjectsTable = () => {
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-4">
-                            <div className="flex flex-wrap gap-1 max-w-xs">
-                                <span 
-                                  className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                >
-                                  {project.poc || "N/A"}
-                                </span>
-                            </div>
-                          </td>
+                         <td className="py-4 px-4">
+  <div className="flex flex-wrap gap-1 max-w-xs">
+    {Array.isArray(project.poc) ? (
+      project.poc.map((pocItem, index) => (
+        <span 
+          key={index}
+          className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+        >
+          {pocItem || "N/A"}
+        </span>
+      ))
+    ) : (
+      <span 
+        className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+      >
+        {project.poc || "N/A"}
+      </span>
+    )}
+  </div>
+</td>
                           <td className="py-4 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
                                 <span 
@@ -425,15 +471,26 @@ const ProjectsTable = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                           <div>
-                            <span className="text-sm font-medium text-slate-700">Point of Contact:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                                <span 
-                                  className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                >
-                                  {project.poc || "N/A"}
-                                </span>
-                            </div>
-                          </div>
+  <span className="text-sm font-medium text-slate-700">Point of Contact:</span>
+  <div className="flex flex-wrap gap-1 mt-1">
+    {Array.isArray(project.poc) ? (
+      project.poc.map((pocItem, index) => (
+        <span 
+          key={index}
+          className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+        >
+          {pocItem || "N/A"}
+        </span>
+      ))
+    ) : (
+      <span 
+        className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+      >
+        {project.poc || "N/A"}
+      </span>
+    )}
+  </div>
+</div>
                         </div>
                         
                         <div className="flex items-start gap-2">
