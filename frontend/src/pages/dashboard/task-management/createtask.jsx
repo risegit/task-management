@@ -13,6 +13,7 @@ export default function CreateTask() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingAssignedUsers, setLoadingAssignedUsers] = useState(false);
   const [assignedUsersDetails, setAssignedUsersDetails] = useState([]);
+  const [timeSlotOptions, setTimeSlotOptions] = useState([]);
 
   const user = getCurrentUser();
   const userId = user?.id;
@@ -49,18 +50,108 @@ export default function CreateTask() {
   ];
 
   // Time slot options from 10AM to 7PM
-  const timeSlotOptions = [
-    { value: "10:00", label: "10:00 AM" },
-    { value: "11:00", label: "11:00 AM" },
-    { value: "12:00", label: "12:00 PM" },
-    { value: "13:00", label: "1:00 PM" },
-    { value: "14:00", label: "2:00 PM" },
-    { value: "15:00", label: "3:00 PM" },
-    { value: "16:00", label: "4:00 PM" },
-    { value: "17:00", label: "5:00 PM" },
-    { value: "18:00", label: "6:00 PM" },
-    { value: "19:00", label: "7:00 PM" },
+ // Replace the static timeSlotOptions array with a function
+const getTimeSlotOptions = () => {
+  const timeSlots = [
+    { value: "10:00", label: "10:00 AM", hour: 10 },
+    { value: "11:00", label: "11:00 AM", hour: 11 },
+    { value: "12:00", label: "12:00 PM", hour: 12 },
+    { value: "13:00", label: "1:00 PM", hour: 13 },
+    { value: "14:00", label: "2:00 PM", hour: 14 },
+    { value: "15:00", label: "3:00 PM", hour: 15 },
+    { value: "16:00", label: "4:00 PM", hour: 16 },
+    { value: "17:00", label: "5:00 PM", hour: 17 },
+    { value: "18:00", label: "6:00 PM", hour: 18 },
+    { value: "19:00", label: "7:00 PM", hour: 19 },
   ];
+
+  // Check if deadline is today
+  if (taskData.deadline) {
+    const deadlineDate = new Date(taskData.deadline);
+    const today = new Date();
+    
+    // Check if deadline is today (same year, month, and date)
+    const isToday = 
+      deadlineDate.getFullYear() === today.getFullYear() &&
+      deadlineDate.getMonth() === today.getMonth() &&
+      deadlineDate.getDate() === today.getDate();
+    
+    if (isToday) {
+      const currentHour = today.getHours();
+      
+      // Filter time slots that are in the future
+      return timeSlots.map(slot => ({
+        ...slot,
+        isDisabled: slot.hour <= currentHour
+      }));
+    }
+  }
+  
+  // For future dates or no deadline, show all slots as enabled
+  return timeSlots.map(slot => ({
+    ...slot,
+    isDisabled: false
+  }));
+};
+
+useEffect(() => {
+  const updateTimeSlots = () => {
+    const timeSlots = [
+      { value: "10:00", label: "10:00 AM", hour: 10 },
+      { value: "11:00", label: "11:00 AM", hour: 11 },
+      { value: "12:00", label: "12:00 PM", hour: 12 },
+      { value: "13:00", label: "1:00 PM", hour: 13 },
+      { value: "14:00", label: "2:00 PM", hour: 14 },
+      { value: "15:00", label: "3:00 PM", hour: 15 },
+      { value: "16:00", label: "4:00 PM", hour: 16 },
+      { value: "17:00", label: "5:00 PM", hour: 17 },
+      { value: "18:00", label: "6:00 PM", hour: 18 },
+      { value: "19:00", label: "7:00 PM", hour: 19 },
+    ];
+
+    if (taskData.deadline) {
+      const deadlineDate = new Date(taskData.deadline);
+      const today = new Date();
+      
+      // Reset time part for comparison
+      today.setHours(0, 0, 0, 0);
+      const deadlineForCompare = new Date(deadlineDate);
+      deadlineForCompare.setHours(0, 0, 0, 0);
+      
+      // Check if deadline is today
+      const isToday = deadlineForCompare.getTime() === today.getTime();
+      
+      if (isToday) {
+        const currentHour = new Date().getHours();
+        const currentMinutes = new Date().getMinutes();
+        
+        // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
+        const currentTime = currentHour + (currentMinutes / 60);
+        
+        // Filter time slots that are in the future
+        const updatedSlots = timeSlots.map(slot => ({
+          ...slot,
+          isDisabled: slot.hour <= currentTime
+        }));
+        
+        setTimeSlotOptions(updatedSlots);
+        return;
+      }
+    }
+    
+    // For future dates or no deadline, show all slots as enabled
+    const updatedSlots = timeSlots.map(slot => ({
+      ...slot,
+      isDisabled: false
+    }));
+    
+    setTimeSlotOptions(updatedSlots);
+  };
+
+  updateTimeSlots();
+}, [taskData.deadline]); // Re-run when deadline changes
+
+  
 
   // Check if any assigned user is from Graphic Design department
   const hasGraphicDesignMember = () => {
@@ -706,7 +797,7 @@ export default function CreateTask() {
                         For Graphic (Creative Type)
                         <span className="text-red-500">*</span>
                         <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                          Graphic Design Only
+                          For Graphic Designer Only
                         </span>
                       </label>
                       <Select
@@ -755,9 +846,9 @@ export default function CreateTask() {
                           {errors.graphicType}
                         </p>
                       )}
-                      <p className="text-xs text-purple-600">
+                      {/* <p className="text-xs text-purple-600">
                         Only shown when Graphic Design members are selected
-                      </p>
+                      </p> */}
                     </div>
                   </div>
 
@@ -836,14 +927,13 @@ export default function CreateTask() {
                         <p className="text-xs text-slate-500">Cannot select past dates</p>
                       )}
                     </div>
-
                     {/* Time Slot Dropdown */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                         Time Slot
                         <span className="text-red-500">*</span>
                         <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                          Graphic Design Only
+                          For Graphic Designer Only
                         </span>
                       </label>
                       <Select
@@ -881,8 +971,34 @@ export default function CreateTask() {
                             color: '#7c3aed',
                             fontWeight: '500',
                           }),
+                          option: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: state.isSelected ? '#8b5cf6' : state.isDisabled ? '#f1f5f9' : 'white',
+                            color: state.isDisabled ? '#94a3b8' : state.isSelected ? 'white' : '#7c3aed',
+                            cursor: state.isDisabled ? 'not-allowed' : 'default',
+                            '&:hover': {
+                              backgroundColor: state.isDisabled ? '#f1f5f9' : '#f3f4f6',
+                            },
+                          }),
                         }}
                         placeholder="Select time..."
+                        isOptionDisabled={(option) => option.isDisabled}
+                        noOptionsMessage={() => {
+                          if (taskData.deadline) {
+                            const today = new Date();
+                            const deadlineDate = new Date(taskData.deadline);
+                            today.setHours(0, 0, 0, 0);
+                            deadlineDate.setHours(0, 0, 0, 0);
+                            
+                            if (today.getTime() === deadlineDate.getTime()) {
+                              const enabledSlots = timeSlotOptions.filter(slot => !slot.isDisabled);
+                              if (enabledSlots.length === 0) {
+                                return "No available time slots for today. Please select a future deadline.";
+                              }
+                            }
+                          }
+                          return "No options available";
+                        }}
                       />
                       {errors.time && (
                         <p className="text-red-500 text-sm flex items-center gap-1">
@@ -892,9 +1008,12 @@ export default function CreateTask() {
                           {errors.time}
                         </p>
                       )}
-                      <p className="text-xs text-purple-600">
-                        Only shown when Graphic Design members are selected
-                      </p>
+                      {/* {taskData.deadline && 
+                      new Date(taskData.deadline).toDateString() === new Date().toDateString() && (
+                        <p className="text-xs text-purple-600">
+                          Showing only future time slots for today's deadline
+                        </p>
+                      )} */}
                     </div>
                   </div>
                 </>

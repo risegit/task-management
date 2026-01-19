@@ -19,6 +19,8 @@ export default function EditTask() {
   const [isUserAssignedToTask, setIsUserAssignedToTask] = useState(false);
   const [userBelongsToProject, setUserBelongsToProject] = useState([]); // Store user details including department
   const [originalGraphicType, setOriginalGraphicType] = useState(""); // Store original graphic type separately
+  const [timeSlotOptions, setTimeSlotOptions] = useState([]); // Time slot options state
+  const [originalTimeSlot, setOriginalTimeSlot] = useState("");
 
   const user = getCurrentUser();
   const userId = user?.id;
@@ -65,6 +67,7 @@ export default function EditTask() {
     status: "",
     taskStatus: "",
     graphicType: "", // New field for graphic type
+    time: "", // New field for time slot
   });
 
   // Check if any assigned user is from Graphic Design department
@@ -89,6 +92,64 @@ export default function EditTask() {
       user.dept_name === "Graphic Design / Video Editor"
     );
   };
+
+  // Update time slots when deadline changes
+  useEffect(() => {
+    const updateTimeSlots = () => {
+      const timeSlots = [
+        { value: "10:00", label: "10:00 AM", hour: 10 },
+        { value: "11:00", label: "11:00 AM", hour: 11 },
+        { value: "12:00", label: "12:00 PM", hour: 12 },
+        { value: "13:00", label: "1:00 PM", hour: 13 },
+        { value: "14:00", label: "2:00 PM", hour: 14 },
+        { value: "15:00", label: "3:00 PM", hour: 15 },
+        { value: "16:00", label: "4:00 PM", hour: 16 },
+        { value: "17:00", label: "5:00 PM", hour: 17 },
+        { value: "18:00", label: "6:00 PM", hour: 18 },
+        { value: "19:00", label: "7:00 PM", hour: 19 },
+      ];
+
+      if (taskData.deadline) {
+        const deadlineDate = new Date(taskData.deadline);
+        const today = new Date();
+        
+        // Reset time part for comparison
+        today.setHours(0, 0, 0, 0);
+        const deadlineForCompare = new Date(deadlineDate);
+        deadlineForCompare.setHours(0, 0, 0, 0);
+        
+        // Check if deadline is today
+        const isToday = deadlineForCompare.getTime() === today.getTime();
+        
+        if (isToday) {
+          const currentHour = new Date().getHours();
+          const currentMinutes = new Date().getMinutes();
+          
+          // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
+          const currentTime = currentHour + (currentMinutes / 60);
+          
+          // Filter time slots that are in the future
+          const updatedSlots = timeSlots.map(slot => ({
+            ...slot,
+            isDisabled: slot.hour <= currentTime
+          }));
+          
+          setTimeSlotOptions(updatedSlots);
+          return;
+        }
+      }
+      
+      // For future dates or no deadline, show all slots as enabled
+      const updatedSlots = timeSlots.map(slot => ({
+        ...slot,
+        isDisabled: false
+      }));
+      
+      setTimeSlotOptions(updatedSlots);
+    };
+
+    updateTimeSlots();
+  }, [taskData.deadline]); // Re-run when deadline changes
 
   // Helper functions
   const getAvatarColor = (id) => {
@@ -239,6 +300,48 @@ export default function EditTask() {
     }),
   };
 
+  // Custom styles for time slot dropdown
+  const timeSlotCustomStyles = {
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? '#8b5cf6' : state.isDisabled ? '#f1f5f9' : 'white',
+      color: state.isDisabled ? '#94a3b8' : state.isSelected ? 'white' : '#7c3aed',
+      fontWeight: '500',
+      borderLeft: state.isSelected ? `4px solid #8b5cf6` : '4px solid transparent',
+      cursor: state.isDisabled ? 'not-allowed' : 'default',
+      '&:hover': {
+        backgroundColor: state.isDisabled ? '#f1f5f9' : state.isSelected ? '#8b5cf6' : '#f3f4f6',
+      },
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: '#7c3aed',
+      fontWeight: '600',
+      display: 'flex',
+      alignItems: 'center',
+    }),
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${errors.time ? '#fca5a5' : state.isFocused ? '#8b5cf6' : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: errors.time ? '#fef2f2' : 'white',
+      minHeight: '52px',
+      boxShadow: state.isFocused ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+      "&:hover": {
+        borderColor: errors.time ? '#f87171' : '#94a3b8',
+      },
+    }),
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+  };
+
   // Custom format option label for priority
   const formatOptionLabel = ({ value, label, color }) => (
     <div className="flex items-center gap-3">
@@ -336,11 +439,7 @@ export default function EditTask() {
         )
       ];
       
-      // Check if we're adding a graphic design member back
-      const hadGraphicDesignMemberBefore = hasGraphicDesignMember();
-      setTaskData(prev => ({ ...prev, [field]: newSelection }));
-      
-      // Check if we have graphic design member now
+      // Check if we have any graphic design users in the new selection
       const hasGraphicDesignMemberNow = (() => {
         const selectedUserIds = newSelection.map(user => user.value);
         return userBelongsToProject.some(user => 
@@ -349,16 +448,62 @@ export default function EditTask() {
         );
       })();
       
-      // If graphic design member was added back, restore the graphic type
-      if (!hadGraphicDesignMemberBefore && hasGraphicDesignMemberNow && originalGraphicType) {
+      // Check if we previously had graphic design members
+      const hadGraphicDesignMemberBefore = hasGraphicDesignMember();
+      
+      setTaskData(prev => ({ ...prev, [field]: newSelection }));
+      
+      // If graphic design member was added back, restore the graphic type and time
+      if (!hadGraphicDesignMemberBefore && hasGraphicDesignMemberNow) {
+        // Use a timeout to ensure state updates are complete
         setTimeout(() => {
-          setTaskData(prev => ({ ...prev, graphicType: originalGraphicType }));
-        }, 0);
+          // Restore graphic type if it exists
+          if (originalGraphicType) {
+            setTaskData(prev => ({ ...prev, graphicType: originalGraphicType }));
+          }
+          
+          // Restore time slot if it exists
+          if (originalTimeSlot) {
+            // Check if the time slot is still valid (not disabled for today)
+            const isTimeSlotValid = () => {
+              if (!taskData.deadline) return true;
+              
+              const deadlineDate = new Date(taskData.deadline);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              deadlineDate.setHours(0, 0, 0, 0);
+              
+              // If deadline is today, check if time is not in the past
+              if (deadlineDate.getTime() === today.getTime()) {
+                const currentHour = new Date().getHours();
+                const currentMinutes = new Date().getMinutes();
+                const currentTime = currentHour + (currentMinutes / 60);
+                
+                // Check if the time slot hour is in the future
+                return originalTimeSlot.hour > currentTime;
+              }
+              
+              return true; // For future dates, all time slots are valid
+            };
+            
+            if (isTimeSlotValid()) {
+              setTaskData(prev => ({ ...prev, time: originalTimeSlot }));
+              console.log("Restored time slot:", originalTimeSlot);
+            } else {
+              console.log("Time slot is no longer valid for today");
+              // Don't restore if it's in the past for today's deadline
+            }
+          }
+        }, 100);
       }
       
-      // If no graphic design members, clear the graphic type in UI but keep it stored
+      // If no graphic design members, clear the graphic type and time in UI
       if (!hasGraphicDesignMemberNow) {
-        setTaskData(prev => ({ ...prev, graphicType: "" }));
+        setTaskData(prev => ({ 
+          ...prev, 
+          graphicType: "",
+          time: "" 
+        }));
       }
     } else {
       setTaskData({ ...taskData, [field]: selected });
@@ -366,6 +511,11 @@ export default function EditTask() {
       // If graphic type is being set, update the originalGraphicType as well
       if (field === "graphicType" && selected) {
         setOriginalGraphicType(selected);
+      }
+      
+      // If time is being set, update the originalTimeSlot as well
+      if (field === "time" && selected) {
+        setOriginalTimeSlot(selected);
       }
     }
     
@@ -385,6 +535,11 @@ export default function EditTask() {
     // Graphic Type validation (only if graphic design member is selected)
     if (hasGraphicDesignMember() && !taskData.graphicType) {
       newErrors.graphicType = "Graphic type is required for Graphic Design members";
+    }
+
+    // Time Slot validation (only if graphic design member is selected)
+    if (hasGraphicDesignMember() && !taskData.time) {
+      newErrors.time = "Time slot is required for Graphic Design members";
     }
 
     if (!taskData.priority) newErrors.priority = "Priority is required";
@@ -461,6 +616,7 @@ export default function EditTask() {
           const userStatusMap = {};
           let loggedInUserAssignment = null;
           let isUserInAssignedTo = false;
+          let graphicDesignTimeSlot = null;
           
           if (data.assignedTo) {
             data.assignedTo.forEach(user => {
@@ -470,6 +626,11 @@ export default function EditTask() {
               if (user.user_id === userId) {
                 loggedInUserAssignment = user;
                 isUserInAssignedTo = true;
+              }
+              
+              // Check if this user has a time slot (graphic design user)
+              if (user.time && user.time.trim() !== "") {
+                graphicDesignTimeSlot = user.time;
               }
             });
           }
@@ -498,7 +659,8 @@ export default function EditTask() {
               originalName: user.name,
               status: user.status,
               isPOC: isPOC,
-              isRemovable: !(user.status === "in-progress" || user.status === "completed")
+              isRemovable: !(user.status === "in-progress" || user.status === "completed"),
+              department: user.dept_name
             };
           }) || [];
 
@@ -509,7 +671,8 @@ export default function EditTask() {
               value: user.emp_id,
               label: user.name + (user.is_poc === "1" ? " (POC)" : ""),
               originalName: user.name,
-              isPOC: user.is_poc === "1"
+              isPOC: user.is_poc === "1",
+              department: user.dept_name
             }));
           
           setAssignedTo(formattedUsers);
@@ -539,7 +702,7 @@ export default function EditTask() {
           let graphicTypeValue = "";
           if (data.assignedTo) {
             // Find if any graphic design user has graphic_creative_type
-            const graphicUser = data.assignedTo.find(user => user.graphic_creative_type);
+            const graphicUser = data.assignedTo.find(user => user.graphic_creative_type && user.graphic_creative_type.trim() !== "");
             if (graphicUser && graphicUser.graphic_creative_type) {
               graphicTypeValue = graphicOptions.find(opt => opt.value === graphicUser.graphic_creative_type) || "";
             }
@@ -547,6 +710,23 @@ export default function EditTask() {
 
           // Store original graphic type separately
           setOriginalGraphicType(graphicTypeValue);
+
+          // Find time slot from assigned users (if any graphic design member has time)
+          let timeSlotValue = null;
+          let storedTimeSlotValue = null;
+          if (graphicDesignTimeSlot) {
+            const timeLabel = formatTimeLabel(graphicDesignTimeSlot);
+            const timeHour = parseInt(graphicDesignTimeSlot.split(':')[0]);
+            timeSlotValue = {
+              value: graphicDesignTimeSlot,
+              label: timeLabel,
+              hour: timeHour
+            };
+            storedTimeSlotValue = timeSlotValue;
+          }
+
+          // Store original time slot separately
+          setOriginalTimeSlot(storedTimeSlotValue);
 
           // Set task data
           setTaskData({
@@ -560,7 +740,8 @@ export default function EditTask() {
             status: statusOption,
             created_date: task.created_date || "",
             taskStatus: task.task_status || "",
-            graphicType: graphicTypeValue
+            graphicType: graphicTypeValue,
+            time: timeSlotValue
           });
 
         } else {
@@ -595,6 +776,23 @@ export default function EditTask() {
     fetchTaskData();
   }, [id]);
 
+  // Helper function to format time label
+  const formatTimeLabel = (timeValue) => {
+    const timeMap = {
+      "10:00": "10:00 AM",
+      "11:00": "11:00 AM",
+      "12:00": "12:00 PM",
+      "13:00": "1:00 PM",
+      "14:00": "2:00 PM",
+      "15:00": "3:00 PM",
+      "16:00": "4:00 PM",
+      "17:00": "5:00 PM",
+      "18:00": "6:00 PM",
+      "19:00": "7:00 PM"
+    };
+    return timeMap[timeValue] || timeValue;
+  };
+
   // Submit form
   const handleSubmit = async () => {
     if (!validate()) {
@@ -627,12 +825,31 @@ export default function EditTask() {
         formData.append("graphic_type", taskData.graphicType.value);
       }
       
+      // Add time slot if it exists
+      if (taskData.time) {
+        formData.append("time_slot", taskData.time.value);
+      }
+      
       formData.append("deadline", taskData.deadline);
       formData.append("remarks", taskData.remarks.trim());
       
-      // Assigned users - send as comma-separated string
-      const assignedUserIds = taskData.assignedTo.map(emp => emp.value);
-      formData.append("assignedTo", assignedUserIds.join(","));
+      // Create assignedTo payload in the correct format
+      const assignedToPayload = taskData.assignedTo.map(selectedUser => {
+        // Find user details from userBelongsToProject
+        const userDetails = userBelongsToProject.find(
+          u => (u.emp_id || u.id) === selectedUser.value
+        );
+
+        return {
+          user_id: selectedUser.value,
+          dept_name: userDetails?.dept_name || ""
+        };
+      });
+
+      // Append as JSON string
+      formData.append("assignedTo", JSON.stringify(assignedToPayload));
+      // const assignedUserIds = taskData.assignedTo.map(emp => emp.value);
+      // formData.append("assignedTo", assignedUserIds.join(","));
       
       // Add project/client ID if available
       if (selectedProject && selectedProject.value) {
@@ -652,10 +869,11 @@ export default function EditTask() {
       console.log("Submitting task data:", {
         task_name: taskData.name,
         assigned_by: taskData.assignedBy,
-        assigned_to: assignedUserIds,
+        assigned_to: assignedToPayload,
         priority: taskData.priority?.value,
         status: taskData.status?.value,
         graphic_type: taskData.graphicType?.value,
+        time_slot: taskData.time?.value,
         deadline: taskData.deadline,
         remarks: taskData.remarks,
         task_id: id || "new",
@@ -663,11 +881,20 @@ export default function EditTask() {
         is_user_assigned: isUserAssignedToTask
       });
 
+      // Log the form data for debugging
+      console.log("Form data entries:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
+
       // Send the request using Axios
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}api/task-management.php`,
         formData,
         {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
           params: {
             id: userId,
             user_code: user?.user_code
@@ -949,8 +1176,396 @@ export default function EditTask() {
 
                 {/* Conditional Task Name and Graphic Type Layout */}
                 {hasGraphicDesignMember() && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Task Name (half width when graphic type is shown) */}
+                  <>
+                    {/* Task Name and Graphic Type Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Task Name (half width when graphic type is shown) */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Task Name
+                          <span className="text-red-500">*</span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={taskData.name}
+                          onChange={isTaskCreator ? handleChange : undefined}
+                          className={`w-full px-4 py-3 rounded-xl border-2 ${
+                            errors.name 
+                              ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                              : isTaskCreator 
+                                ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                                : "border-slate-100 bg-slate-50/50"
+                          } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
+                          placeholder="Enter task name"
+                          readOnly={!isTaskCreator}
+                        />
+                        {errors.name && isTaskCreator && (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.name}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">Required field</span>
+                          <span className="text-slate-500">{taskData.name.length}/100 characters</span>
+                          {!isTaskCreator && (
+                            <span className="text-amber-600">Read-only</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Graphic Type Dropdown */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          For Graphic (Creative Type)
+                          <span className="text-red-500">*</span>
+                          <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                            Graphic Design Only
+                          </span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </label>
+                        <Select
+                          options={graphicOptions}
+                          value={taskData.graphicType}
+                          onChange={isTaskCreator ? (selected) => handleSelectChange("graphicType", selected) : undefined}
+                          classNamePrefix="react-select"
+                          styles={{
+                            ...graphicCustomStyles,
+                            control: (provided, state) => ({
+                              ...provided,
+                              border: `2px solid ${errors.graphicType ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#8b5cf6' : '#e2e8f0') : '#e2e8f0'}`,
+                              borderRadius: '0.75rem',
+                              padding: '8px 4px',
+                              backgroundColor: errors.graphicType ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+                              minHeight: '52px',
+                              boxShadow: state.isFocused && isTaskCreator ? (errors.graphicType ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                              "&:hover": {
+                                borderColor: errors.graphicType ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+                              },
+                              opacity: !isTaskCreator ? 0.7 : 1,
+                              cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                            dropdownIndicator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                          }}
+                          placeholder="Select graphic type..."
+                          isDisabled={!isTaskCreator}
+                        />
+                        {errors.graphicType && isTaskCreator && (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.graphicType}
+                          </p>
+                        )}
+                        <p className="text-xs text-purple-600">
+                          Only shown when Graphic Design members are selected
+                          {!isTaskCreator && ' (Read-only)'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Priority, Deadline, and Time Slot Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Priority */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Priority
+                          <span className="text-red-500">*</span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </label>
+                        <Select
+                          options={priorityOptions}
+                          value={taskData.priority}
+                          onChange={isTaskCreator ? (selected) => handleSelectChange("priority", selected) : undefined}
+                          classNamePrefix="react-select"
+                          styles={{
+                            ...priorityCustomStyles,
+                            control: (provided, state) => ({
+                              ...provided,
+                              border: `2px solid ${errors.priority ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
+                              borderRadius: '0.75rem',
+                              padding: '8px 4px',
+                              backgroundColor: errors.priority ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+                              minHeight: '52px',
+                              boxShadow: state.isFocused && isTaskCreator ? (errors.priority ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                              "&:hover": {
+                                borderColor: errors.priority ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+                              },
+                              opacity: !isTaskCreator ? 0.7 : 1,
+                              cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                            dropdownIndicator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                          }}
+                          formatOptionLabel={formatOptionLabel}
+                          placeholder="Select priority..."
+                          isSearchable={false}
+                          isDisabled={!isTaskCreator}
+                        />
+                        {errors.priority && isTaskCreator && (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.priority}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Status - ALWAYS VISIBLE */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Status
+                          <span className="text-red-500">*</span>
+                          {isTaskCreator && taskData.taskStatus && (
+                            <span className="text-xs font-normal text-blue-500 italic">
+                              (Task status: {taskData.taskStatus})
+                            </span>
+                          )}
+                          {!isTaskCreator && loggedInUserStatus && (
+                            <span className="text-xs font-normal text-blue-500 italic">
+                              (Your status: {loggedInUserStatus})
+                            </span>
+                          )}
+                          {!canEditStatus && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Not assigned)
+                            </span>
+                          )}
+                        </label>
+                        <Select
+                          options={statusOptions}
+                          value={taskData.status}
+                          onChange={canEditStatus ? (selected) => handleSelectChange("status", selected) : undefined}
+                          classNamePrefix="react-select"
+                          styles={{
+                            ...statusCustomStyles,
+                            control: (provided, state) => ({
+                              ...provided,
+                              border: `2px solid ${errors.status ? '#fca5a5' : canEditStatus ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
+                              borderRadius: '0.75rem',
+                              padding: '8px 4px',
+                              backgroundColor: errors.status ? '#fef2f2' : (canEditStatus ? 'white' : '#f8fafc'),
+                              minHeight: '52px',
+                              boxShadow: state.isFocused && canEditStatus ? (errors.status ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                              "&:hover": {
+                                borderColor: errors.status ? '#f87171' : (canEditStatus ? '#94a3b8' : '#e2e8f0'),
+                              },
+                              opacity: !canEditStatus ? 0.7 : 1,
+                              cursor: canEditStatus ? 'pointer' : 'not-allowed',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: canEditStatus ? 'flex' : 'none',
+                            }),
+                            dropdownIndicator: (provided) => ({
+                              ...provided,
+                              display: canEditStatus ? 'flex' : 'none',
+                            }),
+                          }}
+                          formatOptionLabel={formatStatusOptionLabel}
+                          placeholder={canEditStatus ? "Select status..." : "Not assigned to task"}
+                          isSearchable={false}
+                          isDisabled={!canEditStatus || loading}
+                        />
+                        {errors.status && canEditStatus && (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.status}
+                          </p>
+                        )}
+                        {!canEditStatus && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            You are not assigned to this task. Only assigned users can update status.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Deadline and Time Slot Row */}
+                    <div className={`grid grid-cols-1 lg:grid-cols-${hasGraphicDesignMember() ? '2' : '1'} gap-6`}>
+                      {/* Deadline - ALWAYS VISIBLE */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Deadline
+                          <span className="text-red-500">*</span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            name="deadline"
+                            value={taskData.deadline}
+                            onChange={isTaskCreator ? handleChange : undefined}
+                            min={taskData.created_date ? taskData.created_date : new Date().toISOString().split('T')[0]}
+                            className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                              errors.deadline 
+                                ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                                : isTaskCreator 
+                                  ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                                  : "border-slate-100 bg-slate-50/50"
+                            } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
+                            readOnly={!isTaskCreator}
+                          />
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <svg
+                              className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : isTaskCreator ? 'text-blue-500' : 'text-slate-400'}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                        {errors.deadline && isTaskCreator ? (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.deadline}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            {taskData.created_date 
+                              ? `Cannot select dates before ${taskData.created_date}` 
+                              : 'Cannot select past dates'}
+                            {!isTaskCreator && ' (Read-only)'}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Time Slot - ONLY when graphic design members are selected */}
+                      {hasGraphicDesignMember() && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                            Time Slot
+                            <span className="text-red-500">*</span>
+                            <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                              Graphic Design Only
+                            </span>
+                            {!isTaskCreator && (
+                              <span className="text-xs text-amber-600 font-normal">
+                                (Read-only)
+                              </span>
+                            )}
+                          </label>
+                          <Select
+                            options={timeSlotOptions}
+                            value={taskData.time}
+                            onChange={isTaskCreator ? (selected) => handleSelectChange("time", selected) : undefined}
+                            classNamePrefix="react-select"
+                            styles={{
+                              ...timeSlotCustomStyles,
+                              control: (provided, state) => ({
+                                ...provided,
+                                border: `2px solid ${errors.time ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#8b5cf6' : '#e2e8f0') : '#e2e8f0'}`,
+                                borderRadius: '0.75rem',
+                                padding: '8px 4px',
+                                backgroundColor: errors.time ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+                                minHeight: '52px',
+                                boxShadow: state.isFocused && isTaskCreator ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                                "&:hover": {
+                                  borderColor: errors.time ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+                                },
+                                opacity: !isTaskCreator ? 0.7 : 1,
+                                cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+                              }),
+                              indicatorSeparator: (provided) => ({
+                                ...provided,
+                                display: isTaskCreator ? 'flex' : 'none',
+                              }),
+                              dropdownIndicator: (provided) => ({
+                                ...provided,
+                                display: isTaskCreator ? 'flex' : 'none',
+                              }),
+                            }}
+                            placeholder="Select time..."
+                            isOptionDisabled={(option) => option.isDisabled}
+                            noOptionsMessage={() => {
+                              if (taskData.deadline) {
+                                const today = new Date();
+                                const deadlineDate = new Date(taskData.deadline);
+                                today.setHours(0, 0, 0, 0);
+                                deadlineDate.setHours(0, 0, 0, 0);
+                                
+                                if (today.getTime() === deadlineDate.getTime()) {
+                                  const enabledSlots = timeSlotOptions.filter(slot => !slot.isDisabled);
+                                  if (enabledSlots.length === 0) {
+                                    return "No available time slots for today. Please select a future deadline.";
+                                  }
+                                }
+                              }
+                              return "No options available";
+                            }}
+                            isDisabled={!isTaskCreator}
+                          />
+                          {errors.time && isTaskCreator && (
+                            <p className="text-red-500 text-sm flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              {errors.time}
+                            </p>
+                          )}
+                          {taskData.deadline && 
+                          new Date(taskData.deadline).toDateString() === new Date().toDateString() && (
+                            <p className="text-xs text-purple-600">
+                              Showing only future time slots for today's deadline
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Regular Layout when no Graphic Design Member */}
+                {!hasGraphicDesignMember() && (
+                  <>
+                    {/* Task Name */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                         Task Name
@@ -993,304 +1608,198 @@ export default function EditTask() {
                       </div>
                     </div>
 
-                    {/* Graphic Type Dropdown */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                        For Graphic (Creative Type)
-                        <span className="text-red-500">*</span>
-                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                          Graphic Design Only
-                        </span>
-                        {!isTaskCreator && (
-                          <span className="text-xs text-amber-600 font-normal">
-                            (Read-only)
-                          </span>
+                    {/* Priority, Status and Deadline Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Priority */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Priority
+                          <span className="text-red-500">*</span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </label>
+                        <Select
+                          options={priorityOptions}
+                          value={taskData.priority}
+                          onChange={isTaskCreator ? (selected) => handleSelectChange("priority", selected) : undefined}
+                          classNamePrefix="react-select"
+                          styles={{
+                            ...priorityCustomStyles,
+                            control: (provided, state) => ({
+                              ...provided,
+                              border: `2px solid ${errors.priority ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
+                              borderRadius: '0.75rem',
+                              padding: '8px 4px',
+                              backgroundColor: errors.priority ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+                              minHeight: '52px',
+                              boxShadow: state.isFocused && isTaskCreator ? (errors.priority ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                              "&:hover": {
+                                borderColor: errors.priority ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+                              },
+                              opacity: !isTaskCreator ? 0.7 : 1,
+                              cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                            dropdownIndicator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                          }}
+                          formatOptionLabel={formatOptionLabel}
+                          placeholder="Select priority..."
+                          isSearchable={false}
+                          isDisabled={!isTaskCreator}
+                        />
+                        {errors.priority && isTaskCreator && (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.priority}
+                          </p>
                         )}
-                      </label>
-                      <Select
-                        options={graphicOptions}
-                        value={taskData.graphicType}
-                        onChange={isTaskCreator ? (selected) => handleSelectChange("graphicType", selected) : undefined}
-                        classNamePrefix="react-select"
-                        styles={{
-                          ...graphicCustomStyles,
-                          control: (provided, state) => ({
-                            ...provided,
-                            border: `2px solid ${errors.graphicType ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#8b5cf6' : '#e2e8f0') : '#e2e8f0'}`,
-                            borderRadius: '0.75rem',
-                            padding: '8px 4px',
-                            backgroundColor: errors.graphicType ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
-                            minHeight: '52px',
-                            boxShadow: state.isFocused && isTaskCreator ? (errors.graphicType ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
-                            "&:hover": {
-                              borderColor: errors.graphicType ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
-                            },
-                            opacity: !isTaskCreator ? 0.7 : 1,
-                            cursor: isTaskCreator ? 'pointer' : 'not-allowed',
-                          }),
-                          indicatorSeparator: (provided) => ({
-                            ...provided,
-                            display: isTaskCreator ? 'flex' : 'none',
-                          }),
-                          dropdownIndicator: (provided) => ({
-                            ...provided,
-                            display: isTaskCreator ? 'flex' : 'none',
-                          }),
-                        }}
-                        placeholder="Select graphic type..."
-                        isDisabled={!isTaskCreator}
-                      />
-                      {errors.graphicType && isTaskCreator && (
-                        <p className="text-red-500 text-sm flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                          {errors.graphicType}
-                        </p>
-                      )}
-                      <p className="text-xs text-purple-600">
-                        Only shown when Graphic Design members are selected
-                        {!isTaskCreator && ' (Read-only)'}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                      </div>
 
-                {/* Regular Task Name (full width when no graphic type) */}
-                {!hasGraphicDesignMember() && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Task Name
-                      <span className="text-red-500">*</span>
-                      {!isTaskCreator && (
-                        <span className="text-xs text-amber-600 font-normal">
-                          (Read-only)
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={taskData.name}
-                      onChange={isTaskCreator ? handleChange : undefined}
-                      className={`w-full px-4 py-3 rounded-xl border-2 ${
-                        errors.name 
-                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                          : isTaskCreator 
-                            ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                            : "border-slate-100 bg-slate-50/50"
-                      } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
-                      placeholder="Enter task name"
-                      readOnly={!isTaskCreator}
-                    />
-                    {errors.name && isTaskCreator && (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.name}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Required field</span>
-                      <span className="text-slate-500">{taskData.name.length}/100 characters</span>
-                      {!isTaskCreator && (
-                        <span className="text-amber-600">Read-only</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Third Row: Priority, Status and Deadline */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Priority */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Priority
-                      <span className="text-red-500">*</span>
-                      {!isTaskCreator && (
-                        <span className="text-xs text-amber-600 font-normal">
-                          (Read-only)
-                        </span>
-                      )}
-                    </label>
-                    <Select
-                      options={priorityOptions}
-                      value={taskData.priority}
-                      onChange={isTaskCreator ? (selected) => handleSelectChange("priority", selected) : undefined}
-                      classNamePrefix="react-select"
-                      styles={{
-                        ...priorityCustomStyles,
-                        control: (provided, state) => ({
-                          ...provided,
-                          border: `2px solid ${errors.priority ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
-                          borderRadius: '0.75rem',
-                          padding: '8px 4px',
-                          backgroundColor: errors.priority ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
-                          minHeight: '52px',
-                          boxShadow: state.isFocused && isTaskCreator ? (errors.priority ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
-                          "&:hover": {
-                            borderColor: errors.priority ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
-                          },
-                          opacity: !isTaskCreator ? 0.7 : 1,
-                          cursor: isTaskCreator ? 'pointer' : 'not-allowed',
-                        }),
-                        indicatorSeparator: (provided) => ({
-                          ...provided,
-                          display: isTaskCreator ? 'flex' : 'none',
-                        }),
-                        dropdownIndicator: (provided) => ({
-                          ...provided,
-                          display: isTaskCreator ? 'flex' : 'none',
-                        }),
-                      }}
-                      formatOptionLabel={formatOptionLabel}
-                      placeholder="Select priority..."
-                      isSearchable={false}
-                      isDisabled={!isTaskCreator}
-                    />
-                    {errors.priority && isTaskCreator && (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.priority}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Status
-                      <span className="text-red-500">*</span>
-                      {isTaskCreator && taskData.taskStatus && (
-                        <span className="text-xs font-normal text-blue-500 italic">
-                          (Task status: {taskData.taskStatus})
-                        </span>
-                      )}
-                      {!isTaskCreator && loggedInUserStatus && (
-                        <span className="text-xs font-normal text-blue-500 italic">
-                          (Your status: {loggedInUserStatus})
-                        </span>
-                      )}
-                      {!canEditStatus && (
-                        <span className="text-xs text-amber-600 font-normal">
-                          (Not assigned)
-                        </span>
-                      )}
-                    </label>
-                    <Select
-                      options={statusOptions}
-                      value={taskData.status}
-                      onChange={canEditStatus ? (selected) => handleSelectChange("status", selected) : undefined}
-                      classNamePrefix="react-select"
-                      styles={{
-                        ...statusCustomStyles,
-                        control: (provided, state) => ({
-                          ...provided,
-                          border: `2px solid ${errors.status ? '#fca5a5' : canEditStatus ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
-                          borderRadius: '0.75rem',
-                          padding: '8px 4px',
-                          backgroundColor: errors.status ? '#fef2f2' : (canEditStatus ? 'white' : '#f8fafc'),
-                          minHeight: '52px',
-                          boxShadow: state.isFocused && canEditStatus ? (errors.status ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
-                          "&:hover": {
-                            borderColor: errors.status ? '#f87171' : (canEditStatus ? '#94a3b8' : '#e2e8f0'),
-                          },
-                          opacity: !canEditStatus ? 0.7 : 1,
-                          cursor: canEditStatus ? 'pointer' : 'not-allowed',
-                        }),
-                        indicatorSeparator: (provided) => ({
-                          ...provided,
-                          display: canEditStatus ? 'flex' : 'none',
-                        }),
-                        dropdownIndicator: (provided) => ({
-                          ...provided,
-                          display: canEditStatus ? 'flex' : 'none',
-                        }),
-                      }}
-                      formatOptionLabel={formatStatusOptionLabel}
-                      placeholder={canEditStatus ? "Select status..." : "Not assigned to task"}
-                      isSearchable={false}
-                      isDisabled={!canEditStatus || loading}
-                    />
-                    {errors.status && canEditStatus && (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.status}
-                      </p>
-                    )}
-                    {!canEditStatus && (
-                      <p className="text-xs text-amber-600 mt-1">
-                        You are not assigned to this task. Only assigned users can update status.
-                      </p>
-                    )}
-                  </div>
-                  
-                  {/* Deadline */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Deadline
-                      <span className="text-red-500">*</span>
-                      {!isTaskCreator && (
-                        <span className="text-xs text-amber-600 font-normal">
-                          (Read-only)
-                        </span>
-                      )}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        name="deadline"
-                        value={taskData.deadline}
-                        onChange={isTaskCreator ? handleChange : undefined}
-                        min={taskData.created_date ? taskData.created_date : new Date().toISOString().split('T')[0]}
-                        className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
-                          errors.deadline 
-                            ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                            : isTaskCreator 
-                              ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                              : "border-slate-100 bg-slate-50/50"
-                        } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
-                        readOnly={!isTaskCreator}
-                      />
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <svg
-                          className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : isTaskCreator ? 'text-blue-500' : 'text-slate-400'}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      {/* Status */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Status
+                          <span className="text-red-500">*</span>
+                          {isTaskCreator && taskData.taskStatus && (
+                            <span className="text-xs font-normal text-blue-500 italic">
+                              (Task status: {taskData.taskStatus})
+                            </span>
+                          )}
+                          {!isTaskCreator && loggedInUserStatus && (
+                            <span className="text-xs font-normal text-blue-500 italic">
+                              (Your status: {loggedInUserStatus})
+                            </span>
+                          )}
+                          {!canEditStatus && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Not assigned)
+                            </span>
+                          )}
+                        </label>
+                        <Select
+                          options={statusOptions}
+                          value={taskData.status}
+                          onChange={canEditStatus ? (selected) => handleSelectChange("status", selected) : undefined}
+                          classNamePrefix="react-select"
+                          styles={{
+                            ...statusCustomStyles,
+                            control: (provided, state) => ({
+                              ...provided,
+                              border: `2px solid ${errors.status ? '#fca5a5' : canEditStatus ? (state.isFocused ? '#3b82f6' : '#e2e8f0') : '#e2e8f0'}`,
+                              borderRadius: '0.75rem',
+                              padding: '8px 4px',
+                              backgroundColor: errors.status ? '#fef2f2' : (canEditStatus ? 'white' : '#f8fafc'),
+                              minHeight: '52px',
+                              boxShadow: state.isFocused && canEditStatus ? (errors.status ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+                              "&:hover": {
+                                borderColor: errors.status ? '#f87171' : (canEditStatus ? '#94a3b8' : '#e2e8f0'),
+                              },
+                              opacity: !canEditStatus ? 0.7 : 1,
+                              cursor: canEditStatus ? 'pointer' : 'not-allowed',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: canEditStatus ? 'flex' : 'none',
+                            }),
+                            dropdownIndicator: (provided) => ({
+                              ...provided,
+                              display: canEditStatus ? 'flex' : 'none',
+                            }),
+                          }}
+                          formatOptionLabel={formatStatusOptionLabel}
+                          placeholder={canEditStatus ? "Select status..." : "Not assigned to task"}
+                          isSearchable={false}
+                          isDisabled={!canEditStatus || loading}
+                        />
+                        {errors.status && canEditStatus && (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.status}
+                          </p>
+                        )}
+                        {!canEditStatus && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            You are not assigned to this task. Only assigned users can update status.
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Deadline */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          Deadline
+                          <span className="text-red-500">*</span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            name="deadline"
+                            value={taskData.deadline}
+                            onChange={isTaskCreator ? handleChange : undefined}
+                            min={taskData.created_date ? taskData.created_date : new Date().toISOString().split('T')[0]}
+                            className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                              errors.deadline 
+                                ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                                : isTaskCreator 
+                                  ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                                  : "border-slate-100 bg-slate-50/50"
+                            } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
+                            readOnly={!isTaskCreator}
                           />
-                        </svg>
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <svg
+                              className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : isTaskCreator ? 'text-blue-500' : 'text-slate-400'}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                        {errors.deadline && isTaskCreator ? (
+                          <p className="text-red-500 text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.deadline}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            {taskData.created_date 
+                              ? `Cannot select dates before ${taskData.created_date}` 
+                              : 'Cannot select past dates'}
+                            {!isTaskCreator && ' (Read-only)'}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    {errors.deadline && isTaskCreator ? (
-                      <p className="text-red-500 text-sm flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {errors.deadline}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-500">
-                        {taskData.created_date 
-                          ? `Cannot select dates before ${taskData.created_date}` 
-                          : 'Cannot select past dates'}
-                        {!isTaskCreator && ' (Read-only)'}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                  </>
+                )}
 
                 {/* Remarks */}
                 <div className="space-y-2">
