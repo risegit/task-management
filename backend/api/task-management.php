@@ -50,6 +50,21 @@ switch ($method) {
             $userId = $_GET['user_id'] ?? null;
             // $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, GROUP_CONCAT(DISTINCT ta.status ORDER BY ta.status SEPARATOR ', ') AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id=t.client_id WHERE t.id IN ( SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId' ) GROUP BY t.id ORDER BY t.id DESC;";
             // $sql1 = "SELECT t.client_id,t.task_name,t.remarks,t.deadline,t.priority,t.status,t.created_date,t.created_by assigned_by,c.name FROM tasks t INNER JOIN clients c ON t.client_id=c.id WHERE t.id='$taskId';";
+            if (!str_starts_with($userCode, 'AD') && !str_starts_with($userCode, 'MN')) {
+                // Check if user is either task creator OR assigned to the task
+                $authCheckSql = "SELECT COUNT(*) as count FROM tasks t 
+                            LEFT JOIN task_assignees ta ON t.id = ta.task_id 
+                            WHERE t.id = '$taskId' 
+                            AND (t.created_by = '$userId' OR ta.user_id = '$userId')";
+                $authResult = $conn->query($authCheckSql);
+                $authRow = $authResult->fetch_assoc();
+                
+                if ($authRow['count'] < 1) {
+                    echo json_encode(["status" => "error", "message" => "Not Authorised To Access the data"]);
+                    exit;
+                }
+            }
+            
             $sql1 = "SELECT t.client_id,t.task_name,t.remarks,t.deadline,t.priority,t.status,t.created_date,t.created_by assigned_by,c.name, CASE WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' WHEN SUM(ta.status = 'completed') = COUNT(*) THEN 'completed' ELSE 'pending' END AS task_status FROM tasks t INNER JOIN clients c ON t.client_id=c.id INNER JOIN task_assignees ta ON t.id=ta.task_id WHERE t.id='$taskId'";
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result = $conn->query($sql1);
@@ -60,7 +75,7 @@ switch ($method) {
                 $data[] = $row;
             }
 
-            $sql2 = "SELECT ta.task_id,ta.user_id,u.name,ta.status,ta.graphic_creative_type FROM task_assignees ta INNER JOIN users u ON ta.user_id=u.id WHERE task_id='$taskId'";
+            $sql2 = "SELECT ta.task_id,ta.user_id,u.name,ta.status,ta.graphic_creative_type,ta.time,d.name dept_name FROM task_assignees ta INNER JOIN users u ON ta.user_id=u.id INNER JOIN departments d ON d.id=u.department_id  WHERE task_id='$taskId'";
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result2 = $conn->query($sql2);
             $assignedTo = [];
@@ -167,14 +182,16 @@ switch ($method) {
         break;
     
     case 'POST':
-        $clientId = $_POST['project_id'] ?? '';
-        $taskName = $_POST['task_name'] ?? '';
+
+        $clientId  = $_POST['project_id'] ?? '';
+        $taskName  = $_POST['task_name'] ?? '';
+        $timeSlot  = $_POST['time_slot'] ?? '';
         $graphicCreativeType = $_POST['graphic_type'] ?? '';
         $assignedBy = $_POST['assignedBy'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $deadline = $_POST['deadline'] ?? '';
-        $remarks = $_POST['remarks'] ?? '';
-        $priority = $_POST['priority'] ?? '';
+        $email     = $_POST['email'] ?? '';
+        $deadline  = $_POST['deadline'] ?? '';
+        $remarks   = $_POST['remarks'] ?? '';
+        $priority  = $_POST['priority'] ?? '';
 
         // Decode assignedTo JSON
         $jsonAssignedTo = $_POST['assignedTo'] ?? '[]';
@@ -188,13 +205,52 @@ switch ($method) {
             exit;
         }
 
-        $sql1 = "INSERT INTO `tasks` (`client_id`, `task_name`, `deadline`, `remarks`, `priority`, `created_by`, `created_date`, `created_time`) VALUES ('$clientId','$taskName','$deadline','$remarks','$priority','$userId','$date','$time')";
+        /* -------------------------------
+        1️⃣ Insert into tasks table
+        -------------------------------- */
+        $stmtTask = $conn->prepare("
+            INSERT INTO tasks
+            (client_id, task_name, deadline, remarks, priority, created_by, created_date, created_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
 
-        if ($conn->query($sql1)) {
+        $stmtTask->bind_param(
+            "ssssssss",
+            $clientId,
+            $taskName,
+            $deadline,
+            $remarks,
+            $priority,
+            $userId,
+            $date,
+            $time
+        );
 
-            $taskId = $conn->insert_id;
-            $creative_type = '';
-            $query1 = '';
+        if ($stmtTask->execute()) {
+
+            $taskId = $stmtTask->insert_id;
+
+            /* -------------------------------
+            2️⃣ Prepare task_assignees insert
+            -------------------------------- */
+            $stmtAssignee = $conn->prepare("
+                INSERT INTO task_assignees
+                (task_id, user_id, graphic_creative_type, time, created_date, created_time)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+
+            /* -------------------------------
+            3️⃣ Prepare notifications insert
+            -------------------------------- */
+            $stmtNotify = $conn->prepare("
+                INSERT INTO notifications
+                (user_id, sender_id, type, reference_id, message, created_date, created_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+
+            $msg  = "You have been assigned a new task";
+            $type = "task_assigned";
+
             foreach ($assignedTos as $assigned) {
 
                 $userIdAssigned = $assigned['user_id'] ?? null;
@@ -203,34 +259,46 @@ switch ($method) {
                 if (!$userIdAssigned) {
                     continue;
                 }
-                if (stripos($deptName, 'Graphic Design') !== false) {
-                    $creative_type = $graphicCreativeType;
-                }else{
-                    $creative_type = '';
-                }
+
+                $creative_type = (stripos($deptName, 'Graphic Design') !== false)
+                    ? $graphicCreativeType
+                    : '';
+
+                $timeSlotData = (stripos($deptName, 'Graphic Design') !== false)
+                    ? $timeSlot
+                    : '';
 
                 // 🔹 Insert into task_assignees
-                $sql2 = "INSERT INTO `task_assignees` (`task_id`, `user_id`, `graphic_creative_type`, `created_date`, `created_time`) VALUES ('$taskId','$userIdAssigned','$creative_type','$date','$time')";
-
-                $conn->query($sql2);
+                $stmtAssignee->bind_param(
+                    "iissss",
+                    $taskId,
+                    $userIdAssigned,
+                    $creative_type,
+                    $timeSlotData,
+                    $date,
+                    $time
+                );
+                $stmtAssignee->execute();
 
                 // 🔔 Insert notification
-                $msg = "You have been assigned a new task";
-
-                $sqlNotify = "
-                    INSERT INTO notifications
-                    (user_id, sender_id, type, reference_id, message, created_date, created_time)
-                    VALUES
-                    ('$userIdAssigned', '$userId', 'task_assigned', '$taskId', '$msg', '$date', '$time')
-                ";
-
-                $conn->query($sqlNotify);
+                $stmtNotify->bind_param(
+                    "iisisss",
+                    $userIdAssigned,
+                    $userId,
+                    $type,
+                    $taskId,
+                    $msg,
+                    $date,
+                    $time
+                );
+                $stmtNotify->execute();
             }
 
             echo json_encode([
                 "status" => "success",
                 "message" => "Task created successfully!"
             ]);
+
         } else {
             echo json_encode([
                 "status" => "error",
@@ -240,28 +308,39 @@ switch ($method) {
 
         break;
 
-
 case 'PUT':
-    if(empty($_POST['update_status'])){
+
+    $userId   = (int)($_GET['id'] ?? 0);
+    $assignedBy = (int)($_POST['assignedBy'] ?? 0);
+
+    if($userId === $assignedBy){
         $taskId   = (int)($_POST['taskId'] ?? 0);
-        $userId   = (int)($_GET['id'] ?? 0);
+        
         $userName  = $_POST['userName'] ?? '';
         $taskName = trim($_POST['taskName'] ?? '');
+        $graphicCreativeType = $_POST['graphic_type'] ?? '';
+        $timeSlot  = $_POST['time_slot'] ?? '';
         $deadline = $_POST['deadline'] ?? '';
         $remarks  = $_POST['remarks'] ?? '';
         $priority = $_POST['priority'] ?? '';
         $status   = $_POST['status'] ?? '';
-        $assignedBy = (int)($_POST['assignedBy'] ?? 0);
+        $clientId = $_POST['client_id'] ?? '';
+        
+        // Decode assignedTo JSON (new format)
+        $jsonAssignedTo = $_POST['assignedTo'] ?? '[]';
+        $assignedTos = json_decode($jsonAssignedTo, true);
+
+        if (!is_array($assignedTos)) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Invalid assignedTo data"
+            ]);
+            exit;
+        }
 
         if ($taskId <= 0) {
             echo json_encode(["status" => "error", "message" => "Invalid task"]);
             exit;
-        }
-
-        // assignedTo: "1,2,3"
-        $assignedTos = [];
-        if (!empty($_POST['assignedTo'])) {
-            $assignedTos = explode(',', $_POST['assignedTo']);
         }
 
         $conn->begin_transaction();
@@ -272,11 +351,7 @@ case 'PUT':
             UPDATE TASK
             --------------------------*/
             $stmt = $conn->prepare("UPDATE tasks SET task_name=?, deadline=?, remarks=?, priority=?, updated_date=?, updated_time=? WHERE id=?");
-
-            $query1 = "UPDATE tasks SET task_name='$taskName', deadline='$deadline', remarks='$remarks', priority='$priority', updated_date='$date', updated_time='$time' WHERE id='$taskId'";
-
-            // echo json_encode(["status" => "success","query1" => $query1]);
-
+            
             $stmt->bind_param(
                 "ssssssi",
                 $taskName,
@@ -290,38 +365,75 @@ case 'PUT':
 
             $stmt->execute();
 
+            // Extract user IDs from the JSON array
+            $newAssigneeIds = [];
+            foreach ($assignedTos as $assigned) {
+                if (isset($assigned['user_id'])) {
+                    $newAssigneeIds[] = (int)$assigned['user_id'];
+                }
+            }
+
             // Existing assignees
             $existing = [];
             $res = $conn->query("SELECT user_id FROM task_assignees WHERE task_id='$taskId'");
             while ($row = $res->fetch_assoc()) {
                 $existing[] = $row['user_id'];
             }
-            $query2 = '';
+
             // Add new assignees (default = not-acknowledge)
-            foreach ($assignedTos as $assigneeId) {
-                if (!in_array($assigneeId, $existing)) {
+            foreach ($assignedTos as $assigned) {
+                $assigneeId = (int)($assigned['user_id'] ?? 0);
+                $deptName = $assigned['dept_name'] ?? '';
+                
+                if ($assigneeId > 0 && !in_array($assigneeId, $existing)) {
+                    // Set graphic_creative_type and time based on department
+                    $creative_type = (stripos($deptName, 'Graphic Design') !== false)
+                        ? $graphicCreativeType
+                        : '';
+                    
+                    $timeSlotData = (stripos($deptName, 'Graphic Design') !== false)
+                        ? $timeSlot
+                        : '';
+                    
                     $stmt = $conn->prepare("
                         INSERT INTO task_assignees 
-                        (task_id, user_id, status, created_date, created_time)
-                        VALUES (?, ?, 'not-acknowledge', ?, ?)
+                        (task_id, user_id, status, graphic_creative_type, time, created_date, created_time)
+                        VALUES (?, ?, 'not-acknowledge', ?, ?, ?, ?)
                     ");
-                    $query2 .= "INSERT INTO task_assignees(task_id, user_id, status, created_date, created_time) VALUES ('$taskId', '$assigneeId', 'not-acknowledge', '$date', '$time')";
-                    $stmt->bind_param("iiss", $taskId, $assigneeId, $date, $time);
+                    $stmt->bind_param("iissss", $taskId, $assigneeId, $creative_type, $timeSlotData, $date, $time);
                     $stmt->execute();
                 }
+                
+                // Update existing assignees for graphic design fields if needed
+                if ($assigneeId > 0 && in_array($assigneeId, $existing)) {
+                    $creative_type = (stripos($deptName, 'Graphic Design') !== false)
+                        ? $graphicCreativeType
+                        : '';
+                    
+                    $timeSlotData = (stripos($deptName, 'Graphic Design') !== false)
+                        ? $timeSlot
+                        : '';
+                    
+                    // Update graphic_creative_type and time for existing assignees
+                    $stmtUpdate = $conn->prepare("
+                        UPDATE task_assignees 
+                        SET graphic_creative_type = ?, time = ?
+                        WHERE task_id = ? AND user_id = ?
+                    ");
+                    $stmtUpdate->bind_param("ssii", $creative_type, $timeSlotData, $taskId, $assigneeId);
+                    $stmtUpdate->execute();
+                }
             }
-            // echo json_encode(["status" => "success","query2" => $query2]);
 
             // Remove unassigned users
-            if (!empty($existing)) {
-                $ids = implode(',', array_map('intval', $assignedTos));
+            if (!empty($existing) && !empty($newAssigneeIds)) {
+                $ids = implode(',', array_map('intval', $newAssigneeIds));
                 $conn->query("
                     DELETE FROM task_assignees 
                     WHERE task_id='$taskId' 
                     AND user_id NOT IN ($ids)
                 ");
             }
-
 
             /* ---------------------------
             DERIVE TASK STATUS
@@ -341,12 +453,9 @@ case 'PUT':
             $statusRow = $stmt->get_result()->fetch_assoc();
 
             // Update only THIS user's status
-            $query3 = "UPDATE task_assignees SET status='$status', updated_date='$date', updated_time='$time' WHERE task_id='$taskId' AND user_id='$userId'";
-            
             $stmt = $conn->prepare("UPDATE task_assignees SET status=?, updated_date=?, updated_time=? WHERE task_id=? AND user_id=?");
             $stmt->bind_param("sssii", $status, $date, $time, $taskId, $userId);
             $stmt->execute();
-            // echo json_encode(["status" => "success","query3" => $query3]); 
 
             if ($statusRow['completed'] == $statusRow['total'] && $statusRow['total'] > 0) {
                 $taskStatus = 'completed';
@@ -364,9 +473,6 @@ case 'PUT':
             
             $stmt->bind_param("si", $taskStatus, $taskId);
             $stmt->execute();
-
-            $query4 = "UPDATE tasks SET status='$taskStatus' WHERE id='$taskId'";
-            // echo json_encode(["status" => "success","query4" => $query4]);
             
             $rtvSenderIdResult = $conn->query("SELECT created_by FROM tasks WHERE id='$taskId'");
             $row = $rtvSenderIdResult->fetch_assoc();
@@ -374,8 +480,8 @@ case 'PUT':
 
             $msg = $userName." updated task status to ".$status;
             $sqlNotify = "INSERT INTO notifications (user_id, sender_id, type, reference_id, message, created_date, created_time) VALUES('$rtvSenderId', '$userId', 'task_updated', '$taskId', '$msg', '$date', '$time');";
-            // echo json_encode(["status" => "success","sql1" => $sqlNotify]);
             $conn->query($sqlNotify);
+
             /* ---------------------------
             COMMIT
             ----------------------------*/
@@ -384,46 +490,8 @@ case 'PUT':
             echo json_encode([
                 "status" => "success",
                 "message" => "Task updated successfully",
-                "task_status1" => $taskStatus
+                "task_status" => $taskStatus
             ]);
-
-            // /* -------------------------
-            //    REMOVE OLD ASSIGNEES
-            // --------------------------*/
-            // $stmtDel = $conn->prepare(
-            //     "DELETE FROM task_assignees WHERE task_id=?"
-            // );
-            // $stmtDel->bind_param("i", $taskId);
-            // $stmtDel->execute();
-
-            // /* -------------------------
-            //    INSERT NEW ASSIGNEES
-            // --------------------------*/
-            // if (!empty($assignedTos)) {
-            //     $stmtIns = $conn->prepare(
-            //         "INSERT INTO task_assignees (task_id, user_id, status, created_date, created_time)
-            //          VALUES (?, ?, ?, ?, ?)"
-            //     );
-
-            //     foreach ($assignedTos as $userId) {
-            //         $stmtIns->bind_param(
-            //             "iisss",
-            //             $taskID,
-            //             $userId,
-            //             $status,
-            //             $date,
-            //             $time
-            //         );
-            //         $stmtIns->execute();
-            //     }
-            // }
-
-            // $conn->commit();
-
-            // echo json_encode([
-            //     "status" => "success",
-            //     "message" => "Task updated successfully"
-            // ]);
 
         } catch (Exception $e) {
             $conn->rollback();
@@ -433,11 +501,10 @@ case 'PUT':
             ]);
         }
     }else{
-        $taskId     = (int)($_POST['task_id'] ?? 0);
+        $taskId     = (int)($_POST['taskId'] ?? 0);
         $userId     = (int)($_POST['userId'] ?? 0);
         $userName  = $_POST['userName'] ?? '';
-        $newStatus  = $_POST['task_status'] ?? '';
-        $update_status = $_POST['update_status'] ?? '';
+        $newStatus  = $_POST['status'] ?? '';
 
         $allowedStatus = [
             'not-acknowledge',
@@ -475,15 +542,13 @@ case 'PUT':
             $msg = $userName." updated task status to ".$newStatus;
             $sqlNotify = "INSERT INTO notifications (user_id, sender_id, type, reference_id, message, created_date, created_time) VALUES('$rtvSenderId', '$userId', 'task_updated', '$taskId', '$msg', '$date', '$time');";
 
-            // echo json_encode(["status" => "success","sql2" => $sqlNotify]);
-
             $conn->query($sqlNotify);
 
             $conn->commit();
 
             echo json_encode([
                 "status" => "success",
-                "message1" => "Task status updated successfully"
+                "message" => "Task status updated successfully"
             ]);
 
         } catch (Exception $e) {
