@@ -4,6 +4,8 @@ header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
 $servername = "v3t.com";
+
+
 $username = "one_suite_user";
 $password = "~sl4ew&U[#I3";
 $database = "one-suite-stage"; 
