@@ -598,7 +598,9 @@ const ManageDepartment = () => {
   const navigate = useNavigate();
   
   const [tasks, setTasks] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingClients, setLoadingClients] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -606,6 +608,7 @@ const ManageDepartment = () => {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null); // New state for client filter
   
   // Get user from JWT
   const user = getCurrentUser();
@@ -641,6 +644,75 @@ const ManageDepartment = () => {
     }
     
     return false;
+  };
+
+  // Fetch clients from API
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      console.log("Fetching clients...");
+      
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/project.php`,
+        {
+          params: { 
+            user_id: userId,
+            user_code: userCode,
+            view_active_clients: "'active'"
+          }
+        }
+      );
+      
+      const result = response.data;
+      console.log("Clients API Response:", result);
+
+      if (result.status === "success" && result.project && Array.isArray(result.project)) {
+        // Transform API data to match react-select format
+        const clientOptions = result.project.map(client => ({
+          value: client.client_id,
+          label: client.client_name,
+          clientCode: client.client_code,
+          description: client.description,
+          startDate: client.start_date
+        }));
+        
+        // Add "All Clients" option
+        const allClientsOption = {
+          value: "all",
+          label: "All Clients",
+          color: "#3b82f6"
+        };
+        
+        setClients([allClientsOption, ...clientOptions]);
+        console.log("Client options:", [allClientsOption, ...clientOptions]);
+      } else {
+        console.warn("No clients found in API response");
+        // Set default "All Clients" option
+        setClients([{
+          value: "all",
+          label: "All Clients",
+          color: "#3b82f6"
+        }]);
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      // Set default "All Clients" option
+      setClients([{
+        value: "all",
+        label: "All Clients",
+        color: "#3b82f6"
+      }]);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error Loading Clients',
+        text: 'Failed to load clients. Showing all tasks.',
+        timer: 3000,
+        showConfirmButton: false,
+        timerProgressBar: true,
+      });
+    } finally {
+      setLoadingClients(false);
+    }
   };
 
   useEffect(() => {
@@ -686,6 +758,7 @@ const ManageDepartment = () => {
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
             clientName: task.client_name || "Unknown Client",
+            clientId: task.client_id,
             name: task.task_name || "Unnamed Task",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
@@ -698,7 +771,6 @@ const ManageDepartment = () => {
             deadline: task.deadline,
             remark: task.remarks,
             taskStatus: task.task_status || "not-acknowledge",
-            clientId: task.client_id,
             createdBy: task.created_by,
             // Store raw API data for reference
             rawAssignedTo: task.assigned_to || "",
@@ -720,7 +792,14 @@ const ManageDepartment = () => {
     };
 
     fetchTasks();
+    fetchClients(); // Fetch clients when component mounts
   }, [userId, userCode]); // Only depend on primitive values
+
+  // Handle client filter change
+  const handleClientFilterChange = (selected) => {
+    setSelectedClient(selected);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
 
   // Handle sorting
   const handleSort = (key) => {
@@ -747,14 +826,24 @@ const ManageDepartment = () => {
     );
   };
 
-  // Filter tasks
-  const filteredTasks = tasks.filter(task =>
-    task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter tasks based on search query AND client filter
+  const filteredTasks = tasks.filter(task => {
+    // Apply client filter first
+    const clientFilterPass = !selectedClient || 
+                            selectedClient.value === "all" || 
+                            task.clientId === selectedClient.value;
+    
+    // Then apply search filter
+    const searchFilterPass = 
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.clientName && task.clientName.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    return clientFilterPass && searchFilterPass;
+  });
 
   // Apply sorting to filtered results
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -845,6 +934,8 @@ const ManageDepartment = () => {
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
             name: task.task_name || "Unnamed Task",
+            clientName: task.client_name || "Unknown Client",
+            clientId: task.client_id,
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
             assignedTo: task.assigned_to_names ? 
@@ -856,7 +947,6 @@ const ManageDepartment = () => {
             deadline: task.deadline,
             remark: task.remarks,
             taskStatus: task.task_status || "not-acknowledge",
-            clientId: task.client_id,
             createdBy: task.created_by,
             rawAssignedTo: task.assigned_to || "",
             rawAssignedToNames: task.assigned_to_names || ""
@@ -1019,6 +1109,53 @@ const ManageDepartment = () => {
     }
   };
 
+  // Custom styles for client filter dropdown
+  const clientFilterStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: 'white',
+      minHeight: '52px',
+      boxShadow: state.isFocused ? '0 0 0 4px rgba(59, 130, 246, 0.1)' : 'none',
+      "&:hover": {
+        borderColor: '#94a3b8',
+      },
+      width: '100%',
+      maxWidth: '250px',
+    }),
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: '#1e293b',
+      fontWeight: '600',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? '#e0f2fe' : 'white',
+      color: state.isSelected ? '#0369a1' : '#334155',
+      fontWeight: state.isSelected ? '600' : '500',
+      borderLeft: state.isSelected ? '4px solid #3b82f6' : '4px solid transparent',
+      '&:hover': {
+        backgroundColor: '#f1f5f9',
+      },
+    }),
+  };
+
+  // Clear client filter
+  const clearClientFilter = () => {
+    setSelectedClient(null);
+    setCurrentPage(1);
+  };
+
   // Show loading state
   if (loading) {
     return (
@@ -1043,8 +1180,7 @@ const ManageDepartment = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
       {/* Main Card */}
       <div className="mx-auto">
-        {/* <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"> */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
           {/* Card Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -1060,29 +1196,72 @@ const ManageDepartment = () => {
                 <p className="text-blue-100 mt-2">View and manage all tasks with task assignments</p>
               </div>
               
-              {/* Search Box */}
-              <div className="w-full lg:w-96">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search by task name, assigned by, or status..."
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
-                  />
-                  <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {searchQuery && (
-                    <button 
-                      onClick={clearSearch} 
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+              {/* Search Box and Client Filter */}
+              <div className="w-full lg:w-auto">
+
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* Client Filter Dropdown */}
+                  {user.role !== 'staff' && (
+                  <div className="w-full md:w-64">
+                    <div className="relative">
+                      <Select
+                        options={clients}
+                        value={selectedClient}
+                        onChange={handleClientFilterChange}
+                        classNamePrefix="react-select"
+                        styles={clientFilterStyles}
+                        placeholder="Filter by client..."
+                        isLoading={loadingClients}
+                        isClearable={true}
+                        isSearchable={true}
+                        formatOptionLabel={(option) => (
+                          <div className="flex items-center gap-2">
+                            {option.value === "all" && (
+                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            )}
+                            <span>{option.label}</span>
+                            {option.clientCode && (
+                              <span className="text-xs text-slate-500 ml-auto">
+                                {option.clientCode}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      />
+                    </div>
+                    {selectedClient && selectedClient.value !== "all" && (
+                      <p className="text-xs text-blue-100 mt-1 ml-1">
+                        Showing tasks for: {selectedClient.label}
+                      </p>
+                    )}
+                  </div>
                   )}
+                  
+                  {/* Search Box */}
+                  <div className="w-full md:w-96">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by task name, client, assigned by, or status..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
+                      />
+                      <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      {searchQuery && (
+                        <button 
+                          onClick={clearSearch} 
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1090,6 +1269,53 @@ const ManageDepartment = () => {
 
           {/* Table Content */}
           <div className="p-6">
+            {/* Filter Summary */}
+            {(selectedClient || searchQuery) && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-blue-700">Active Filters:</span>
+                  {selectedClient && selectedClient.value !== "all" && (
+                    <span className="px-3 py-1 bg-white text-blue-700 rounded-lg text-sm font-medium border border-blue-200 flex items-center gap-2">
+                      <span className="font-semibold">Client:</span> {selectedClient.label}
+                      <button 
+                        onClick={clearClientFilter}
+                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  {searchQuery && (
+                    <span className="px-3 py-1 bg-white text-blue-700 rounded-lg text-sm font-medium border border-blue-200 flex items-center gap-2">
+                      <span className="font-semibold">Search:</span> "{searchQuery}"
+                      <button 
+                        onClick={clearSearch}
+                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  <button 
+                    onClick={() => {
+                      setSelectedClient(null);
+                      setSearchQuery("");
+                    }}
+                    className="ml-auto px-3 py-1 text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+                <div className="mt-2 text-sm text-blue-600">
+                  Showing {filteredTasks.length} of {tasks.length} total tasks
+                </div>
+              </div>
+            )}
+
             {currentTasks.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1099,7 +1325,9 @@ const ManageDepartment = () => {
                 </div>
                 <p className="text-slate-600 text-lg font-semibold mb-2">No tasks found</p>
                 <p className="text-slate-500 text-sm">
-                  {searchQuery ? "Try adjusting your search terms" : "No tasks available in the system"}
+                  {selectedClient || searchQuery 
+                    ? "Try adjusting your search terms or clear filters" 
+                    : "No tasks available in the system"}
                 </p>
                 <button 
                   onClick={handleCreateTaskModal}
@@ -1125,6 +1353,13 @@ const ManageDepartment = () => {
                           <div className="flex items-center gap-2">
                             Task Name
                             <SortArrow columnKey="name" />
+                          </div>
+                        </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700"
+                        >
+                          <div className="flex items-center gap-2">
+                            Client
                           </div>
                         </th>
                         <th 
@@ -1185,10 +1420,19 @@ const ManageDepartment = () => {
                                   <span className="font-semibold text-slate-900 block">
                                     {task.name || "Unnamed Task"}
                                   </span>
-                                  <span className="font-normal text-slate-900 block">
-                                    ({task.clientName})
-                                  </span>
                                 </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                  </svg>
+                                </div>
+                                <span className="font-medium text-slate-800">
+                                  {task.clientName || "N/A"}
+                                </span>
                               </div>
                             </td>
                             <td className="py-4 px-4">
@@ -1216,9 +1460,6 @@ const ManageDepartment = () => {
                                       }`}
                                     >
                                       {person}
-                                      {/* {isAssigned && person.includes(userName) && (
-                                        <span className="ml-1 text-xs text-green-600">(You)</span>
-                                      )} */}
                                     </span>
                                   ))
                                 ) : (
@@ -1365,13 +1606,16 @@ const ManageDepartment = () => {
                                 </span>
                               </div>
                             </div>
-                            {isAssigned && (
-                              <div className="mt-1">
-                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                            <div className="mt-1">
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                                {task.clientName || "No Client"}
+                              </span>
+                              {isAssigned && (
+                                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
                                   Assigned to you
                                 </span>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                         
@@ -1523,6 +1767,11 @@ const ManageDepartment = () => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-slate-600 font-medium">
                   Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedTasks.length)}</span> of <span className="font-bold text-slate-900">{sortedTasks.length}</span> tasks
+                  {selectedClient && selectedClient.value !== "all" && (
+                    <span className="text-blue-600 ml-2">
+                      (Filtered for {selectedClient.label})
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center gap-2">
                   <button 
@@ -1608,6 +1857,18 @@ const ManageDepartment = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-500 mb-2">Client</h4>
+                      <p className="text-slate-800 font-medium flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                          <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                        </div>
+                        {selectedTask.clientName || "No Client"}
+                      </p>
+                    </div>
+
                     <div>
                       <h4 className="text-sm font-semibold text-slate-500 mb-2">Assigned By</h4>
                       <p className="text-slate-800 font-medium flex items-center gap-2">

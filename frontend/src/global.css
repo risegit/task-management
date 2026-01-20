@@ -81,61 +81,50 @@ aside {
 
 
 /* marquee css start */
+/* Container */
 .capsule-marquee {
-    width: 100%;
-    overflow: hidden;
-    background: transparent;
-    padding: 1rem 0;
+  width: 100%;
+  overflow: hidden;
+  padding: 1rem 0;
 }
 
+/* Moving track */
 .capsule-marquee__track {
-    display: flex;
-    width: max-content;
-    animation: scroll linear infinite;
+  display: flex;
+  width: max-content;
+  animation-name: scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
+/* Single row layout */
 .capsule-marquee__grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    padding-right: 2rem;
-    min-width: 100vw;
-    /* important */
+  display: flex;              /* 🔥 ensures ONE row */
+  align-items: center;
+  gap: 2rem;
+  padding-right: 2rem;
 }
 
+/* Capsule style */
 .capsule {
-    padding: 0.75rem 1.25rem;
-    background: rgb(255 205 210);
-    /* color: rgb(246 45 57); */
-    color: black;
-    font-weight: 5 00;
-    border-radius: 999px;
-    text-align: center;
-    white-space: nowrap;
-    border: 1px solidrgb(255 205 210);
+  padding: 0.75rem 1.25rem;
+  background: rgb(255 205 210);
+  color: #000;
+  font-weight: 500;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid rgb(255 205 210);
 }
 
+/* Animation */
 @keyframes scroll {
-    from {
-        transform: translateX(0);
-    }
-
-    to {
-        transform: translateX(-50%);
-    }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .capsule-marquee__grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 480px) {
-    .capsule-marquee__grid {
-        grid-template-columns: 1fr;
-    }
-}
 
 /* marquee css end */

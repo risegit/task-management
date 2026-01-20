@@ -9,9 +9,9 @@ import {
   ServerStackIcon,
   ArrowRightOnRectangleIcon,
   EyeIcon,
-  BuildingOfficeIcon, 
+  BuildingOfficeIcon,
   ClipboardDocumentCheckIcon,
-  UserGroupIcon, 
+  UserGroupIcon,
   SpeakerWaveIcon
 } from "@heroicons/react/24/solid";
 
@@ -102,7 +102,8 @@ const routes = [
                 element={<Editdept />}
                 allowedRoles={["admin", "manager"]}
               />
-            )},
+            )
+          },
         ],
       },
       {
@@ -119,7 +120,8 @@ const routes = [
                 element={<AddEmployee />}
                 allowedRoles={["admin", "manager"]}
               />
-            )},
+            )
+          },
           {
             name: "Manage Employees",
             path: "/employee/view-employee",
@@ -129,7 +131,8 @@ const routes = [
                 element={<ViewEmployee />}
                 allowedRoles={["admin", "manager"]}
               />
-            )},
+            )
+          },
           {
             name: "Edit Employee",
             path: "/employee/edit-employee/:id",
@@ -140,13 +143,14 @@ const routes = [
                 element={<EditEmployee />}
                 allowedRoles={["admin", "manager"]}
               />
-            )},
+            )
+          },
         ],
       },
       {
         icon: <UserGroupIcon {...icon} />,
         name: "Projects",
-        allowedRoles: ["admin", "manager","staff"],
+        allowedRoles: ["admin", "manager", "staff"],
         collapse: [
           {
             name: "Add Project",
@@ -162,11 +166,11 @@ const routes = [
           {
             name: "Manage Projects",
             path: "/projects/manage-project",
-            allowedRoles: ["admin", "manager","staff"],
+            allowedRoles: ["admin", "manager", "staff"],
             element: (
               <RoleProtectedRoute
                 element={<Manageprojects />}
-                allowedRoles={["admin", "manager","staff"]}
+                allowedRoles={["admin", "manager", "staff"]}
               />
             ),
           },
@@ -192,11 +196,11 @@ const routes = [
           {
             name: "Create Task",
             path: "/task-management/create-task",
-            allowedRoles: ["admin", "manager","staff"],
+            allowedRoles: ["admin", "manager", "staff"],
             element: (
               <RoleProtectedRoute
                 element={<Createtask />}
-                allowedRoles={["admin", "manager","staff"]}
+                allowedRoles={["admin", "manager", "staff"]}
               />
             ),
           },
@@ -215,11 +219,11 @@ const routes = [
             name: "Edit Task",
             path: "/task-management/edit-task/:id",
             hidden: true,
-            allowedRoles: ["admin", "manager","staff"],
+            allowedRoles: ["admin", "manager", "staff"],
             element: (
               <RoleProtectedRoute
                 element={<EditTask />}
-                allowedRoles={["admin", "manager","staff"]}
+                allowedRoles={["admin", "manager", "staff"]}
               />
             ),
           },
@@ -227,11 +231,11 @@ const routes = [
             name: "Edit Task Comment",
             path: "/task-management/edittask/:id",
             hidden: true,
-            allowedRoles: ["admin", "manager","staff"],
+            allowedRoles: ["admin", "manager", "staff"],
             element: (
               <RoleProtectedRoute
                 element={<EditTaskComment />}
-                allowedRoles={["admin", "manager","staff"]}
+                allowedRoles={["admin", "manager", "staff"]}
               />
             ),
           },
