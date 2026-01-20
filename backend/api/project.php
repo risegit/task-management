@@ -56,6 +56,10 @@ switch ($method) {
                 "assigned_emp" => $assigned_emp
             ]);
         }else if($userId){
+            $view_active_clients = $_GET['view_active_clients'] ?? '';
+            if($view_active_clients == "'active'"){
+                $view_active_clients = "AND c.status = 'active'";
+            }
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
                     $whereClause = "WHERE emp_id = '$userId'";
@@ -63,7 +67,7 @@ switch ($method) {
                     $whereClause = '';
                 }
             }
-            $sql1 = "SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( CASE WHEN cu.is_poc = 1 THEN u.name END SEPARATOR ', ' ) AS poc_employee, GROUP_CONCAT( CASE WHEN cu.is_poc = 0 THEN u.name END SEPARATOR ', ' ) AS other_employees FROM clients c INNER JOIN client_users cu ON c.id = cu.client_id INNER JOIN users u ON cu.emp_id = u.id WHERE c.id IN ( SELECT client_id FROM client_users $whereClause ) GROUP BY c.id ORDER BY c.id DESC";
+            $sql1 = "SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( CASE WHEN cu.is_poc = 1 THEN u.name END SEPARATOR ', ' ) AS poc_employee, GROUP_CONCAT( CASE WHEN cu.is_poc = 0 THEN u.name END SEPARATOR ', ' ) AS other_employees FROM clients c INNER JOIN client_users cu ON c.id = cu.client_id INNER JOIN users u ON cu.emp_id = u.id WHERE c.id IN ( SELECT client_id FROM client_users $whereClause ) $view_active_clients GROUP BY c.id ORDER BY c.id DESC";
             // echo json_encode(["status" => "success", "message" => $sql1]);
             $result = $conn->query($sql1);
             $project = [];

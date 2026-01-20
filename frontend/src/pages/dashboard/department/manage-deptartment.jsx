@@ -11,6 +11,147 @@ const ManageDepartment = () => {
     { id: 5, name: "Finance", description: "Budget management", status: "active" },
   ];
 
+  // Color palette for departments - you can customize these
+  const departmentColors = [
+    // Blue variations
+    { bg: "from-blue-500 to-indigo-500", ring: "ring-blue-50", hoverRing: "ring-blue-100", text: "text-blue-700" },
+    // Green variations
+    { bg: "from-emerald-500 to-teal-500", ring: "ring-emerald-50", hoverRing: "ring-emerald-100", text: "text-emerald-700" },
+    // Purple variations
+    { bg: "from-purple-500 to-pink-500", ring: "ring-purple-50", hoverRing: "ring-purple-100", text: "text-purple-700" },
+    // Orange variations
+    { bg: "from-amber-500 to-orange-500", ring: "ring-amber-50", hoverRing: "ring-amber-100", text: "text-amber-700" },
+    // Red variations
+    { bg: "from-rose-500 to-red-500", ring: "ring-rose-50", hoverRing: "ring-rose-100", text: "text-rose-700" },
+    // Cyan variations
+    { bg: "from-cyan-500 to-blue-400", ring: "ring-cyan-50", hoverRing: "ring-cyan-100", text: "text-cyan-700" },
+    // Violet variations
+    { bg: "from-violet-500 to-purple-400", ring: "ring-violet-50", hoverRing: "ring-violet-100", text: "text-violet-700" },
+    // Lime variations
+    { bg: "from-lime-500 to-green-400", ring: "ring-lime-50", hoverRing: "ring-lime-100", text: "text-lime-700" },
+    // Fuchsia variations
+    { bg: "from-fuchsia-500 to-pink-400", ring: "ring-fuchsia-50", hoverRing: "ring-fuchsia-100", text: "text-fuchsia-700" },
+  ];
+
+  // Specific department text color mapping based on your list
+  const getDepartmentTextColor = (departmentName) => {
+    const colorMap = {
+      "social media": "text-pink-600",
+      "seo": "text-teal-600",
+      "pr": "text-purple-600",
+      "ppc": "text-orange-600",
+      "graphic design / video editor": "text-amber-600",
+      "development": "text-blue-600",
+      "content writer": "text-emerald-600",
+      "catalogue": "text-indigo-600",
+      "catalog": "text-indigo-600",
+      "admin": "text-red-600",
+    };
+    
+    const lowerName = departmentName?.toLowerCase() || "";
+    return colorMap[lowerName] || "text-slate-900";
+  };
+
+  // Get department initial with fallback
+  const getDepartmentInitial = (department) => {
+    // Check different possible property names
+    let name = "";
+    
+    if (department.name) {
+      name = department.name;
+    } else if (department.id && typeof department.id === 'string' && department.id.length > 1) {
+      // If id is a string like "Catalog", use it
+      name = department.id;
+    } else if (department.description) {
+      // Use first word of description
+      name = department.description.split(' ')[0];
+    }
+    
+    // Get first letter
+    if (name && name.trim().length > 0) {
+      const firstChar = name.trim().charAt(0).toUpperCase();
+      // Handle special cases
+      if (firstChar === 'S' && name.toLowerCase().includes('seo')) {
+        return 'S'; // SEO
+      } else if (firstChar === 'C' && name.toLowerCase().includes('content')) {
+        return 'C'; // Content Writer
+      } else if (firstChar === 'P') {
+        if (name.toLowerCase().includes('pr')) return 'P';
+        if (name.toLowerCase().includes('ppc')) return 'P';
+        if (name.toLowerCase().includes('public')) return 'P';
+      } else if (firstChar === 'G' && name.toLowerCase().includes('graphic')) {
+        return 'G'; // Graphic Design
+      } else if (firstChar === 'D' && name.toLowerCase().includes('development')) {
+        return 'D'; // Development
+      } else if (firstChar === 'A' && name.toLowerCase().includes('admin')) {
+        return 'A'; // Admin
+      }
+      return firstChar;
+    }
+    
+    // Fallback based on common department initials
+    const commonInitials = {
+      "Catalog": "C",
+      "Catalogue": "C", 
+      "Content Writer": "C",
+      "PR": "P",
+      "Graphic Design": "G",
+      "Social Media": "S",
+      "SEO": "S",
+      "PPC": "P",
+      "Development": "D",
+      "Admin": "A"
+    };
+    
+    // Try to match by common names
+    for (const [key, initial] of Object.entries(commonInitials)) {
+      if (department.id && department.id.toString().toLowerCase().includes(key.toLowerCase())) {
+        return initial;
+      }
+      if (department.name && department.name.toLowerCase().includes(key.toLowerCase())) {
+        return initial;
+      }
+      if (department.description && department.description.toLowerCase().includes(key.toLowerCase())) {
+        return initial;
+      }
+    }
+    
+    // Ultimate fallback
+    return "D";
+  };
+
+  // Get department display name
+  const getDepartmentName = (department) => {
+    if (department.name) return department.name;
+    if (department.id && typeof department.id === 'string') return department.id;
+    if (department.id) return `Department ${department.id}`;
+    return "Unnamed Department";
+  };
+
+  // Create a mapping function to get department color
+  const getDepartmentColor = (departmentId, departmentName) => {
+    // Use departmentName for consistent color mapping
+    const departmentNames = [
+      "Catalog", "Content Writer", "PR", "Graphic Design / Video Editor Team", 
+      "Social Media", "SEO", "PPC", "Development", "Admin"
+    ];
+    
+    // Try to match by name first
+    const indexByName = departmentNames.findIndex(name => {
+      if (!departmentName) return false;
+      const deptLower = departmentName.toLowerCase();
+      const nameLower = name.toLowerCase();
+      return deptLower.includes(nameLower.split(' ')[0]) || nameLower.includes(deptLower.split(' ')[0]);
+    });
+    
+    // If not found by name, use ID or fallback to index-based
+    const index = indexByName !== -1 ? indexByName : 
+                  (typeof departmentId === 'number' ? departmentId % departmentColors.length : 
+                   Math.floor(Math.random() * departmentColors.length));
+    
+    return departmentColors[index % departmentColors.length];
+  };
+
   const navigate = useNavigate();
 
   const user = getCurrentUser();
@@ -80,16 +221,17 @@ const ManageDepartment = () => {
 
   // Filter departments
   const filteredDepartments = departments.filter(dept =>
-    dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    dept.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (dept.name && dept.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (dept.description && dept.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (dept.id && dept.id.toString().toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Apply sorting to filtered results
   const sortedDepartments = [...filteredDepartments].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
+    const aValue = a[sortConfig.key] || "";
+    const bValue = b[sortConfig.key] || "";
 
     if (aValue < bValue) {
       return sortConfig.direction === "ascending" ? -1 : 1;
@@ -248,22 +390,29 @@ const ManageDepartment = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentDepartments.map((dept) => (
-                        <tr 
-                          key={dept.id} 
-                          className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
-                        >
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-md ring-4 ring-blue-50 group-hover:ring-blue-100 transition-all">
-                                <span className="text-white font-bold text-sm">
-                                  {dept.name ? dept.name.charAt(0).toUpperCase() : "D"}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-slate-900 block">
-                                  {dept.name || "Unnamed Department"}
-                                </span>
+                      {currentDepartments.map((dept) => {
+                        const deptColor = getDepartmentColor(dept.id, getDepartmentName(dept));
+                        const textColor = getDepartmentTextColor(getDepartmentName(dept));
+                        const initial = getDepartmentInitial(dept);
+                        const displayName = getDepartmentName(dept);
+                        
+                        return (
+                          <tr 
+                            key={dept.id} 
+                            className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${deptColor.bg} flex items-center justify-center shadow-md ring-4 ${deptColor.ring} group-hover:${deptColor.hoverRing} transition-all`}>
+                                  <span className="text-black font-bold text-sm">
+                                    {initial}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className={`font-semibold ${textColor} block`}>
+                                    {displayName}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -302,50 +451,57 @@ const ManageDepartment = () => {
 
                 {/* Mobile Cards */}
                 <div className="block lg:hidden space-y-4">
-                  {currentDepartments.map((dept) => (
-                    <div key={dept.id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg ring-4 ring-blue-50">
-                          <span className="text-white font-bold text-lg">
-                            {dept.name ? dept.name.charAt(0).toUpperCase() : "D"}
-                          </span>
+                  {currentDepartments.map((dept) => {
+                    const deptColor = getDepartmentColor(dept.id, getDepartmentName(dept));
+                    const textColor = getDepartmentTextColor(getDepartmentName(dept));
+                    const initial = getDepartmentInitial(dept);
+                    const displayName = getDepartmentName(dept);
+                    
+                    return (
+                      <div key={dept.id} className="border-2 border-slate-200 rounded-2xl p-5 bg-gradient-to-br from-white to-slate-50 hover:border-blue-300 hover:shadow-lg transition-all">
+                        <div className="flex items-start gap-4 mb-4">
+                          <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${deptColor.bg} flex items-center justify-center shadow-lg ring-4 ${deptColor.ring}`}>
+                            <span className="text-white font-bold text-lg">
+                              {initial}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <h3 className={`font-bold ${textColor} text-lg mb-1`}>
+                              {displayName}
+                            </h3>
+                            <span className={`px-3 py-1 rounded-lg text-xs font-semibold inline-block ${
+                              (dept.status === "active" || dept.status === 1 || dept.status?.toLowerCase?.() === "active") 
+                                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200" 
+                                : "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200"
+                            }`}>
+                              {(dept.status === "active" || dept.status === 1 || dept.status?.toLowerCase?.() === "active") ? "Active" : "Inactive"}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-slate-900 text-lg mb-1">
-                            {dept.name || "Unnamed Department"}
-                          </h3>
-                          <span className={`px-3 py-1 rounded-lg text-xs font-semibold inline-block ${
-                            (dept.status === "active" || dept.status === 1) 
-                              ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200" 
-                              : "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200"
-                          }`}>
-                            {(dept.status === "active" || dept.status === 1) ? "Active" : "Inactive"}
-                          </span>
+                        
+                        <div className="space-y-3 mb-4">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                            <span className="text-slate-700 text-sm flex-1">
+                              {dept.description || "No description available"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        
+                        <button 
+                          onClick={() => handleEdit(dept.id)}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
-                          <span className="text-slate-700 text-sm flex-1">
-                            {dept.description || "No description available"}
-                          </span>
-                        </div>
+                          Edit Department
+                        </button>
                       </div>
-                      
-                      <button 
-                        onClick={() => handleEdit(dept.id)}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit Department
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -378,7 +534,7 @@ const ManageDepartment = () => {
                         currentPage === index + 1 
                           ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200" 
                           : "bg-white text-slate-700 hover:bg-slate-100 shadow-sm border-2 border-slate-200"
-                      }`}
+                    }`}
                     >
                       {index + 1}
                     </button>
