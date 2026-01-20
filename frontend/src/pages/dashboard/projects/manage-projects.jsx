@@ -4,18 +4,14 @@ import axios from "axios";
 import { getCurrentUser } from "../../../utils/api";
 
 const ProjectsTable = () => {
-
   const navigate = useNavigate();
-
+  
   // State management
   const [projects, setProjects] = useState([]);
-  const [project_assign, setProjectAssign] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const { id } = useParams();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
-  // const user = JSON.parse(localStorage.getItem("user"));
-  
   const user = getCurrentUser();
 
   // Pagination state
@@ -57,18 +53,40 @@ const ProjectsTable = () => {
         console.log("API Response:", result);
 
         if (result.status === "success") {
-
           const normalizedProjects = result.project.map((item, index) => {
+            // Handle POC - convert to array if it's a string
+            let pocArray = [];
+            if (item.poc_employee) {
+              if (Array.isArray(item.poc_employee)) {
+                pocArray = item.poc_employee;
+              } else if (typeof item.poc_employee === 'string') {
+                pocArray = [item.poc_employee];
+              }
+            }
+            
+            // Handle other_employees - convert to array if it's a string
+            let otherEmployeesArray = [];
+            if (item.other_employees) {
+              if (Array.isArray(item.other_employees)) {
+                otherEmployeesArray = item.other_employees;
+              } else if (typeof item.other_employees === 'string') {
+                otherEmployeesArray = [item.other_employees];
+              }
+            }
             
             return {
-              id: item.client_id,        // used for routing
-              projectIndex: String(index + 1), // used for mapping
-              projectName: item.client_name,
-              description: item.description,
-              startDate: item.start_date,
+              id: item.client_id,
+              projectIndex: String(index + 1),
+              projectName: item.client_name || '',
+              description: item.description || '',
+              startDate: item.start_date || '',
               status: item.status === "active" ? "Active" : "Inactive",
-              poc: item.poc_employee,
-              other_employees: item.other_employees
+              poc: pocArray,
+              pocString: pocArray.join(', '), // String version for searching
+              other_employees: otherEmployeesArray,
+              otherEmployeesString: otherEmployeesArray.join(', '), // String version for searching
+              client_name: item.client_name || '',
+              description: item.description || ''
             };
           });
 
@@ -84,11 +102,10 @@ const ProjectsTable = () => {
       }
     };
 
-    fetchProjects();
+    if (user && user.id && user.user_code) {
+      fetchProjects();
+    }
   }, []);
-
-
-
 
   // Handle sorting
   const handleSort = (key) => {
@@ -101,8 +118,13 @@ const ProjectsTable = () => {
 
   // Format date to readable format
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    if (!dateString) return "N/A";
+    try {
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString('en-US', options);
+    } catch (error) {
+      return dateString;
+    }
   };
 
   // Search function
@@ -122,11 +144,74 @@ const ProjectsTable = () => {
     navigate(`/dashboard/projects/edit-project/${id}`);
   };
 
-  // Filter projects
-  const filteredProjects = projects.filter(project =>
-    project.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.poc.some(poc => poc.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    project.status.toLowerCase().includes(searchQuery.toLowerCase())
+  // Enhanced search function - searches all columns
+  const searchInAllColumns = (project, query) => {
+    const searchTerms = query.toLowerCase().trim();
+    
+    if (!searchTerms) return true;
+    
+    // Search in project name
+    if (project.projectName && project.projectName.toLowerCase().includes(searchTerms)) {
+      return true;
+    }
+    
+    // Search in description
+    if (project.description && project.description.toLowerCase().includes(searchTerms)) {
+      return true;
+    }
+    
+    // Search in status
+    if (project.status && project.status.toLowerCase().includes(searchTerms)) {
+      return true;
+    }
+    
+    // Search in POC (check each POC in the array)
+    if (project.poc && Array.isArray(project.poc)) {
+      for (const pocItem of project.poc) {
+        if (pocItem && pocItem.toLowerCase().includes(searchTerms)) {
+          return true;
+        }
+      }
+    }
+    
+    // Search in POC string
+    if (project.pocString && project.pocString.toLowerCase().includes(searchTerms)) {
+      return true;
+    }
+    
+    // Search in other employees (check each employee in the array)
+    if (project.other_employees && Array.isArray(project.other_employees)) {
+      for (const employee of project.other_employees) {
+        if (employee && employee.toLowerCase().includes(searchTerms)) {
+          return true;
+        }
+      }
+    }
+    
+    // Search in other employees string
+    if (project.otherEmployeesString && project.otherEmployeesString.toLowerCase().includes(searchTerms)) {
+      return true;
+    }
+    
+    // Search in start date (formatted)
+    if (project.startDate) {
+      const formattedDate = formatDate(project.startDate).toLowerCase();
+      if (formattedDate.includes(searchTerms)) {
+        return true;
+      }
+    }
+    
+    // Search in raw start date
+    if (project.startDate && project.startDate.toLowerCase().includes(searchTerms)) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Filter projects using enhanced search
+  const filteredProjects = projects.filter(project => 
+    searchInAllColumns(project, searchQuery)
   );
 
   // Apply sorting to filtered results
@@ -137,21 +222,30 @@ const ProjectsTable = () => {
     const bValue = b[sortConfig.key];
 
     if (sortConfig.key === 'startDate') {
-      const dateA = new Date(aValue);
-      const dateB = new Date(bValue);
+      const dateA = new Date(aValue || 0);
+      const dateB = new Date(bValue || 0);
       if (dateA < dateB) return sortConfig.direction === "ascending" ? -1 : 1;
       if (dateA > dateB) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
     } else if (sortConfig.key === 'poc') {
       // Sort by first POC name
-      const pocA = aValue[0] || '';
-      const pocB = bValue[0] || '';
+      const pocA = (a.poc && a.poc[0]) || '';
+      const pocB = (b.poc && b.poc[0]) || '';
       if (pocA.toLowerCase() < pocB.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
       if (pocA.toLowerCase() > pocB.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
+    } else if (sortConfig.key === 'other_employees') {
+      // Sort by first other employee name
+      const empA = (a.other_employees && a.other_employees[0]) || '';
+      const empB = (b.other_employees && b.other_employees[0]) || '';
+      if (empA.toLowerCase() < empB.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
+      if (empA.toLowerCase() > empB.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
+      return 0;
     } else {
-      if (aValue.toLowerCase() < bValue.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
-      if (aValue.toLowerCase() > bValue.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
+      const valA = (aValue || '').toString().toLowerCase();
+      const valB = (bValue || '').toString().toLowerCase();
+      if (valA < valB) return sortConfig.direction === "ascending" ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
     }
   });
@@ -166,14 +260,6 @@ const ProjectsTable = () => {
   const goToPage = (page) => setCurrentPage(page);
   const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
-
-  // Simulate loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Show loading state
   if (loading) {
@@ -197,9 +283,6 @@ const ProjectsTable = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
-      {/* Header */}
-     
-
       {/* Main Card */}
       <div className="mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -216,6 +299,11 @@ const ProjectsTable = () => {
                   Project Directory
                 </h2>
                 <p className="text-blue-100 mt-2">View and manage all projects in your organization</p>
+                {searchQuery && (
+                  <p className="text-blue-100 text-sm mt-1">
+                    Found {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} matching "{searchQuery}"
+                  </p>
+                )}
               </div>
               
               {/* Search Box */}
@@ -223,7 +311,7 @@ const ProjectsTable = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search by project name, POC, or status..."
+                    placeholder="Search by project name, POC, employees, status, date..."
                     value={searchQuery}
                     onChange={handleSearchChange}
                     className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
@@ -255,10 +343,20 @@ const ProjectsTable = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <p className="text-slate-600 text-lg font-semibold mb-2">No projects found</p>
-                <p className="text-slate-500 text-sm">
-                  {searchQuery ? "Try adjusting your search terms" : "No projects available in the system"}
+                <p className="text-slate-600 text-lg font-semibold mb-2">
+                  {searchQuery ? `No projects found for "${searchQuery}"` : "No projects found"}
                 </p>
+                <p className="text-slate-500 text-sm">
+                  {searchQuery ? "Try different search terms" : "No projects available in the system"}
+                </p>
+                {searchQuery && (
+                  <button 
+                    onClick={clearSearch}
+                    className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
+                  >
+                    Clear Search
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -287,11 +385,11 @@ const ProjectsTable = () => {
                         </th>
                         <th 
                           className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
-                          onClick={() => handleSort("poc")}
+                          onClick={() => handleSort("other_employees")}
                         >
                           <div className="flex items-center gap-2">
-                            Others
-                            <SortArrow columnKey="poc" />
+                            Other Employees
+                            <SortArrow columnKey="other_employees" />
                           </div>
                         </th>
                         <th 
@@ -313,9 +411,9 @@ const ProjectsTable = () => {
                           </div>
                         </th>
                         {user.role !== "staff" && (
-                        <th className="py-4 px-4 text-right font-semibold text-slate-700 rounded-tr-xl">
-                          Actions
-                        </th>
+                          <th className="py-4 px-4 text-right font-semibold text-slate-700 rounded-tr-xl">
+                            Actions
+                          </th>
                         )}
                       </tr>
                     </thead>
@@ -336,25 +434,44 @@ const ProjectsTable = () => {
                                 <span className="font-semibold text-slate-900 block">
                                   {project.projectName}
                                 </span>
+                                {project.description && (
+                                  <span className="text-slate-600 text-sm block mt-1 line-clamp-1">
+                                    {project.description}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
-                                <span 
-                                  className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                >
-                                  {project.poc || "N/A"}
-                                </span>
+                              {project.poc && project.poc.length > 0 ? (
+                                project.poc.map((pocItem, index) => (
+                                  <span 
+                                    key={index}
+                                    className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+                                  >
+                                    {pocItem}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-500 text-sm">N/A</span>
+                              )}
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
-                                <span 
-                                  className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                >
-                                  {project.other_employees || "N/A"}
-                                </span>
+                              {project.other_employees && project.other_employees.length > 0 ? (
+                                project.other_employees.map((employee, index) => (
+                                  <span 
+                                    key={index}
+                                    className="px-2.5 py-1 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg text-xs font-medium border border-green-100"
+                                  >
+                                    {employee}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-500 text-sm">N/A</span>
+                              )}
                             </div>
                           </td>
                           <td className="py-4 px-4">
@@ -420,6 +537,20 @@ const ProjectsTable = () => {
                       </div>
                       
                       <div className="space-y-3 mb-4">
+                        {project.description && (
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                            <div>
+                              <span className="text-sm font-medium text-slate-700">Description:</span>
+                              <span className="text-slate-700 text-sm ml-2 block mt-1">
+                                {project.description}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex items-start gap-2">
                           <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -427,11 +558,41 @@ const ProjectsTable = () => {
                           <div>
                             <span className="text-sm font-medium text-slate-700">Point of Contact:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                                <span 
-                                  className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
-                                >
-                                  {project.poc || "N/A"}
-                                </span>
+                              {project.poc && project.poc.length > 0 ? (
+                                project.poc.map((pocItem, index) => (
+                                  <span 
+                                    key={index}
+                                    className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+                                  >
+                                    {pocItem}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-500 text-sm">N/A</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-2">
+                          <svg className="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          <div>
+                            <span className="text-sm font-medium text-slate-700">Other Employees:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {project.other_employees && project.other_employees.length > 0 ? (
+                                project.other_employees.map((employee, index) => (
+                                  <span 
+                                    key={index}
+                                    className="px-2 py-1 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg text-xs font-medium border border-green-100"
+                                  >
+                                    {employee}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-500 text-sm">N/A</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -449,15 +610,17 @@ const ProjectsTable = () => {
                         </div>
                       </div>
                       
-                      <button 
-                        onClick={() => handleEdit(project.id)}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit Project
-                      </button>
+                      {user.role !== "staff" && (
+                        <button 
+                          onClick={() => handleEdit(project.id)}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit Project
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -471,6 +634,11 @@ const ProjectsTable = () => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-slate-600 font-medium">
                   Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedProjects.length)}</span> of <span className="font-bold text-slate-900">{sortedProjects.length}</span> projects
+                  {searchQuery && (
+                    <span className="text-blue-600 ml-2">
+                      (Filtered from {projects.length} total)
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center gap-2">
                   <button 

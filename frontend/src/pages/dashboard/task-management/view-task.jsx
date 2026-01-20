@@ -13,7 +13,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const user = getCurrentUser();
-
+  console.log('user=', user.department);
   // Priority options for dropdown
   const priorityOptions = [
     { value: "low", label: "Low", color: "#10b981" }, // Green
@@ -25,6 +25,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     name: "",
     assignedTo: [],
     deadline: "",
+    time: "",
     remarks: "",
     priority: "", // New priority field
   });
@@ -213,6 +214,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
           name: "",
           assignedTo: [],
           deadline: "",
+          time: "",
           remarks: "",
           priority: "",
         });
@@ -620,6 +622,92 @@ const ManageDepartment = () => {
   
   const itemsPerPage = 10;
 
+  // ========== HELPER FUNCTIONS (DEFINE THESE FIRST) ==========
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Helper function to convert 24-hour format to 12-hour AM/PM format
+  const formatTimeTo12Hour = (time24) => {
+    if (!time24 || !time24.includes(':')) return time24;
+    
+    try {
+      const [hours, minutes] = time24.split(':');
+      const hour = parseInt(hours, 10);
+      const minute = parseInt(minutes, 10);
+      
+      if (isNaN(hour) || isNaN(minute)) return time24;
+      
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      const formattedMinutes = minute.toString().padStart(2, '0');
+      
+      return `${hour12}:${formattedMinutes} ${period}`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return time24;
+    }
+  };
+
+  // Check if deadline is upcoming or overdue
+  const getDeadlineStatus = (deadline) => {
+    if (!deadline) return "text-slate-500";
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return "text-red-600 font-semibold";
+    if (diffDays <= 7) return "text-amber-600 font-semibold";
+    return "text-green-600 font-medium";
+  };
+
+  // Get task status badge color
+  const getTaskStatusBadge = (status) => {
+    const normalizedStatus = status ? status.toLowerCase() : '';
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
+      case "acknowledge":
+        return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
+      case "in-progress":
+        return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
+      case "completed":
+        return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200";
+      default:
+        return "bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200";
+    }
+  };
+
+  // Format task status for display
+  const formatTaskStatus = (status) => {
+    if (!status) return "Not-Acknowledge";
+    
+    const normalizedStatus = status.toLowerCase();
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "Not-Acknowledge";
+      case "acknowledge":
+        return "Acknowledge";
+      case "in-progress":
+        return "In-progress";
+      case "completed":
+        return "Completed";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
   // NEW FUNCTION: Check if current user is assigned to the task
   const isUserAssignedToTask = (task) => {
     if (!task || !userId || !userName) return false;
@@ -642,6 +730,78 @@ const ManageDepartment = () => {
     
     return false;
   };
+
+  // Enhanced filter function that searches in assignedTo array
+  const filterTasks = (task) => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search in task name
+    if (task.name && task.name.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in client name
+    if (task.clientName && task.clientName.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in assigned by
+    if (task.assignedBy && task.assignedBy.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in assignedTo array
+    if (task.assignedTo && Array.isArray(task.assignedTo)) {
+      for (const assignedUser of task.assignedTo) {
+        if (assignedUser.toLowerCase().includes(query)) {
+          return true;
+        }
+      }
+    }
+    
+    // Search in assignedToString (concatenated version)
+    if (task.assignedToString && task.assignedToString.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in description
+    if (task.description && task.description.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in remarks
+    if (task.remark && task.remark.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in task status
+    if (task.taskStatus && task.taskStatus.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in formatted date
+    if (task.deadline) {
+      const formattedDate = formatDate(task.deadline).toLowerCase();
+      if (formattedDate.includes(query)) {
+        return true;
+      }
+    }
+    
+    // Search in formatted time
+    if (task.time) {
+      const formattedTime = formatTimeTo12Hour(task.time).toLowerCase();
+      if (formattedTime.includes(query)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // ========== REST OF THE COMPONENT CODE ==========
+  // (Keep everything else exactly as you have it, starting from useEffect)
 
   useEffect(() => {
     // Prevent multiple API calls
@@ -692,10 +852,14 @@ const ManageDepartment = () => {
             assignedTo: task.assigned_to_names ? 
               (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
               [],
+            assignedToString: task.assigned_to_names ? 
+              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names.join(', ') : task.assigned_to_names) : 
+              "",
             assignedToIds: task.assigned_to_ids ? 
               (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
               [],
             deadline: task.deadline,
+            time: task.time,
             remark: task.remarks,
             taskStatus: task.task_status || "not-acknowledge",
             clientId: task.client_id,
@@ -747,14 +911,8 @@ const ManageDepartment = () => {
     );
   };
 
-  // Filter tasks
-  const filteredTasks = tasks.filter(task =>
-    task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter tasks using enhanced search
+  const filteredTasks = tasks.filter(filterTasks);
 
   // Apply sorting to filtered results
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -845,11 +1003,15 @@ const ManageDepartment = () => {
           const transformedTasks = tasksData.map(task => ({
             id: task.id,
             name: task.task_name || "Unnamed Task",
+            clientName: task.client_name || "Unknown Client",
             description: task.remarks || "No description",
             assignedBy: task.assigned_by_name || "Unknown",
             assignedTo: task.assigned_to_names ? 
               (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
               [],
+            assignedToString: task.assigned_to_names ? 
+              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names.join(', ') : task.assigned_to_names) : 
+              "",
             assignedToIds: task.assigned_to_ids ? 
               (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
               [],
@@ -890,9 +1052,9 @@ const ManageDepartment = () => {
   const updateTaskStatus = async (taskId, newStatus) => {
     try {
       const form = new FormData();
-      form.append("task_id", taskId);
+      form.append("taskId", taskId);
       form.append("userName", user?.name);
-      form.append("task_status", newStatus);
+      form.append("status", newStatus);
       form.append("update_status", "true");
       form.append("userId", userId);
       form.append("_method", "PUT");
@@ -956,69 +1118,6 @@ const ManageDepartment = () => {
   const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Check if deadline is upcoming or overdue
-  const getDeadlineStatus = (deadline) => {
-    if (!deadline) return "text-slate-500";
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) return "text-red-600 font-semibold";
-    if (diffDays <= 7) return "text-amber-600 font-semibold";
-    return "text-green-600 font-medium";
-  };
-
-  // Get task status badge color
-  const getTaskStatusBadge = (status) => {
-    const normalizedStatus = status ? status.toLowerCase() : '';
-    
-    switch(normalizedStatus) {
-      case "not-acknowledge":
-      case "not-acknowledge":
-        return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
-      case "acknowledge":
-        return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
-      case "in-progress":
-        return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
-      case "completed":
-        return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200";
-      default:
-        return "bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200";
-    }
-  };
-
-  // Format task status for display
-  const formatTaskStatus = (status) => {
-    if (!status) return "Not-Acknowledge";
-    
-    const normalizedStatus = status.toLowerCase();
-    
-    switch(normalizedStatus) {
-      case "not-acknowledge":
-        return "Not-Acknowledge";
-      case "acknowledge":
-        return "Acknowledge";
-      case "in-progress":
-        return "In-progress";
-      case "completed":
-        return "Completed";
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
-    }
-  };
-
   // Show loading state
   if (loading) {
     return (
@@ -1039,11 +1138,11 @@ const ManageDepartment = () => {
     );
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
       {/* Main Card */}
       <div className="mx-auto">
-        {/* <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"> */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200">
           {/* Card Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
@@ -1058,6 +1157,11 @@ const ManageDepartment = () => {
                   View All Tasks
                 </h2>
                 <p className="text-blue-100 mt-2">View and manage all tasks with task assignments</p>
+                {searchQuery && (
+                  <p className="text-blue-100 text-sm mt-1">
+                    Found {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} matching "{searchQuery}"
+                  </p>
+                )}
               </div>
               
               {/* Search Box */}
@@ -1065,7 +1169,7 @@ const ManageDepartment = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search by task name, assigned by, or status..."
+                    placeholder="Search by task name, assigned by, assigned to, or status..."
                     value={searchQuery}
                     onChange={handleSearchChange}
                     className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
@@ -1097,10 +1201,20 @@ const ManageDepartment = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <p className="text-slate-600 text-lg font-semibold mb-2">No tasks found</p>
-                <p className="text-slate-500 text-sm">
-                  {searchQuery ? "Try adjusting your search terms" : "No tasks available in the system"}
+                <p className="text-slate-600 text-lg font-semibold mb-2">
+                  {searchQuery ? `No tasks found for "${searchQuery}"` : "No tasks found"}
                 </p>
+                <p className="text-slate-500 text-sm">
+                  {searchQuery ? "Try different search terms" : "No tasks available in the system"}
+                </p>
+                {searchQuery && (
+                  <button 
+                    onClick={clearSearch}
+                    className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
+                  >
+                    Clear Search
+                  </button>
+                )}
                 <button 
                   onClick={handleCreateTaskModal}
                   className="mt-4 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
@@ -1216,9 +1330,6 @@ const ManageDepartment = () => {
                                       }`}
                                     >
                                       {person}
-                                      {/* {isAssigned && person.includes(userName) && (
-                                        <span className="ml-1 text-xs text-green-600">(You)</span>
-                                      )} */}
                                     </span>
                                   ))
                                 ) : (
@@ -1237,7 +1348,12 @@ const ManageDepartment = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <span className={`${getDeadlineStatus(task.deadline)}`}>
-                                  {formatDate(task.deadline)}
+                                  {formatDate(task.deadline)}<br/>
+                                  {task.time && (
+                                    <span className="block text-sm mt-1">
+                                      {formatTimeTo12Hour(task.time)}
+                                    </span>
+                                  )}
                                 </span>
                               </div>
                             </td>
@@ -1523,6 +1639,11 @@ const ManageDepartment = () => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-slate-600 font-medium">
                   Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedTasks.length)}</span> of <span className="font-bold text-slate-900">{sortedTasks.length}</span> tasks
+                  {searchQuery && (
+                    <span className="text-blue-600 ml-2">
+                      (Filtered from {tasks.length} total)
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center gap-2">
                   <button 
@@ -1635,7 +1756,14 @@ const ManageDepartment = () => {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {formatDate(selectedTask.deadline)}
+                        <div>
+                          <span>{formatDate(selectedTask.deadline)}</span>
+                          {selectedTask.time && (
+                            <div className="text-sm mt-1">
+                              {formatTimeTo12Hour(selectedTask.time)}
+                            </div>
+                          )}
+                        </div>
                       </p>
                     </div>
 
