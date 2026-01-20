@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCurrentUser } from "../../../utils/api";
 
 const ManageDepartment = () => {
   const departmentsData = [
@@ -152,6 +153,8 @@ const ManageDepartment = () => {
   };
 
   const navigate = useNavigate();
+
+  const user = getCurrentUser();
   
   const [departments, setDepartments] = useState(departmentsData);
   const [loading, setLoading] = useState(true);
@@ -381,7 +384,9 @@ const ManageDepartment = () => {
                             <SortArrow columnKey="status" />
                           </div>
                         </th>
+                        {user?.role == "admin" && (
                         <th className="py-4 px-4 text-right font-semibold text-slate-700 rounded-tr-xl">Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -409,21 +414,23 @@ const ManageDepartment = () => {
                                   </span>
                                 </div>
                               </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className="text-slate-700">
-                                {dept.description || "No description available"}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${
-                                (dept.status === "active" || dept.status === 1 || dept.status?.toLowerCase?.() === "active") 
-                                  ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200" 
-                                  : "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200"
-                              }`}>
-                                {(dept.status === "active" || dept.status === 1 || dept.status?.toLowerCase?.() === "active") ? "Active" : "Inactive"}
-                              </span>
-                            </td>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-slate-700">
+                              {dept.description || "No description available"}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-block ${
+                              (dept.status === "active" || dept.status === 1) 
+                                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200" 
+                                : "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200"
+                            }`}>
+                              {(dept.status === "active" || dept.status === 1) ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          {user?.role == "admin" && (
                             <td className="py-4 px-4 text-right">
                               <button 
                                 onClick={() => handleEdit(dept.id)} 
@@ -435,9 +442,9 @@ const ManageDepartment = () => {
                                 Edit
                               </button>
                             </td>
-                          </tr>
-                        );
-                      })}
+                          )}
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

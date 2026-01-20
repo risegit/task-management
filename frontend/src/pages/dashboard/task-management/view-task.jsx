@@ -13,7 +13,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const user = getCurrentUser();
-
+  console.log('user=', user.department);
   // Priority options for dropdown
   const priorityOptions = [
     { value: "low", label: "Low", color: "#10b981" }, // Green
@@ -25,6 +25,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     name: "",
     assignedTo: [],
     deadline: "",
+    time: "",
     remarks: "",
     priority: "", // New priority field
   });
@@ -213,6 +214,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
           name: "",
           assignedTo: [],
           deadline: "",
+          time: "",
           remarks: "",
           priority: "",
         });
@@ -623,6 +625,92 @@ const ManageDepartment = () => {
   
   const itemsPerPage = 10;
 
+  // ========== HELPER FUNCTIONS (DEFINE THESE FIRST) ==========
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Helper function to convert 24-hour format to 12-hour AM/PM format
+  const formatTimeTo12Hour = (time24) => {
+    if (!time24 || !time24.includes(':')) return time24;
+    
+    try {
+      const [hours, minutes] = time24.split(':');
+      const hour = parseInt(hours, 10);
+      const minute = parseInt(minutes, 10);
+      
+      if (isNaN(hour) || isNaN(minute)) return time24;
+      
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      const formattedMinutes = minute.toString().padStart(2, '0');
+      
+      return `${hour12}:${formattedMinutes} ${period}`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return time24;
+    }
+  };
+
+  // Check if deadline is upcoming or overdue
+  const getDeadlineStatus = (deadline) => {
+    if (!deadline) return "text-slate-500";
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return "text-red-600 font-semibold";
+    if (diffDays <= 7) return "text-amber-600 font-semibold";
+    return "text-green-600 font-medium";
+  };
+
+  // Get task status badge color
+  const getTaskStatusBadge = (status) => {
+    const normalizedStatus = status ? status.toLowerCase() : '';
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
+      case "acknowledge":
+        return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
+      case "in-progress":
+        return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
+      case "completed":
+        return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200";
+      default:
+        return "bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200";
+    }
+  };
+
+  // Format task status for display
+  const formatTaskStatus = (status) => {
+    if (!status) return "Not-Acknowledge";
+    
+    const normalizedStatus = status.toLowerCase();
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "Not-Acknowledge";
+      case "acknowledge":
+        return "Acknowledge";
+      case "in-progress":
+        return "In-progress";
+      case "completed":
+        return "Completed";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
   // NEW FUNCTION: Check if current user is assigned to the task
   const isUserAssignedToTask = (task) => {
     if (!task || !userId || !userName) return false;
@@ -646,74 +734,77 @@ const ManageDepartment = () => {
     return false;
   };
 
-  // Fetch clients from API
-  const fetchClients = async () => {
-    try {
-      setLoadingClients(true);
-      console.log("Fetching clients...");
-      
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}api/project.php`,
-        {
-          params: { 
-            user_id: userId,
-            user_code: userCode,
-            view_active_clients: "'active'"
-          }
-        }
-      );
-      
-      const result = response.data;
-      console.log("Clients API Response:", result);
-
-      if (result.status === "success" && result.project && Array.isArray(result.project)) {
-        // Transform API data to match react-select format
-        const clientOptions = result.project.map(client => ({
-          value: client.client_id,
-          label: client.client_name,
-          clientCode: client.client_code,
-          description: client.description,
-          startDate: client.start_date
-        }));
-        
-        // Add "All Clients" option
-        const allClientsOption = {
-          value: "all",
-          label: "All Clients",
-          color: "#3b82f6"
-        };
-        
-        setClients([allClientsOption, ...clientOptions]);
-        console.log("Client options:", [allClientsOption, ...clientOptions]);
-      } else {
-        console.warn("No clients found in API response");
-        // Set default "All Clients" option
-        setClients([{
-          value: "all",
-          label: "All Clients",
-          color: "#3b82f6"
-        }]);
-      }
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      // Set default "All Clients" option
-      setClients([{
-        value: "all",
-        label: "All Clients",
-        color: "#3b82f6"
-      }]);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error Loading Clients',
-        text: 'Failed to load clients. Showing all tasks.',
-        timer: 3000,
-        showConfirmButton: false,
-        timerProgressBar: true,
-      });
-    } finally {
-      setLoadingClients(false);
+  // Enhanced filter function that searches in assignedTo array
+  const filterTasks = (task) => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search in task name
+    if (task.name && task.name.toLowerCase().includes(query)) {
+      return true;
     }
+    
+    // Search in client name
+    if (task.clientName && task.clientName.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in assigned by
+    if (task.assignedBy && task.assignedBy.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in assignedTo array
+    if (task.assignedTo && Array.isArray(task.assignedTo)) {
+      for (const assignedUser of task.assignedTo) {
+        if (assignedUser.toLowerCase().includes(query)) {
+          return true;
+        }
+      }
+    }
+    
+    // Search in assignedToString (concatenated version)
+    if (task.assignedToString && task.assignedToString.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in description
+    if (task.description && task.description.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in remarks
+    if (task.remark && task.remark.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in task status
+    if (task.taskStatus && task.taskStatus.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in formatted date
+    if (task.deadline) {
+      const formattedDate = formatDate(task.deadline).toLowerCase();
+      if (formattedDate.includes(query)) {
+        return true;
+      }
+    }
+    
+    // Search in formatted time
+    if (task.time) {
+      const formattedTime = formatTimeTo12Hour(task.time).toLowerCase();
+      if (formattedTime.includes(query)) {
+        return true;
+      }
+    }
+    
+    return false;
   };
+
+  // ========== REST OF THE COMPONENT CODE ==========
+  // (Keep everything else exactly as you have it, starting from useEffect)
 
   useEffect(() => {
     // Prevent multiple API calls
@@ -765,10 +856,14 @@ const ManageDepartment = () => {
             assignedTo: task.assigned_to_names ? 
               (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
               [],
+            assignedToString: task.assigned_to_names ? 
+              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names.join(', ') : task.assigned_to_names) : 
+              "",
             assignedToIds: task.assigned_to_ids ? 
               (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
               [],
             deadline: task.deadline,
+            time: task.time,
             remark: task.remarks,
             taskStatus: task.task_status || "not-acknowledge",
             createdBy: task.created_by,
@@ -826,24 +921,8 @@ const ManageDepartment = () => {
     );
   };
 
-  // Filter tasks based on search query AND client filter
-  const filteredTasks = tasks.filter(task => {
-    // Apply client filter first
-    const clientFilterPass = !selectedClient || 
-                            selectedClient.value === "all" || 
-                            task.clientId === selectedClient.value;
-    
-    // Then apply search filter
-    const searchFilterPass = 
-      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.clientName && task.clientName.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    return clientFilterPass && searchFilterPass;
-  });
+  // Filter tasks using enhanced search
+  const filteredTasks = tasks.filter(filterTasks);
 
   // Apply sorting to filtered results
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -941,6 +1020,9 @@ const ManageDepartment = () => {
             assignedTo: task.assigned_to_names ? 
               (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
               [],
+            assignedToString: task.assigned_to_names ? 
+              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names.join(', ') : task.assigned_to_names) : 
+              "",
             assignedToIds: task.assigned_to_ids ? 
               (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
               [],
@@ -980,9 +1062,9 @@ const ManageDepartment = () => {
   const updateTaskStatus = async (taskId, newStatus) => {
     try {
       const form = new FormData();
-      form.append("task_id", taskId);
+      form.append("taskId", taskId);
       form.append("userName", user?.name);
-      form.append("task_status", newStatus);
+      form.append("status", newStatus);
       form.append("update_status", "true");
       form.append("userId", userId);
       form.append("_method", "PUT");
@@ -1046,116 +1128,6 @@ const ManageDepartment = () => {
   const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Check if deadline is upcoming or overdue
-  const getDeadlineStatus = (deadline) => {
-    if (!deadline) return "text-slate-500";
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) return "text-red-600 font-semibold";
-    if (diffDays <= 7) return "text-amber-600 font-semibold";
-    return "text-green-600 font-medium";
-  };
-
-  // Get task status badge color
-  const getTaskStatusBadge = (status) => {
-    const normalizedStatus = status ? status.toLowerCase() : '';
-    
-    switch(normalizedStatus) {
-      case "not-acknowledge":
-      case "not-acknowledge":
-        return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
-      case "acknowledge":
-        return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
-      case "in-progress":
-        return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
-      case "completed":
-        return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200";
-      default:
-        return "bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200";
-    }
-  };
-
-  // Format task status for display
-  const formatTaskStatus = (status) => {
-    if (!status) return "Not-Acknowledge";
-    
-    const normalizedStatus = status.toLowerCase();
-    
-    switch(normalizedStatus) {
-      case "not-acknowledge":
-        return "Not-Acknowledge";
-      case "acknowledge":
-        return "Acknowledge";
-      case "in-progress":
-        return "In-progress";
-      case "completed":
-        return "Completed";
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
-    }
-  };
-
-  // Custom styles for client filter dropdown
-  const clientFilterStyles = {
-    control: (provided, state) => ({
-      ...provided,
-      border: `2px solid ${state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
-      borderRadius: '0.75rem',
-      padding: '8px 4px',
-      backgroundColor: 'white',
-      minHeight: '52px',
-      boxShadow: state.isFocused ? '0 0 0 4px rgba(59, 130, 246, 0.1)' : 'none',
-      "&:hover": {
-        borderColor: '#94a3b8',
-      },
-      width: '100%',
-      maxWidth: '250px',
-    }),
-    menu: (provided) => ({ 
-      ...provided, 
-      zIndex: 9999,
-      borderRadius: '0.75rem',
-      marginTop: '4px',
-      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-    }),
-    singleValue: (provided) => ({
-      ...provided,
-      color: '#1e293b',
-      fontWeight: '600',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      padding: '12px 16px',
-      backgroundColor: state.isSelected ? '#e0f2fe' : 'white',
-      color: state.isSelected ? '#0369a1' : '#334155',
-      fontWeight: state.isSelected ? '600' : '500',
-      borderLeft: state.isSelected ? '4px solid #3b82f6' : '4px solid transparent',
-      '&:hover': {
-        backgroundColor: '#f1f5f9',
-      },
-    }),
-  };
-
-  // Clear client filter
-  const clearClientFilter = () => {
-    setSelectedClient(null);
-    setCurrentPage(1);
-  };
-
   // Show loading state
   if (loading) {
     return (
@@ -1176,11 +1148,12 @@ const ManageDepartment = () => {
     );
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
       {/* Main Card */}
       <div className="mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200">
           {/* Card Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -1194,47 +1167,35 @@ const ManageDepartment = () => {
                   View All Tasks
                 </h2>
                 <p className="text-blue-100 mt-2">View and manage all tasks with task assignments</p>
+                {searchQuery && (
+                  <p className="text-blue-100 text-sm mt-1">
+                    Found {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} matching "{searchQuery}"
+                  </p>
+                )}
               </div>
               
-              {/* Search Box and Client Filter */}
-              <div className="w-full lg:w-auto">
-
-                <div className="flex flex-col md:flex-row gap-4">
-                  {/* Client Filter Dropdown */}
-                  {user.role !== 'staff' && (
-                  <div className="w-full md:w-64">
-                    <div className="relative">
-                      <Select
-                        options={clients}
-                        value={selectedClient}
-                        onChange={handleClientFilterChange}
-                        classNamePrefix="react-select"
-                        styles={clientFilterStyles}
-                        placeholder="Filter by client..."
-                        isLoading={loadingClients}
-                        isClearable={true}
-                        isSearchable={true}
-                        formatOptionLabel={(option) => (
-                          <div className="flex items-center gap-2">
-                            {option.value === "all" && (
-                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            )}
-                            <span>{option.label}</span>
-                            {option.clientCode && (
-                              <span className="text-xs text-slate-500 ml-auto">
-                                {option.clientCode}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      />
-                    </div>
-                    {selectedClient && selectedClient.value !== "all" && (
-                      <p className="text-xs text-blue-100 mt-1 ml-1">
-                        Showing tasks for: {selectedClient.label}
-                      </p>
-                    )}
-                  </div>
+              {/* Search Box */}
+              <div className="w-full lg:w-96">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search by task name, assigned by, assigned to, or status..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
+                  />
+                  <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {searchQuery && (
+                    <button 
+                      onClick={clearSearch} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   )}
                   
                   {/* Search Box */}
@@ -1323,12 +1284,20 @@ const ManageDepartment = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <p className="text-slate-600 text-lg font-semibold mb-2">No tasks found</p>
-                <p className="text-slate-500 text-sm">
-                  {selectedClient || searchQuery 
-                    ? "Try adjusting your search terms or clear filters" 
-                    : "No tasks available in the system"}
+                <p className="text-slate-600 text-lg font-semibold mb-2">
+                  {searchQuery ? `No tasks found for "${searchQuery}"` : "No tasks found"}
                 </p>
+                <p className="text-slate-500 text-sm">
+                  {searchQuery ? "Try different search terms" : "No tasks available in the system"}
+                </p>
+                {searchQuery && (
+                  <button 
+                    onClick={clearSearch}
+                    className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
+                  >
+                    Clear Search
+                  </button>
+                )}
                 <button 
                   onClick={handleCreateTaskModal}
                   className="mt-4 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
@@ -1478,7 +1447,12 @@ const ManageDepartment = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <span className={`${getDeadlineStatus(task.deadline)}`}>
-                                  {formatDate(task.deadline)}
+                                  {formatDate(task.deadline)}<br/>
+                                  {task.time && (
+                                    <span className="block text-sm mt-1">
+                                      {formatTimeTo12Hour(task.time)}
+                                    </span>
+                                  )}
                                 </span>
                               </div>
                             </td>
@@ -1767,9 +1741,9 @@ const ManageDepartment = () => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-slate-600 font-medium">
                   Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedTasks.length)}</span> of <span className="font-bold text-slate-900">{sortedTasks.length}</span> tasks
-                  {selectedClient && selectedClient.value !== "all" && (
+                  {searchQuery && (
                     <span className="text-blue-600 ml-2">
-                      (Filtered for {selectedClient.label})
+                      (Filtered from {tasks.length} total)
                     </span>
                   )}
                 </p>
@@ -1896,7 +1870,14 @@ const ManageDepartment = () => {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {formatDate(selectedTask.deadline)}
+                        <div>
+                          <span>{formatDate(selectedTask.deadline)}</span>
+                          {selectedTask.time && (
+                            <div className="text-sm mt-1">
+                              {formatTimeTo12Hour(selectedTask.time)}
+                            </div>
+                          )}
+                        </div>
                       </p>
                     </div>
 

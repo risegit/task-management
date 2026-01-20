@@ -3,6 +3,7 @@ import axios from "axios";
 import { showDesktopNotification } from "../../utils/notifications";
 import { playNotificationSound } from "@/utils/notificationSound";
 import { Bell, Check, Clock, User } from "lucide-react";
+import { Navigate,useNavigate } from "react-router-dom";
 
 // Simple function to get websocket instance
 const getWebsocket = async () => {
@@ -29,6 +30,7 @@ export default function NotificationBell({ userId }) {
   const dropdownRef = useRef(null);
   const wsInitializedRef = useRef(false);
   const wsListenersRef = useRef([]);
+  const navigate = useNavigate();
 
   const unreadCount = notifications.filter(n => n.is_read == 0).length;
 
@@ -188,6 +190,7 @@ export default function NotificationBell({ userId }) {
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL}api/notifications.php?user_id=${userId}`
       );
+      console.log("notification=", res);
       setNotifications(res.data.data || []);
     } catch (err) {
       console.error("Error fetching notifications:", err);
@@ -200,7 +203,7 @@ export default function NotificationBell({ userId }) {
   }, [fetchNotifications]);
 
   /* ---------------- MARK AS READ FUNCTIONS ---------------- */
-  const markRead = async (id) => {
+  const markRead = async (id,reference_id) => {
     await axios.post(
       `${import.meta.env.VITE_API_URL}api/notifications.php`,
       { action: "mark_read", notification_id: id }
@@ -210,6 +213,7 @@ export default function NotificationBell({ userId }) {
         n.id === id ? { ...n, is_read: 1 } : n
       )
     );
+    // navigate(`/dashboard/task-management/edit-task/${id}`);
   };
 
   const markAllAsRead = async () => {
@@ -468,7 +472,7 @@ export default function NotificationBell({ userId }) {
                     position: "relative",
                     borderLeft: n.is_read == 0 ? "3px solid #3b82f6" : "3px solid transparent"
                   }}
-                  onClick={() => n.id && markRead(n.id)}
+                  onClick={() => n.id && markRead(n.id,n.reference_id)}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = n.is_read == 0 ? "#e0f2fe" : "#f9fafb"}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = n.is_read == 0 ? "#f0f9ff" : "white"}
                 >
@@ -525,6 +529,7 @@ export default function NotificationBell({ userId }) {
                         >
                           <Clock size={12} style={{ marginRight: "4px", verticalAlign: "middle" }} />
                           {formatTime(n.created_date, n.created_time)}
+                          {/* <br/>{n.reference_id} */}
                         </small>
                       </div>
                       <p style={{ 

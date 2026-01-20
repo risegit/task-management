@@ -68,16 +68,16 @@ const routes = [
       {
         icon: <BuildingOfficeIcon {...icon} />,
         name: "Departments",
-        allowedRoles: ["admin", "manager", ""],
+        allowedRoles: ["admin", "manager","staff"],
         collapse: [
           {
             name: "Add Department",
             path: "/department/add-department",
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin"],
             element: (
               <RoleProtectedRoute
                 element={<Adddept />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin"]}
               />
             ),
           },
@@ -96,11 +96,11 @@ const routes = [
             name: "Edit Department",
             path: "/department/edit-deptartment/:id",
             hidden: true,
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin"],
             element: (
               <RoleProtectedRoute
                 element={<Editdept />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin"]}
               />
             )
           },
@@ -109,27 +109,27 @@ const routes = [
       {
         icon: <UserCircleIcon {...icon} />,
         name: "Employee",
-        allowedRoles: ["admin", "manager"],
+        allowedRoles: ["admin", "manager","staff"],
         collapse: [
           {
             name: "Add Employee",
             path: "/employee/add-employee",
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin"],
             element: (
               <RoleProtectedRoute
                 element={<AddEmployee />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin"]}
               />
             )
           },
           {
             name: "Manage Employees",
             path: "/employee/view-employee",
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin", "manager","staff"],
             element: (
               <RoleProtectedRoute
                 element={<ViewEmployee />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin", "manager","staff"]}
               />
             )
           },
@@ -137,11 +137,11 @@ const routes = [
             name: "Edit Employee",
             path: "/employee/edit-employee/:id",
             hidden: true,
-            allowedRoles: ["admin", "manager"],
+            allowedRoles: ["admin"],
             element: (
               <RoleProtectedRoute
                 element={<EditEmployee />}
-                allowedRoles={["admin", "manager"]}
+                allowedRoles={["admin"]}
               />
             )
           },
