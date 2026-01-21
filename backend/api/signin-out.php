@@ -78,7 +78,7 @@ switch ($method) {
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
             // Step 1: Check if user exists
-            $sql1 = "SELECT id, user_code, name, role, status, password FROM users WHERE email = '$name' || user_code = '$name' LIMIT 1";
+            $sql1 = "SELECT id, user_code, name, role, status, password FROM users WHERE email = '$name' || user_code = '$name' and  LIMIT 1";
             $result = $conn->query($sql1);
 
             // $row = $result->fetch_assoc();

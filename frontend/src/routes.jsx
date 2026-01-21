@@ -32,8 +32,8 @@ import OthersActivities from "@/pages/dashboard/otheractivities";
 import OthersActivitiesDepartment from "@/pages/dashboard/otheractivitiesdepartment";
 
 import Adddept from "@/pages/dashboard/department/add-deptartment";
-import Managedept from "@/pages/dashboard/department/manage-deptartment";
-import Editdept from "@/pages/dashboard/department/edit-deptartment";
+import Managedept from "@/pages/dashboard/department/manage-department";
+import Editdept from "@/pages/dashboard/department/edit-department";
 import Addproject from "@/pages/dashboard/projects/add-project";
 import Manageprojects from "@/pages/dashboard/projects/manage-projects";
 import Editproject from "@/pages/dashboard/projects/edit-project";
@@ -83,7 +83,7 @@ const routes = [
           },
           {
             name: "Manage Departments",
-            path: "/department/manage-deptartment",
+            path: "/department/manage-department",
             allowedRoles: ["admin", "manager", "staff"],
             element: (
               <RoleProtectedRoute
@@ -94,7 +94,7 @@ const routes = [
           },
           {
             name: "Edit Department",
-            path: "/department/edit-deptartment/:id",
+            path: "/department/edit-department/:id",
             hidden: true,
             allowedRoles: ["admin"],
             element: (

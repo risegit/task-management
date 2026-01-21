@@ -336,14 +336,14 @@ const Home = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto">
         {/* Marquee for Overdue Tasks */}
-        {marqueeItems.length > 0 && (
+        {/* {marqueeItems.length > 0 && (
           <CapsuleGridMarquee 
             items={marqueeItems} 
             speed={25} 
             type="overdue"
             userRole={user?.role}
           />
-        )}
+        )} */}
 
         {/* Header */}
         <div className="mb-8">
@@ -372,9 +372,15 @@ const Home = () => {
                 </div>
               ) : (
                 getPaginatedTasks(todoTasks, todoPage).map((task, index) => (
-                  <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                    {renderTaskCard(task, index, "To Do")}
-                  </Link>
+                  user.role !== "staff" ? (
+                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                      {renderTaskCard(task, index, "To Do")}
+                    </Link>
+                  ) : (
+                    <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                      {renderTaskCard(task, index, "To Do")}
+                    </Link>
+                  )
                 ))
               )}
             </div>
@@ -405,30 +411,57 @@ const Home = () => {
                 </div>
               ) : (
                 getPaginatedTasks(inProgressTasks, inProgressPage).map((task, index) => (
-                  <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                    <div className="p-4 bg-gradient-to-r mb-2 from-orange-50 to-yellow-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow">
-                      <div className="flex items-start">
-                        <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5 mr-3 flex-shrink-0" />
-                        <div>
-                          {user?.role !== "staff" ? (
-                            <h4 className="font-semibold text-black-800 text-sm mb-1">
-                              {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
-                            </h4>
-                          ) : (
-                            <>
+                  user.role !== "staff" ? (
+                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                      <div className="p-4 bg-gradient-to-r mb-2 from-orange-50 to-yellow-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow">
+                        <div className="flex items-start">
+                          <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {user?.role !== "staff" ? (
                               <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.task_name || "Task"}
+                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
                               </h4>
-                              <p className="text-xs text-gray-600">
-                                {task.clients} • Priority: {task.priority}
-                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                              </p>
-                            </>
-                          )}
+                            ) : (
+                              <>
+                                <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                  {task.task_name || "Task"}
+                                </h4>
+                                <p className="text-xs text-gray-600">
+                                  {task.clients} • Priority: {task.priority}
+                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                </p>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  ): (
+                    <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                      <div className="p-4 bg-gradient-to-r mb-2 from-orange-50 to-yellow-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow">
+                        <div className="flex items-start">
+                          <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {user?.role !== "staff" ? (
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
+                              </h4>
+                            ) : (
+                              <>
+                                <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                  {task.task_name || "Task"}
+                                </h4>
+                                <p className="text-xs text-gray-600">
+                                  {task.clients} • Priority: {task.priority}
+                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
                 ))
               )}
             </div>
@@ -459,30 +492,57 @@ const Home = () => {
                 </div>
               ) : (
                 getPaginatedTasks(overdueTasks, overduePage).map((task, index) => (
-                  <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                    <div className="p-4 bg-gradient-to-r mb-2 from-red-50 to-pink-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow">
-                      <div className="flex items-start">
-                        <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
-                        <div>
-                          {user?.role !== "staff" ? (
-                            <h4 className="font-semibold text-black-800 text-sm mb-1">
-                              {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                            </h4>
-                          ) : (
-                            <>
+                  user.role !== "staff" ? (
+                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                      <div className="p-4 bg-gradient-to-r mb-2 from-red-50 to-pink-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow">
+                        <div className="flex items-start">
+                          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {user?.role !== "staff" ? (
                               <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.task_name || "Task"}
+                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
                               </h4>
-                              <p className="text-xs text-gray-600">
-                                {task.clients} • Priority: {task.priority}
-                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                              </p>
-                            </>
-                          )}
+                            ) : (
+                              <>
+                                <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                  {task.task_name || "Task"}
+                                </h4>
+                                <p className="text-xs text-gray-600">
+                                  {task.clients} • Priority: {task.priority}
+                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                </p>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  ) : (
+                      <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                      <div className="p-4 bg-gradient-to-r mb-2 from-red-50 to-pink-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow">
+                        <div className="flex items-start">
+                          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {user?.role !== "staff" ? (
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                              </h4>
+                            ) : (
+                              <>
+                                <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                  {task.task_name || "Task"}
+                                </h4>
+                                <p className="text-xs text-gray-600">
+                                  {task.clients} • Priority: {task.priority}
+                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
                 ))
               )}
             </div>
@@ -516,28 +576,57 @@ const Home = () => {
                 </div>
               ) : (
                 getPaginatedTasks(completedTasks, completedPage).map((task, index) => (
-                  <div key={task.ta_id || task.user_id || index} className="p-4 bg-gradient-to-r mb-2 from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition-shadow">
-                    <div className="flex items-start">
-                      <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
-                      <div>
-                        {user?.role !== "staff" ? (
-                          <h4 className="font-semibold text-black-800 text-sm mb-1">
-                            {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Completed Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                          </h4>
-                        ) : (
-                          <>
-                            <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
-                              {task.task_name || "Task"}
-                            </h4>
-                            <p className="text-xs text-gray-600 line-through">
-                              {task.clients} • Priority: {task.priority}
-                              {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                            </p>
-                          </>
-                        )}
+                  user.role !== "staff" ? (
+                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                      <div className="p-4 bg-gradient-to-r mb-2 from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition-shadow">
+                        <div className="flex items-start">
+                          <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {user?.role !== "staff" ? (
+                              <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
+                                {task.name} has Completed <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                              </h4>
+                            ) : (
+                              <>
+                                <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
+                                  {task.task_name || "Task"}
+                                </h4>
+                                <p className="text-xs text-gray-600 line-through">
+                                  {task.clients} • Priority: {task.priority}
+                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </Link>
+                  ) :(
+                    <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                      <div className="p-4 bg-gradient-to-r mb-2 from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition-shadow">
+                        <div className="flex items-start">
+                          <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                          <div>
+                            {user?.role !== "staff" ? (
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.name} has Completed <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                              </h4>
+                            ) : (
+                              <>
+                                <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
+                                  {task.task_name || "Task"}
+                                </h4>
+                                <p className="text-xs text-gray-600 line-through">
+                                  {task.clients} • Priority: {task.priority}
+                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
                 ))
               )}
             </div>
@@ -552,7 +641,7 @@ const Home = () => {
           {/* Combined Today's Thought & Announcements Card */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
             {/* Today's Thought Section */}
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <div className="flex items-center mb-4">
                 <div className="bg-gradient-to-r from-purple-100 to-purple-50 p-2 rounded-lg">
                   <Lightbulb className="w-5 h-5 text-purple-600" />
@@ -576,7 +665,7 @@ const Home = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Announcements Section */}
             <div className="flex-grow">
@@ -654,7 +743,7 @@ const Home = () => {
               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
                 <div className="text-center py-3">
                   <Award className="w-8 h-8 text-black-300 mx-auto mb-2" />
-                  <p className="text-black-500 text-sm">No anniversaries today</p>
+                  <p className="text-black-500 text-sm">No Work Anniversaries Today</p>
                   <p className="text-xs text-black-400 mt-1">Celebrate milestones tomorrow!</p>
                 </div>
               </div>

@@ -30,7 +30,12 @@ const ProjectForm = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}api/emp.php`
+          `${import.meta.env.VITE_API_URL}api/emp.php`,
+          {
+            params: {
+              'emp_project': 'true'
+            }
+          }
         );
 
         console.log("EMP API:", response.data);

@@ -14,6 +14,52 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
 
   const user = getCurrentUser();
   console.log('user=', user.department);
+  
+  // Function to format employee name: first word full, second word only first letter
+  const formatEmployeeName = (fullName) => {
+    if (!fullName) return '';
+    
+    const parts = fullName.trim().split(' ');
+    
+    if (parts.length === 1) {
+      return parts[0];
+    } else if (parts.length === 2) {
+      return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`;
+    } else if (parts.length > 2) {
+      // Handle cases with middle names
+      return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+    }
+    
+    return fullName;
+  };
+
+  // Function to parse name and extract color
+  const parseEmployeeName = (employeeString) => {
+    if (!employeeString) return { name: '', formattedName: '', color: '#6366F1' };
+    
+    // Check if string contains color code
+    if (employeeString.includes('||#')) {
+      const parts = employeeString.split('||#');
+      if (parts.length >= 2) {
+        const originalName = parts[0].trim();
+        const formattedName = formatEmployeeName(originalName);
+        return {
+          name: originalName,
+          formattedName: formattedName,
+          color: `#${parts[1]}`
+        };
+      }
+    }
+    
+    // No color code found
+    const formattedName = formatEmployeeName(employeeString);
+    return {
+      name: employeeString,
+      formattedName: formattedName,
+      color: '#6366F1' // Default indigo color
+    };
+  };
+
   // Priority options for dropdown
   const priorityOptions = [
     { value: "low", label: "Low", color: "#10b981" }, // Green
@@ -27,7 +73,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     deadline: "",
     time: "",
     remarks: "",
-    priority: "", // New priority field
+    priority: "",
   });
 
   const handleChange = (e) => {
@@ -47,11 +93,10 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     }
   };
 
-  // Validation function - Updated to include priority
+  // Validation function
   const validate = () => {
     let newErrors = {};
 
-    // Task Name validation
     if (!taskData.name.trim()) {
       newErrors.name = "Task name is required";
     } else if (taskData.name.trim().length < 3) {
@@ -60,17 +105,14 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       newErrors.name = "Task name cannot exceed 100 characters";
     }
 
-    // Assigned To validation
     if (taskData.assignedTo.length === 0) {
       newErrors.assignedTo = "Please select at least one assignee";
     }
 
-    // Priority validation
     if (!taskData.priority) {
       newErrors.priority = "Priority is required";
     }
 
-    // Deadline validation
     if (!taskData.deadline) {
       newErrors.deadline = "Deadline is required";
     } else {
@@ -83,13 +125,77 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       }
     }
 
-    // Remarks validation (optional but with max length)
     if (taskData.remarks && taskData.remarks.length > 500) {
       newErrors.remarks = "Remarks cannot exceed 500 characters";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Helper function to get better color combination
+  const getColorStyles = (color) => {
+    const colorMap = {
+      '#6366F1': {
+        bg: 'rgba(99, 102, 241, 0.1)',
+        border: 'rgba(99, 102, 241, 0.2)',
+        text: '#4F46E5',
+        hover: 'rgba(99, 102, 241, 0.15)'
+      },
+      '#EC4899': {
+        bg: 'rgba(236, 72, 153, 0.1)',
+        border: 'rgba(236, 72, 153, 0.2)',
+        text: '#DB2777',
+        hover: 'rgba(236, 72, 153, 0.15)'
+      },
+      '#10B981': {
+        bg: 'rgba(16, 185, 129, 0.1)',
+        border: 'rgba(16, 185, 129, 0.2)',
+        text: '#059669',
+        hover: 'rgba(16, 185, 129, 0.15)'
+      },
+      '#F59E0B': {
+        bg: 'rgba(245, 158, 11, 0.1)',
+        border: 'rgba(245, 158, 11, 0.2)',
+        text: '#D97706',
+        hover: 'rgba(245, 158, 11, 0.15)'
+      },
+      '#8B5CF6': {
+        bg: 'rgba(139, 92, 246, 0.1)',
+        border: 'rgba(139, 92, 246, 0.2)',
+        text: '#7C3AED',
+        hover: 'rgba(139, 92, 246, 0.15)'
+      },
+      '#EF4444': {
+        bg: 'rgba(239, 68, 68, 0.1)',
+        border: 'rgba(239, 68, 68, 0.2)',
+        text: '#DC2626',
+        hover: 'rgba(239, 68, 68, 0.15)'
+      },
+      '#06B6D4': {
+        bg: 'rgba(6, 182, 212, 0.1)',
+        border: 'rgba(6, 182, 212, 0.2)',
+        text: '#0891B2',
+        hover: 'rgba(6, 182, 212, 0.15)'
+      },
+      '#84CC16': {
+        bg: 'rgba(132, 204, 22, 0.1)',
+        border: 'rgba(132, 204, 22, 0.2)',
+        text: '#65A30D',
+        hover: 'rgba(132, 204, 22, 0.15)'
+      }
+    };
+
+    if (colorMap[color]) {
+      return colorMap[color];
+    }
+
+    return {
+      bg: `${color}15`,
+      border: `${color}30`,
+      text: color,
+      hover: `${color}20`
+    };
   };
 
   // Fetch users for assignment
@@ -109,25 +215,39 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
 
         console.log("API response for users:", response.data);
 
-        // Extract users from the API response
         const data = response.data;
         let usersList = [];
         
         if (data.status === "success") {
-          // Check different possible response structures
           if (data.data && Array.isArray(data.data)) {
             usersList = data.data;
           } else if (data.data123 && Array.isArray(data.data123)) {
             usersList = data.data123;
           }
           
-          // Filter out current user and map to select options
+          // Process each user to extract formatted name and color
           const assignedToUsers = usersList
             .filter(taskUser => taskUser.id !== user?.id)
-            .map(taskUser => ({
-              value: taskUser.id,
-              label: taskUser.assigned_to_names || taskUser.name || `User ${taskUser.id}`
-            }));
+            .map(taskUser => {
+              // Parse the assigned_to_names field
+              if (taskUser.assigned_to_names) {
+                const parsedEmployee = parseEmployeeName(taskUser.assigned_to_names);
+                return {
+                  value: taskUser.id,
+                  label: parsedEmployee.formattedName || parsedEmployee.name || `User ${taskUser.id}`,
+                  originalName: parsedEmployee.name,
+                  color: parsedEmployee.color
+                };
+              } else {
+                // Fallback if no assigned_to_names
+                return {
+                  value: taskUser.id,
+                  label: taskUser.assigned_to_names || taskUser.name || `User ${taskUser.id}`,
+                  originalName: taskUser.assigned_to_names || taskUser.name || `User ${taskUser.id}`,
+                  color: '#6366F1'
+                };
+              }
+            });
 
           setAssignedTo(assignedToUsers);
           console.log("Assigned to users:", assignedToUsers);
@@ -181,8 +301,8 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       );
       form.append("deadline", taskData.deadline);
       form.append("remarks", taskData.remarks);
-      form.append("priority", taskData.priority.value); // Add priority to form data
-      form.append("create_task", "true"); // Add flag for creating task
+      form.append("priority", taskData.priority.value);
+      form.append("create_task", "true");
 
       console.log("Submitting form data...");
       for (let pair of form.entries()) {
@@ -209,7 +329,6 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
           timerProgressBar: true,
         });
     
-        // Reset form
         setTaskData({
           name: "",
           assignedTo: [],
@@ -220,12 +339,10 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
         });
         setErrors({});
         
-        // Call success callback if provided
         if (onSubmitSuccess) {
           onSubmitSuccess();
         }
         
-        // Close modal
         if (onClose) {
           onClose();
         }
@@ -251,6 +368,17 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
       setIsSubmitting(false);
     }
   };
+
+  // Custom format option label for assigned users
+  const formatAssignedOptionLabel = ({ label, color }) => (
+    <div className="flex items-center gap-3">
+      <div 
+        className="w-2 h-2 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span>{label}</span>
+    </div>
+  );
 
   // Custom styles for priority dropdown
   const priorityCustomStyles = {
@@ -293,8 +421,61 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     }),
   };
 
+  // Custom styles for assigned to dropdown
+  const assignedToCustomStyles = {
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${errors.assignedTo ? '#fca5a5' : state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: errors.assignedTo ? '#fef2f2' : 'white',
+      minHeight: '52px',
+      boxShadow: state.isFocused ? (errors.assignedTo ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
+      "&:hover": {
+        borderColor: errors.assignedTo ? '#f87171' : '#94a3b8',
+      },
+    }),
+    multiValue: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.data.color ? getColorStyles(state.data.color).bg : '#e0f2fe',
+      borderRadius: '0.5rem',
+      border: `1px solid ${state.data.color ? getColorStyles(state.data.color).border : '#bae6fd'}`,
+    }),
+    multiValueLabel: (provided, state) => ({
+      ...provided,
+      color: state.data.color ? getColorStyles(state.data.color).text : '#0369a1',
+      fontWeight: '500',
+    }),
+    multiValueRemove: (provided, state) => ({
+      ...provided,
+      color: state.data.color ? getColorStyles(state.data.color).text : '#0369a1',
+      '&:hover': {
+        backgroundColor: state.data.color ? getColorStyles(state.data.color).hover : '#bae6fd',
+        color: state.data.color ? getColorStyles(state.data.color).text : '#0c4a6e',
+      },
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? (state.data.color ? getColorStyles(state.data.color).bg : '#e0f2fe') : 'white',
+      color: state.data.color ? getColorStyles(state.data.color).text : '#334155',
+      fontWeight: state.isSelected ? '600' : '500',
+      borderLeft: state.isSelected ? `4px solid ${state.data.color ? state.data.color : '#3b82f6'}` : '4px solid transparent',
+      '&:hover': {
+        backgroundColor: state.data.color ? getColorStyles(state.data.color).hover : '#f1f5f9',
+      },
+    }),
+  };
+
   // Custom format option label for priority
-  const formatOptionLabel = ({ value, label, color }) => (
+  const formatPriorityOptionLabel = ({ value, label, color }) => (
     <div className="flex items-center gap-3">
       <div 
         className="w-3 h-3 rounded-full"
@@ -379,52 +560,8 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
                   value={taskData.assignedTo}
                   onChange={(selected) => handleSelectChange("assignedTo", selected)}
                   classNamePrefix="react-select"
-                  className={`react-select-container ${
-                    errors.assignedTo ? 'error' : ''
-                  }`}
-                  styles={{
-                    menu: (provided) => ({ 
-                      ...provided, 
-                      zIndex: 9999,
-                      borderRadius: '0.75rem',
-                      marginTop: '4px',
-                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-                    }),
-                    control: (provided, state) => ({
-                      ...provided,
-                      border: `2px solid ${errors.assignedTo ? '#fca5a5' : state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
-                      borderRadius: '0.75rem',
-                      padding: '8px 4px',
-                      backgroundColor: errors.assignedTo ? '#fef2f2' : 'white',
-                      minHeight: '52px',
-                      boxShadow: state.isFocused ? (errors.assignedTo ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(59, 130, 246, 0.1)') : 'none',
-                      "&:hover": {
-                        borderColor: errors.assignedTo ? '#f87171' : '#94a3b8',
-                      },
-                    }),
-                    placeholder: (provided) => ({
-                      ...provided,
-                      color: '#94a3b8',
-                    }),
-                    multiValue: (provided) => ({
-                      ...provided,
-                      backgroundColor: '#e0f2fe',
-                      borderRadius: '0.5rem',
-                    }),
-                    multiValueLabel: (provided) => ({
-                      ...provided,
-                      color: '#0369a1',
-                      fontWeight: '500',
-                    }),
-                    multiValueRemove: (provided) => ({
-                      ...provided,
-                      color: '#0369a1',
-                      '&:hover': {
-                        backgroundColor: '#bae6fd',
-                        color: '#0c4a6e',
-                      },
-                    }),
-                  }}
+                  styles={assignedToCustomStyles}
+                  formatOptionLabel={formatAssignedOptionLabel}
                   placeholder="Select multiple users..."
                   isDisabled={loading}
                 />
@@ -504,7 +641,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
                   onChange={(selected) => handleSelectChange("priority", selected)}
                   classNamePrefix="react-select"
                   styles={priorityCustomStyles}
-                  formatOptionLabel={formatOptionLabel}
+                  formatOptionLabel={formatPriorityOptionLabel}
                   placeholder="Select priority..."
                   isSearchable={false}
                 />
@@ -610,7 +747,7 @@ const ManageDepartment = () => {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
-  const [selectedClient, setSelectedClient] = useState(null); // New state for client filter
+  const [selectedClient, setSelectedClient] = useState(null);
   
   // Get user from JWT
   const user = getCurrentUser();
@@ -625,7 +762,129 @@ const ManageDepartment = () => {
   
   const itemsPerPage = 10;
 
-  // ========== HELPER FUNCTIONS (DEFINE THESE FIRST) ==========
+  // Function to format employee name: first word full, second word only first letter
+  const formatEmployeeName = (fullName) => {
+    if (!fullName) return '';
+    
+    const parts = fullName.trim().split(' ');
+    
+    if (parts.length === 1) {
+      return parts[0];
+    } else if (parts.length === 2) {
+      return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`;
+    } else if (parts.length > 2) {
+      // Handle cases with middle names
+      return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+    }
+    
+    return fullName;
+  };
+
+  // Function to parse name and extract color
+  const parseEmployeeName = (employeeString) => {
+    if (!employeeString) return { name: '', formattedName: '', color: '#6366F1' };
+    
+    // Check if string contains color code
+    if (employeeString.includes('||#')) {
+      const parts = employeeString.split('||#');
+      if (parts.length >= 2) {
+        const originalName = parts[0].trim();
+        const formattedName = formatEmployeeName(originalName);
+        return {
+          name: originalName,
+          formattedName: formattedName,
+          color: `#${parts[1]}`
+        };
+      }
+    }
+    
+    // No color code found
+    const formattedName = formatEmployeeName(employeeString);
+    return {
+      name: employeeString,
+      formattedName: formattedName,
+      color: '#6366F1' // Default indigo color
+    };
+  };
+
+  // Function to parse multiple employees from comma-separated string
+  const parseMultipleEmployees = (employeesString) => {
+    if (!employeesString) return [];
+    
+    // Split by comma to get individual employee entries
+    const employeeEntries = employeesString.split(', ');
+    
+    return employeeEntries.map(entry => {
+      return parseEmployeeName(entry.trim());
+    });
+  };
+
+  // Helper function to get better color combination
+  const getColorStyles = (color) => {
+    const colorMap = {
+      '#6366F1': {
+        bg: 'rgba(99, 102, 241, 0.1)',
+        border: 'rgba(99, 102, 241, 0.2)',
+        text: '#4F46E5',
+        hover: 'rgba(99, 102, 241, 0.15)'
+      },
+      '#EC4899': {
+        bg: 'rgba(236, 72, 153, 0.1)',
+        border: 'rgba(236, 72, 153, 0.2)',
+        text: '#DB2777',
+        hover: 'rgba(236, 72, 153, 0.15)'
+      },
+      '#10B981': {
+        bg: 'rgba(16, 185, 129, 0.1)',
+        border: 'rgba(16, 185, 129, 0.2)',
+        text: '#059669',
+        hover: 'rgba(16, 185, 129, 0.15)'
+      },
+      '#F59E0B': {
+        bg: 'rgba(245, 158, 11, 0.1)',
+        border: 'rgba(245, 158, 11, 0.2)',
+        text: '#D97706',
+        hover: 'rgba(245, 158, 11, 0.15)'
+      },
+      '#8B5CF6': {
+        bg: 'rgba(139, 92, 246, 0.1)',
+        border: 'rgba(139, 92, 246, 0.2)',
+        text: '#7C3AED',
+        hover: 'rgba(139, 92, 246, 0.15)'
+      },
+      '#EF4444': {
+        bg: 'rgba(239, 68, 68, 0.1)',
+        border: 'rgba(239, 68, 68, 0.2)',
+        text: '#DC2626',
+        hover: 'rgba(239, 68, 68, 0.15)'
+      },
+      '#06B6D4': {
+        bg: 'rgba(6, 182, 212, 0.1)',
+        border: 'rgba(6, 182, 212, 0.2)',
+        text: '#0891B2',
+        hover: 'rgba(6, 182, 212, 0.15)'
+      },
+      '#84CC16': {
+        bg: 'rgba(132, 204, 22, 0.1)',
+        border: 'rgba(132, 204, 22, 0.2)',
+        text: '#65A30D',
+        hover: 'rgba(132, 204, 22, 0.15)'
+      }
+    };
+
+    if (colorMap[color]) {
+      return colorMap[color];
+    }
+
+    return {
+      bg: `${color}15`,
+      border: `${color}30`,
+      text: color,
+      hover: `${color}20`
+    };
+  };
+
+  // ========== HELPER FUNCTIONS ==========
 
   // Format date
   const formatDate = (dateString) => {
@@ -758,7 +1017,7 @@ const ManageDepartment = () => {
     setCurrentPage(1);
   };
 
-  // NEW FUNCTION: Check if current user is assigned to the task
+  // Check if current user is assigned to the task
   const isUserAssignedToTask = (task) => {
     if (!task || !userId || !userName) return false;
     
@@ -920,7 +1179,6 @@ const ManageDepartment = () => {
   };
 
   // ========== REST OF THE COMPONENT CODE ==========
-  // (Keep everything else exactly as you have it, starting from useEffect)
 
   useEffect(() => {
     // Prevent multiple API calls
@@ -962,31 +1220,59 @@ const ManageDepartment = () => {
           }
           
           // Transform API data to match our component structure
-          const transformedTasks = tasksData.map(task => ({
-            id: task.id,
-            clientName: task.client_name || "Unknown Client",
-            clientId: task.client_id,
-            name: task.task_name || "Unnamed Task",
-            description: task.remarks || "No description",
-            assignedBy: task.assigned_by_name || "Unknown",
-            assignedTo: task.assigned_to_names ? 
-              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
-              [],
-            assignedToString: task.assigned_to_names ? 
-              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names.join(', ') : task.assigned_to_names) : 
-              "",
-            assignedToIds: task.assigned_to_ids ? 
-              (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
-              [],
-            deadline: task.deadline,
-            time: task.time,
-            remark: task.remarks,
-            taskStatus: task.task_status || "not-acknowledge",
-            createdBy: task.created_by,
-            // Store raw API data for reference
-            rawAssignedTo: task.assigned_to || "",
-            rawAssignedToNames: task.assigned_to_names || ""
-          }));
+          const transformedTasks = tasksData.map(task => {
+            // Parse assigned by name
+            const assignedByParsed = parseEmployeeName(task.assigned_by_name || "Unknown");
+            
+            // Parse assigned to names (could be array or string with multiple users)
+            let assignedToArray = [];
+            let assignedToColors = [];
+            
+            if (task.assigned_to_names) {
+              // Check if it contains multiple users (comma-separated)
+              if (task.assigned_to_names.includes(',')) {
+                const parsedEmployees = parseMultipleEmployees(task.assigned_to_names);
+                assignedToArray = parsedEmployees.map(emp => emp.formattedName || emp.name);
+                assignedToColors = parsedEmployees.map(emp => emp.color);
+              } else {
+                // Single user
+                const parsedEmployee = parseEmployeeName(task.assigned_to_names);
+                assignedToArray = [parsedEmployee.formattedName || parsedEmployee.name];
+                assignedToColors = [parsedEmployee.color];
+              }
+            }
+            
+            // Store original data for searching
+            const assignedToString = Array.isArray(task.assigned_to_names) ? 
+              task.assigned_to_names.join(', ') : 
+              (task.assigned_to_names || "");
+            
+            return {
+              id: task.id,
+              clientName: task.client_name || "Unknown Client",
+              clientId: task.client_id,
+              name: task.task_name || "Unnamed Task",
+              description: task.remarks || "No description",
+              assignedBy: assignedByParsed.formattedName || assignedByParsed.name || "Unknown",
+              assignedByOriginal: task.assigned_by_name || "Unknown",
+              assignedByColor: assignedByParsed.color,
+              assignedTo: assignedToArray,
+              assignedToOriginal: task.assigned_to_names || "",
+              assignedToColors: assignedToColors,
+              assignedToString: assignedToString,
+              assignedToIds: task.assigned_to_ids ? 
+                (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
+                [],
+              deadline: task.deadline,
+              time: task.time,
+              remark: task.remarks,
+              taskStatus: task.task_status || "not-acknowledge",
+              createdBy: task.created_by,
+              // Store raw API data for reference
+              rawAssignedTo: task.assigned_to || "",
+              rawAssignedToNames: task.assigned_to_names || ""
+            };
+          });
           
           setTasks(transformedTasks);
           console.log("Transformed tasks:", transformedTasks);
@@ -1009,7 +1295,7 @@ const ManageDepartment = () => {
   // Handle client filter change
   const handleClientFilterChange = (selected) => {
     setSelectedClient(selected);
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
   };
 
   // Handle sorting
@@ -1048,10 +1334,11 @@ const ManageDepartment = () => {
     const searchFilterPass = 
       task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.assignedByOriginal && task.assignedByOriginal.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.clientName && task.clientName.toLowerCase().includes(searchQuery.toLowerCase()));
+      (task.clientName && task.clientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.assignedToOriginal && task.assignedToOriginal.toLowerCase().includes(searchQuery.toLowerCase()));
     
     return clientFilterPass && searchFilterPass;
   });
@@ -1142,29 +1429,59 @@ const ManageDepartment = () => {
             tasksData = result.data123;
           }
           
-          const transformedTasks = tasksData.map(task => ({
-            id: task.id,
-            name: task.task_name || "Unnamed Task",
-            clientName: task.client_name || "Unknown Client",
-            clientId: task.client_id,
-            description: task.remarks || "No description",
-            assignedBy: task.assigned_by_name || "Unknown",
-            assignedTo: task.assigned_to_names ? 
-              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names : [task.assigned_to_names]) : 
-              [],
-            assignedToString: task.assigned_to_names ? 
-              (Array.isArray(task.assigned_to_names) ? task.assigned_to_names.join(', ') : task.assigned_to_names) : 
-              "",
-            assignedToIds: task.assigned_to_ids ? 
-              (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
-              [],
-            deadline: task.deadline,
-            remark: task.remarks,
-            taskStatus: task.task_status || "not-acknowledge",
-            createdBy: task.created_by,
-            rawAssignedTo: task.assigned_to || "",
-            rawAssignedToNames: task.assigned_to_names || ""
-          }));
+          const transformedTasks = tasksData.map(task => {
+            // Parse assigned by name
+            const assignedByParsed = parseEmployeeName(task.assigned_by_name || "Unknown");
+            
+            // Parse assigned to names (could be array or string with multiple users)
+            let assignedToArray = [];
+            let assignedToColors = [];
+            
+            if (task.assigned_to_names) {
+              // Check if it contains multiple users (comma-separated)
+              if (task.assigned_to_names.includes(',')) {
+                const parsedEmployees = parseMultipleEmployees(task.assigned_to_names);
+                assignedToArray = parsedEmployees.map(emp => emp.formattedName || emp.name);
+                assignedToColors = parsedEmployees.map(emp => emp.color);
+              } else {
+                // Single user
+                const parsedEmployee = parseEmployeeName(task.assigned_to_names);
+                assignedToArray = [parsedEmployee.formattedName || parsedEmployee.name];
+                assignedToColors = [parsedEmployee.color];
+              }
+            }
+            
+            // Store original data for searching
+            const assignedToString = Array.isArray(task.assigned_to_names) ? 
+              task.assigned_to_names.join(', ') : 
+              (task.assigned_to_names || "");
+            
+            return {
+              id: task.id,
+              clientName: task.client_name || "Unknown Client",
+              clientId: task.client_id,
+              name: task.task_name || "Unnamed Task",
+              description: task.remarks || "No description",
+              assignedBy: assignedByParsed.formattedName || assignedByParsed.name || "Unknown",
+              assignedByOriginal: task.assigned_by_name || "Unknown",
+              assignedByColor: assignedByParsed.color,
+              assignedTo: assignedToArray,
+              assignedToOriginal: task.assigned_to_names || "",
+              assignedToColors: assignedToColors,
+              assignedToString: assignedToString,
+              assignedToIds: task.assigned_to_ids ? 
+                (Array.isArray(task.assigned_to_ids) ? task.assigned_to_ids : task.assigned_to_ids.split(',')) : 
+                [],
+              deadline: task.deadline,
+              time: task.time,
+              remark: task.remarks,
+              taskStatus: task.task_status || "not-acknowledge",
+              createdBy: task.created_by,
+              // Store raw API data for reference
+              rawAssignedTo: task.assigned_to || "",
+              rawAssignedToNames: task.assigned_to_names || ""
+            };
+          });
           
           setTasks(transformedTasks);
         }
@@ -1211,7 +1528,6 @@ const ManageDepartment = () => {
         }
       );
 
-      // ✅ Axios auto-parses JSON
       const result = response.data;
       console.log("Update Status Response:", result);
       if (result.status === "success") {
@@ -1330,11 +1646,6 @@ const ManageDepartment = () => {
                               <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                             )}
                             <span>{option.label}</span>
-                            {/* {option.clientCode && (
-                              <span className="text-xs text-slate-500 ml-auto">
-                                {option.clientCode}
-                              </span>
-                            )} */}
                           </div>
                         )}
                       />
@@ -1474,13 +1785,6 @@ const ManageDepartment = () => {
                           </div>
                         </th>
                         <th 
-                          className="py-4 px-4 text-left font-semibold text-slate-700"
-                        >
-                          <div className="flex items-center gap-2">
-                            Client
-                          </div>
-                        </th>
-                        <th 
                           className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
                           onClick={() => handleSort("assignedBy")}
                         >
@@ -1538,54 +1842,61 @@ const ManageDepartment = () => {
                                   <span className="font-semibold text-slate-900 block">
                                     {task.name || "Unnamed Task"}
                                   </span>
+                                  <span className="text-slate-600 text-sm block mt-1 line-clamp-1">
+                                    ({task.clientName || "N/A"})
+                                  </span>
                                 </div>
                               </div>
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                  </svg>
-                                </div>
-                                <span className="font-medium text-slate-800">
-                                  {task.clientName || "N/A"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div 
+                                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                                  style={{
+                                    backgroundColor: getColorStyles(task.assignedByColor).bg,
+                                    border: `1px solid ${getColorStyles(task.assignedByColor).border}`
+                                  }}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                   </svg>
                                 </div>
-                                <span className="font-medium text-slate-800">
-                                  {task.assignedBy || "N/A"}
+                                <span 
+                                  className="font-medium"
+                                  style={{ color: getColorStyles(task.assignedByColor).text }}
+                                  title={task.assignedByOriginal}
+                                >
+                                  {task.assignedBy}
                                 </span>
                               </div>
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex flex-wrap gap-1 max-w-xs">
-                                {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
-                                  task.assignedTo.slice(0, 2).map((person, index) => (
-                                    <span 
-                                      key={index}
-                                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
-                                        isAssigned && person.includes(userName) 
-                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-100" 
-                                          : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100"
-                                      }`}
-                                    >
-                                      {person}
-                                    </span>
-                                  ))
+                                {task.assignedTo && task.assignedTo.length > 0 ? (
+                                  task.assignedTo.map((person, index) => {
+                                    const color = task.assignedToColors[index] || '#6366F1';
+                                    const colorStyles = getColorStyles(color);
+                                    return (
+                                      <span 
+                                        key={index}
+                                        className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                                        style={{
+                                          backgroundColor: colorStyles.text,
+                                          borderColor: colorStyles.border,
+                                          color: "#fff"
+                                        }}
+                                        title={task.assignedToOriginal}
+                                      >
+                                        {person}
+                                      </span>
+                                    );
+                                  })
                                 ) : (
                                   <span className="text-slate-500 text-sm">No assignments</span>
                                 )}
-                                {Array.isArray(task.assignedTo) && task.assignedTo.length > 2 && (
+                                {task.assignedTo && task.assignedTo.length > 4 && (
                                   <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
-                                    +{task.assignedTo.length - 2} more
+                                    +{task.assignedTo.length - 4} more
                                   </span>
                                 )}
                               </div>
@@ -1666,8 +1977,16 @@ const ManageDepartment = () => {
                             <td className="py-4 px-4">
                               <div className="max-w-xs">
                                 <span className="text-sm text-slate-700 line-clamp-2">
-                                  {task.remark || "No remarks"}
+                                  {task.remark 
+                                    ? task.remark.split(' ').slice(0, 15).join(' ') + (task.remark.split(' ').length > 15 ? '...' : '')
+                                    : "No remarks"
+                                  }
                                 </span>
+                                {task.remark && task.remark.split(' ').length > 15 && (
+                                  <span className="text-xs text-slate-500 block mt-1">
+                                    {task.remark.split(' ').length} words total
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="py-4 px-4 text-right">
@@ -1749,7 +2068,13 @@ const ManageDepartment = () => {
                             </svg>
                             <div>
                               <span className="text-sm font-medium text-slate-700">Assigned By:</span>
-                              <span className="text-slate-800 font-medium ml-2">{task.assignedBy || "N/A"}</span>
+                              <span 
+                                className="font-medium ml-2"
+                                style={{ color: getColorStyles(task.assignedByColor).text }}
+                                title={task.assignedByOriginal}
+                              >
+                                {task.assignedBy}
+                              </span>
                             </div>
                           </div>
                           
@@ -1760,22 +2085,28 @@ const ManageDepartment = () => {
                             <div className="flex-1">
                               <span className="text-sm font-medium text-slate-700">Assigned To:</span>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? (
-                                  task.assignedTo.slice(0, 3).map((person, index) => (
-                                    <span 
-                                      key={index}
-                                      className={`px-2 py-1 rounded-lg text-xs font-medium border ${
-                                        isAssigned && person.includes(userName) 
-                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-100" 
-                                          : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100"
-                                      }`}
-                                    >
-                                      {person}
-                                      {isAssigned && person.includes(userName) && (
-                                        <span className="ml-1 text-xs text-green-600">(You)</span>
-                                      )}
-                                    </span>
-                                  ))
+                                {task.assignedTo && task.assignedTo.length > 0 ? (
+                                  task.assignedTo.slice(0, 3).map((person, index) => {
+                                    const color = task.assignedToColors[index] || '#6366F1';
+                                    const colorStyles = getColorStyles(color);
+                                    return (
+                                      <span 
+                                        key={index}
+                                        className="px-2 py-1 rounded-lg text-xs font-medium border"
+                                        style={{
+                                          backgroundColor: colorStyles.bg,
+                                          borderColor: colorStyles.border,
+                                          color: colorStyles.text
+                                        }}
+                                        title={task.assignedToOriginal}
+                                      >
+                                        {person}
+                                        {isAssigned && person.includes(userName) && (
+                                          <span className="ml-1 text-xs text-green-600">(You)</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })
                                 ) : (
                                   <span className="text-slate-500 text-sm">No assignments</span>
                                 )}
@@ -1802,7 +2133,15 @@ const ManageDepartment = () => {
                             <div>
                               <span className="text-sm font-medium text-slate-700">Remark:</span>
                               <span className="text-slate-700 text-sm ml-2 block mt-1">
-                                {task.remark || "No remarks"}
+                                {task.remark 
+                                  ? task.remark.split(' ').slice(0, 10).join(' ') + (task.remark.split(' ').length > 10 ? '...' : '')
+                                  : "No remarks"
+                                }
+                                {task.remark && task.remark.split(' ').length > 10 && (
+                                  <span className="text-xs text-slate-500 block mt-1">
+                                    {task.remark.split(' ').length} words total
+                                  </span>
+                                )}
                               </span>
                             </div>
                           </div>
@@ -1995,12 +2334,20 @@ const ManageDepartment = () => {
                     <div>
                       <h4 className="text-sm font-semibold text-slate-500 mb-2">Assigned By</h4>
                       <p className="text-slate-800 font-medium flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                          <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div 
+                          className="w-6 h-6 rounded-full flex items-center justify-center"
+                          style={{
+                            backgroundColor: getColorStyles(selectedTask.assignedByColor).bg,
+                            border: `1px solid ${getColorStyles(selectedTask.assignedByColor).border}`
+                          }}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                         </div>
-                        {selectedTask.assignedBy}
+                        <span style={{ color: getColorStyles(selectedTask.assignedByColor).text }}>
+                          {selectedTask.assignedBy}
+                        </span>
                       </p>
                     </div>
 
@@ -2033,22 +2380,28 @@ const ManageDepartment = () => {
                     <div>
                       <h4 className="text-sm font-semibold text-slate-500 mb-2">Assigned To</h4>
                       <div className="flex flex-wrap gap-2">
-                        {Array.isArray(selectedTask.assignedTo) && selectedTask.assignedTo.length > 0 ? (
-                          selectedTask.assignedTo.map((person, index) => (
-                            <span 
-                              key={index}
-                              className={`px-3 py-1 rounded-lg text-sm font-medium border ${
-                                isUserAssignedToTask(selectedTask) && person.includes(userName) 
-                                  ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-100" 
-                                  : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100"
-                              }`}
-                            >
-                              {person}
-                              {isUserAssignedToTask(selectedTask) && person.includes(userName) && (
-                                <span className="ml-1 text-xs text-green-600">(You)</span>
-                              )}
-                            </span>
-                          ))
+                        {selectedTask.assignedTo && selectedTask.assignedTo.length > 0 ? (
+                          selectedTask.assignedTo.map((person, index) => {
+                            const color = selectedTask.assignedToColors[index] || '#6366F1';
+                            const colorStyles = getColorStyles(color);
+                            return (
+                              <span 
+                                key={index}
+                                className="px-3 py-1 rounded-lg text-sm font-medium border"
+                                style={{
+                                  backgroundColor: colorStyles.bg,
+                                  borderColor: colorStyles.border,
+                                  color: colorStyles.text
+                                }}
+                                title={selectedTask.assignedToOriginal}
+                              >
+                                {person}
+                                {isUserAssignedToTask(selectedTask) && person.includes(userName) && (
+                                  <span className="ml-1 text-xs text-green-600">(You)</span>
+                                )}
+                              </span>
+                            );
+                          })
                         ) : (
                           <span className="text-slate-500 text-sm">No assignments</span>
                         )}
@@ -2061,6 +2414,11 @@ const ManageDepartment = () => {
                   <h4 className="text-sm font-semibold text-slate-500 mb-2">Remarks</h4>
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-slate-700">{selectedTask.remark || "No remarks"}</p>
+                    {selectedTask.remark && selectedTask.remark.split(' ').length > 15 && (
+                      <p className="text-xs text-slate-500 mt-2">
+                        Showing 15 of {selectedTask.remark.split(' ').length} words
+                      </p>
+                    )}
                   </div>
                 </div>
 

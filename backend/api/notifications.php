@@ -17,7 +17,7 @@ if ($method === 'GET') {
         exit;
     }
 
-    $sql = "SELECT n.id,n.message,n.type,n.reference_id,n.is_read,n.created_date,n.created_time,u.name AS sender_name FROM notifications n INNER JOIN users u ON u.id = n.sender_id WHERE n.user_id = '$userId' and is_read = 0 ORDER BY n.created_date DESC";
+    $sql = "SELECT n.id,n.message,n.type,n.reference_id,n.is_read,n.created_date,n.created_time,u.name AS sender_name FROM notifications n INNER JOIN users u ON u.id = n.sender_id WHERE n.user_id = '$userId' and is_read = 0 ORDER BY n.created_date,n.created_time DESC";
 
     $res = $conn->query($sql);
 
