@@ -57,6 +57,7 @@ switch ($method) {
     
     case 'POST':
         $name = trim($_POST['name'] ?? '');
+        $color = trim($_POST['color'] ?? '');
         $description = $_POST['description'] ?? '';
         $status = $_POST['status'] ?? '';
 
@@ -66,7 +67,7 @@ switch ($method) {
             echo json_encode(["status" => "error", "message" => "Department Name Already Exists"]);
             exit;
         }       
-        $sql = "INSERT INTO `departments`(`name`, `description`, `status`, `updated_by`, `created_date`, `created_time`) VALUES ('$name','$description','$status','$userId','$date','$time')";
+        $sql = "INSERT INTO `departments`(`name`, `description`, `color_code`, `status`, `updated_by`, `created_date`, `created_time`) VALUES ('$name','$description', '$color','$status','$userId','$date','$time')";
         if ($conn->query($sql)) {
         echo json_encode(["status" => "success", "message" => "Department Created Successfully"]);
         }else{
@@ -78,7 +79,8 @@ switch ($method) {
     case 'PUT':
         $id = $_POST['id'] ?? ''; 
         $name = trim($_POST['name'] ?? '');
-        $description = $_POST['description'] ?? '';
+        $color = trim($_POST['color'] ?? '');
+        $description = trim($_POST['description'] ?? '');
         $status = $_POST['status'] ?? '';
         $userstatus = filter_var($status, FILTER_VALIDATE_BOOLEAN) ? 'active' : 'inactive';
 
@@ -88,7 +90,7 @@ switch ($method) {
             echo json_encode(["status" => "error", "message" => "Department Name Already Exists"]);
             exit;
         }
-        $sql = "UPDATE `departments` SET `name`='$name', `description`='$description', `status`='$userstatus', `updated_by`='$userId', `created_date`='$date', `created_time`='$time' WHERE id='$id'";
+        $sql = "UPDATE `departments` SET `name`='$name', `description`='$description', `color_code`='$color', `status`='$userstatus', `updated_by`='$userId', `updated_date`='$date', `updated_time`='$time' WHERE id='$id'";
         if ($conn->query($sql)) {
         echo json_encode(["status" => "success", "message" => "Department Updated Successfully".$sql]);
         }else{
