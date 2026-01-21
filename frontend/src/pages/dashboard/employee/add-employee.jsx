@@ -217,7 +217,7 @@ export default function AddEmployee() {
   // const showDepartment = formData.role === "admin" || formData.role === "manager" || formData.role === "staff";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-5">
       {/* Main Form Card */}
       <div className=" mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
