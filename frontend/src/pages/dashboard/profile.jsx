@@ -139,9 +139,9 @@ const ProfilePage = () => {
   const isFieldEditable = (fieldName) => {
     if (!isEditing) return false;
     
-    // Staff can only edit specific fields
+    // Staff can edit specific fields including password
     if (isStaff) {
-      const staffEditableFields = ['name', 'phone', 'designation', 'gender'];
+      const staffEditableFields = ['name', 'phone', 'designation', 'gender', 'password'];
       
       // For DOB and joining_date, check if they were originally empty
       if (fieldName === 'dob') {
@@ -192,8 +192,8 @@ const ProfilePage = () => {
         return;
       }
       
-      // Staff can only edit specific fields
-      const allowedFields = ['name', 'phone', 'designation', 'gender'];
+      // Staff can edit specific fields including password
+      const allowedFields = ['name', 'phone', 'designation', 'gender', 'password'];
       
       // If DOB or joining_date are empty, allow editing them
       if (name === 'dob' && !originalData.dob) {
@@ -222,15 +222,6 @@ const ProfilePage = () => {
   };
 
   const generatePassword = () => {
-    // Only allow password generation for non-staff users or if staff can edit password
-    if (isStaff) {
-      // If staff shouldn't edit password, you can either:
-      // 1. Disable this feature completely for staff
-      // 2. Or show a message
-      setMessage({ type: 'error', text: 'Staff cannot change passwords' });
-      return;
-    }
-    
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
     const passwordLength = 12;
@@ -253,16 +244,34 @@ const ProfilePage = () => {
   const validateForm = () => {
     const newErrors = {};
     
+    // COMMON VALIDATION FOR ALL USERS
+    // Name is mandatory for everyone
+    if (!employee.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    // Phone is mandatory for everyone
+    if (!employee.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^\d{10}$/.test(employee.phone.replace(/\D/g, ''))) {
+      newErrors.phone = 'Please enter a valid 10-digit phone number';
+    }
+    
+    // Designation is mandatory for everyone
+    if (!employee.designation.trim()) {
+      newErrors.designation = 'Designation is required';
+    }
+    
+    // Gender is mandatory for everyone
+    if (!employee.gender.trim()) {
+      newErrors.gender = 'Gender is required';
+    }
+    
     // Staff validation rules
     if (isStaff) {
-      // Staff can only edit specific fields, so only validate those
-      if (!employee.name.trim()) {
-        newErrors.name = 'Name is required';
-      }
-      
-      // Optional: add phone validation for staff
-      if (employee.phone && !/^\d{10}$/.test(employee.phone.replace(/\D/g, ''))) {
-        newErrors.phone = 'Please enter a valid 10-digit phone number';
+      // Password validation for staff
+      if (isEditing && employee.password && employee.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
       }
       
       // Validate DOB if it's being set for the first time
@@ -285,22 +294,20 @@ const ProfilePage = () => {
         }
       }
     } else {
-      // Full validation for non-staff users
+      // Additional validation for non-staff users
+      // Password validation for non-staff
       if (isEditing && employee.password && employee.password.length < 8) {
         newErrors.password = 'Password must be at least 8 characters';
       }
       
-      if (!employee.name.trim()) {
-        newErrors.name = 'Name is required';
-      }
-      
+      // Email is mandatory for non-staff
       if (!employee.email.trim()) {
         newErrors.email = 'Email is required';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employee.email)) {
         newErrors.email = 'Invalid email format';
       }
       
-      // Validate date formats
+      // Validate date formats for non-staff
       if (employee.dob) {
         const dobDate = new Date(employee.dob);
         if (isNaN(dobDate.getTime())) {
@@ -336,36 +343,24 @@ const ProfilePage = () => {
       // Prepare data based on user role
       let submitData;
       
-      // if (isStaff) {
-      //   // Staff can only submit specific fields
-      //   submitData = {
-      //     id: id,
-      //     name: employee.name,
-      //     gender: employee.gender,
-      //     phone: employee.phone || '',
-      //     designation: employee.designation || '',
-      //     // Include DOB and joining_date only if they were originally empty and are now being set
-      //     ...(!originalData.dob && employee.dob && { dob: employee.dob }),
-      //     ...(!originalData.joining_date && employee.joining_date && { joining_date: employee.joining_date }),
-      //     _method: 'PUT'
-      //   };
-      // } else {
-      //   // Non-staff users can submit all fields
-      //   submitData = {
-      //     id: id,
-      //     name: employee.name,
-      //     email: employee.email,
-      //     gender: employee.gender,
-      //     phone: employee.phone || '',
-      //     designation: employee.designation || '',
-      //     dob: employee.dob || '',
-      //     joining_date: employee.joining_date || '',
-      //     password: employee.password || '',
-      //     _method: 'PUT'
-      //   };
-      // }
-
-      submitData = {
+      if (isStaff) {
+        // Staff can only submit specific fields
+        submitData = {
+          id: id,
+          name: employee.name,
+          gender: employee.gender,
+          phone: employee.phone || '',
+          designation: employee.designation || '',
+          // Include password if provided
+          ...(employee.password && { password: employee.password }),
+          // Include DOB and joining_date only if they were originally empty and are now being set
+          ...(!originalData.dob && employee.dob && { dob: employee.dob }),
+          ...(!originalData.joining_date && employee.joining_date && { joining_date: employee.joining_date }),
+          _method: 'PUT'
+        };
+      } else {
+        // Non-staff users can submit all fields
+        submitData = {
           id: id,
           name: employee.name,
           email: employee.email,
@@ -377,6 +372,7 @@ const ProfilePage = () => {
           password: employee.password || '',
           _method: 'PUT'
         };
+      }
 
       console.log("Submitting data:", submitData);
 
@@ -491,11 +487,11 @@ const ProfilePage = () => {
       {/* Role Indicator */}
       {isStaff && (
         <div className="mx-auto p-6 pb-0">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-            <p className="text-yellow-800 text-sm font-medium">
-              <span className="font-bold">You can only edit Name, Phone, Designation, and Gender fields.</span>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-blue-800 text-sm font-medium">
+              <span className="font-bold">You can edit your Name, Phone, Designation, Gender, and Password.</span>
               <br />
-           
+              <span className="text-blue-600">Date of Birth and Joining Date can only be set once and cannot be changed later.</span>
             </p>
           </div>
         </div>
@@ -552,11 +548,12 @@ const ProfilePage = () => {
           {/* Profile Details */}
           <div className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Full Name - Editable for staff */}
+              {/* Full Name - Mandatory for all users */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <User className="w-4 h-4 text-blue-600" />
                   Full Name
+                  <span className="text-red-500 text-xs">*</span>
                 </label>
                 <input
                   type="text"
@@ -575,13 +572,14 @@ const ProfilePage = () => {
                 )}
               </div>
 
-              {/* Phone Number - Editable for staff */}
+              {/* Phone Number - Mandatory for all users */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                   Phone Number
+                  <span className="text-red-500 text-xs">*</span>
                 </label>
                 <input
                   type="tel"
@@ -594,18 +592,19 @@ const ProfilePage = () => {
                       ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       : 'border-gray-200 bg-gray-50'
                   } ${errors.phone ? 'border-red-300' : ''} outline-none transition-all`}
-                  placeholder="Enter phone number"
+                  placeholder="Enter 10-digit phone number"
                 />
                 {errors.phone && (
                   <p className="text-red-500 text-sm">{errors.phone}</p>
                 )}
               </div>
 
-              {/* Gender - Editable for staff */}
+              {/* Gender - Mandatory for all users */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <UserCircle2 className="w-4 h-4 text-blue-600" />
                   Gender
+                  <span className="text-red-500 text-xs">*</span>
                 </label>
                 <select
                   name="gender"
@@ -614,8 +613,8 @@ const ProfilePage = () => {
                   disabled={!isFieldEditable('gender')}
                   className={`w-full px-4 py-3 rounded-lg border ${
                     isFieldEditable('gender')
-                      ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-                      : 'border-gray-200 bg-gray-50'
+                      ? errors.gender ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                      : errors.gender ? 'border-red-300 bg-gray-50' : 'border-gray-200 bg-gray-50'
                   } outline-none transition-all`}
                 >
                   <option value="">Select Gender</option>
@@ -623,6 +622,9 @@ const ProfilePage = () => {
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
+                {errors.gender && (
+                  <p className="text-red-500 text-sm">{errors.gender}</p>
+                )}
               </div>
 
               {/* Department (Read-only for everyone) */}
@@ -636,25 +638,31 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              {/* Designation - Editable for staff */}
+              {/* Designation - Mandatory for all users */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-blue-600" />
                   Designation
+                  <span className="text-red-500 text-xs">*</span>
                 </label>
                 {isFieldEditable('designation') ? (
-                  <input
-                    type="text"
-                    name="designation"
-                    value={employee.designation}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      isFieldEditable('designation')
-                        ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-                        : 'border-gray-200 bg-gray-50'
-                    } outline-none transition-all`}
-                    placeholder="Enter designation"
-                  />
+                  <>
+                    <input
+                      type="text"
+                      name="designation"
+                      value={employee.designation}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isFieldEditable('designation')
+                          ? errors.designation ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                          : 'border-gray-200 bg-gray-50'
+                      } outline-none transition-all`}
+                      placeholder="Enter designation"
+                    />
+                    {errors.designation && (
+                      <p className="text-red-500 text-sm">{errors.designation}</p>
+                    )}
+                  </>
                 ) : (
                   <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
                     {employee.designation || 'Not set'}
@@ -662,33 +670,35 @@ const ProfilePage = () => {
                 )}
               </div>
 
-              {/* Email Address - Not editable for staff */}
+              {/* Email Address - Not editable for staff, mandatory for non-staff */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Mail className="w-4 h-4 text-blue-600" />
                   Email Address
-                  {isStaff && <span className="text-xs text-gray-400">(Read-only)</span>}
+                  {isStaff ? <span className="text-xs text-gray-400">(Read-only)</span> : <span className="text-red-500 text-xs">*</span>}
                 </label>
                 {isStaff ? (
                   <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700">
                     {employee.email}
                   </div>
                 ) : (
-                  <input
-                    type="email"
-                    name="email"
-                    value={employee.email}
-                    onChange={handleChange}
-                    disabled={!isFieldEditable('email')}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      isFieldEditable('email')
-                        ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-                        : 'border-gray-200 bg-gray-50'
-                    } ${errors.email ? 'border-red-300' : ''} outline-none transition-all`}
-                  />
-                )}
-                {!isStaff && errors.email && (
-                  <p className="text-red-500 text-sm">{errors.email}</p>
+                  <>
+                    <input
+                      type="email"
+                      name="email"
+                      value={employee.email}
+                      onChange={handleChange}
+                      disabled={!isFieldEditable('email')}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isFieldEditable('email')
+                          ? errors.email ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                          : 'border-gray-200 bg-gray-50'
+                      } outline-none transition-all`}
+                    />
+                    {errors.email && (
+                      <p className="text-red-500 text-sm">{errors.email}</p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -712,9 +722,9 @@ const ProfilePage = () => {
                         onChange={handleChange}
                         className={`w-full px-4 py-3 rounded-lg border ${
                           isFieldEditable('dob')
-                            ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                            ? errors.dob ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                             : 'border-gray-200 bg-gray-50'
-                        } ${errors.dob ? 'border-red-300' : ''} outline-none transition-all`}
+                        } outline-none transition-all`}
                         max={new Date().toISOString().split('T')[0]} // Prevent future dates
                       />
                       <p className="text-xs text-blue-600 italic">
@@ -740,9 +750,9 @@ const ProfilePage = () => {
                       onChange={handleChange}
                       className={`w-full px-4 py-3 rounded-lg border ${
                         isEditing
-                          ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                          ? errors.dob ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                           : 'border-gray-200 bg-gray-50'
-                      } ${errors.dob ? 'border-red-300' : ''} outline-none transition-all`}
+                      } outline-none transition-all`}
                       max={new Date().toISOString().split('T')[0]} // Prevent future dates
                     />
                     {errors.dob && (
@@ -777,9 +787,9 @@ const ProfilePage = () => {
                         onChange={handleChange}
                         className={`w-full px-4 py-3 rounded-lg border ${
                           isFieldEditable('joining_date')
-                            ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                            ? errors.joining_date ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                             : 'border-gray-200 bg-gray-50'
-                        } ${errors.joining_date ? 'border-red-300' : ''} outline-none transition-all`}
+                        } outline-none transition-all`}
                         max={new Date().toISOString().split('T')[0]} // Prevent future dates
                       />
                       <p className="text-xs text-blue-600 italic">
@@ -805,9 +815,9 @@ const ProfilePage = () => {
                       onChange={handleChange}
                       className={`w-full px-4 py-3 rounded-lg border ${
                         isEditing
-                          ? 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                          ? errors.joining_date ? 'border-red-300 bg-white' : 'border-blue-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                           : 'border-gray-200 bg-gray-50'
-                      } ${errors.joining_date ? 'border-red-300' : ''} outline-none transition-all`}
+                      } outline-none transition-all`}
                       max={new Date().toISOString().split('T')[0]} // Prevent future dates
                     />
                     {errors.joining_date && (
@@ -823,8 +833,8 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Password Section - Only show in edit mode for non-staff users */}
-            {isEditing && !isStaff && (
+            {/* Password Section - Show in edit mode for all users */}
+            {isEditing && (
               <div className="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Password Update</h3>
                 <div className="space-y-2">
@@ -838,10 +848,13 @@ const ProfilePage = () => {
                       name="password"
                       value={employee.password}
                       onChange={handleChange}
+                      disabled={!isFieldEditable('password')}
                       className={`w-full px-4 py-3 pr-32 rounded-lg border-2 ${
-                        errors.password 
-                          ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                          : "border-blue-200 focus:border-blue-500 focus:ring-blue-100"
+                        !isFieldEditable('password')
+                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                          : errors.password 
+                            ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                            : "border-blue-200 focus:border-blue-500 focus:ring-blue-100"
                       } focus:ring-2 outline-none transition-all bg-white`}
                       placeholder="Leave blank to keep current password"
                     />
@@ -850,7 +863,12 @@ const ProfilePage = () => {
                         <button
                           type="button"
                           onClick={copyPassword}
-                          className="text-gray-400 hover:text-blue-600 transition-colors p-1.5 hover:bg-blue-50 rounded-lg"
+                          disabled={!isFieldEditable('password')}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            !isFieldEditable('password')
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                          }`}
                           title="Copy password"
                         >
                           <Copy className="w-5 h-5" />
@@ -859,7 +877,12 @@ const ProfilePage = () => {
                       <button
                         type="button"
                         onClick={generatePassword}
-                        className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        disabled={!isFieldEditable('password')}
+                        className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
+                          !isFieldEditable('password')
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
                       >
                         Generate
                       </button>
@@ -874,13 +897,13 @@ const ProfilePage = () => {
                     <span className="text-gray-500">
                       {employee.password.length} characters (optional)
                     </span>
-                    {employee.password && (
+                    {/* {employee.password && isFieldEditable('password') && (
                       <span className={`font-medium ${
                         employee.password.length >= 8 ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {employee.password.length >= 8 ? 'Strong' : 'Weak'}
                       </span>
-                    )}
+                    )} */}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     Password must be at least 8 characters long. Leave this field empty if you don't want to change the password.

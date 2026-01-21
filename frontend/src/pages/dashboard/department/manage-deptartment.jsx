@@ -390,29 +390,22 @@ const ManageDepartment = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentDepartments.map((dept) => {
-                        const deptColor = getDepartmentColor(dept.id, getDepartmentName(dept));
-                        const textColor = getDepartmentTextColor(getDepartmentName(dept));
-                        const initial = getDepartmentInitial(dept);
-                        const displayName = getDepartmentName(dept);
-                        
-                        return (
-                          <tr 
-                            key={dept.id} 
-                            className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
-                          >
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-3">
-                                <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${deptColor.bg} flex items-center justify-center shadow-md ring-4 ${deptColor.ring} group-hover:${deptColor.hoverRing} transition-all`}>
-                                  <span className="text-black font-bold text-sm">
-                                    {initial}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className={`font-semibold ${textColor} block`}>
-                                    {displayName}
-                                  </span>
-                                </div>
+                      {currentDepartments.map((dept) => (
+                        <tr 
+                          key={dept.id} 
+                          className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200 group"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-md ring-4 ring-blue-50 group-hover:ring-blue-100 transition-all">
+                                <span className="text-white font-bold text-sm">
+                                  {dept.name ? dept.name.charAt(0).toUpperCase() : "D"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-slate-900 block">
+                                  {dept.name || "Unnamed Department"}
+                                </span>
                               </div>
                             </div>
                           </td>

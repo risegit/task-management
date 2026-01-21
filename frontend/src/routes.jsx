@@ -241,30 +241,30 @@ const routes = [
           },
         ],
       },
-      {
-        icon: <SpeakerWaveIcon {...icon} />,
-        name: "Announcements",
-        allowedRoles: ["admin", "", "manager"],
-        path: "/otheractivities",
-        element: (
-          <RoleProtectedRoute
-            element={<OthersActivities />}
-            allowedRoles={["admin", "staff", "manager"]}
-          />
-        ),
-      },
-      {
-        icon: <SpeakerWaveIcon {...icon} />,
-        name: "Project Announcements",
-        allowedRoles: ["admin", "", "manager"],
-        path: "/otheractivitiesdepartment",
-        element: (
-          <RoleProtectedRoute
-            element={<OthersActivitiesDepartment />}
-            allowedRoles={["admin", "staff", "manager"]}
-          />
-        ),
-      },
+      // {
+      //   icon: <SpeakerWaveIcon {...icon} />,
+      //   name: "Announcements",
+      //   allowedRoles: ["admin", "", "manager"],
+      //   path: "/otheractivities",
+      //   element: (
+      //     <RoleProtectedRoute
+      //       element={<OthersActivities />}
+      //       allowedRoles={["admin", "staff", "manager"]}
+      //     />
+      //   ),
+      // },
+      // {
+      //   icon: <SpeakerWaveIcon {...icon} />,
+      //   name: "Project Announcements",
+      //   allowedRoles: ["admin", "", "manager"],
+      //   path: "/otheractivitiesdepartment",
+      //   element: (
+      //     <RoleProtectedRoute
+      //       element={<OthersActivitiesDepartment />}
+      //       allowedRoles={["admin", "staff", "manager"]}
+      //     />
+      //   ),
+      // },
       {
         icon: <IdentificationIcon {...icon} />,
         name: "Profile",
