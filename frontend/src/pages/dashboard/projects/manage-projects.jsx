@@ -35,56 +35,116 @@ const ProjectsTable = () => {
   };
 
   // Function to parse other_employees string to extract names and colors
-  const parseOtherEmployees = (otherEmployeesString) => {
-    if (!otherEmployeesString) return [];
+  // Function to parse other_employees string to extract names and colors
+const parseOtherEmployees = (otherEmployeesString) => {
+  if (!otherEmployeesString) return [];
+  
+  // Split by comma to get individual employee entries
+  const employees = otherEmployeesString.split(', ');
+  
+  return employees.map(employee => {
+    // Split each entry by "||" to separate name from color
+    const parts = employee.split('||#');
     
-    // Split by comma to get individual employee entries
-    const employees = otherEmployeesString.split(', ');
-    
-    return employees.map(employee => {
-      // Split each entry by "||" to separate name from color
-      const parts = employee.split('||#');
+    if (parts.length >= 2) {
+      const fullName = parts[0].trim();
+      const formattedName = formatUserName(fullName);
       
-      if (parts.length >= 2) {
-        return {
-          name: parts[0].trim(),
-          color: `#${parts[1]}`
-        };
-      } else {
-        // If no color code found, just return the name
-        return {
-          name: employee.trim(),
-          color: '#6366F1' // Default color
-        };
-      }
-    });
-  };
+      return {
+        name: fullName, // Keep full name for searching/sorting
+        displayName: formattedName, // Add formatted name for display
+        color: `#${parts[1]}`
+      };
+    } else {
+      // If no color code found, just return the name
+      const fullName = employee.trim();
+      const formattedName = formatUserName(fullName);
+      
+      return {
+        name: fullName,
+        displayName: formattedName,
+        color: '#6366F1' // Default color
+      };
+    }
+  });
+};
+
+// Function to format user name: FirstName LastInitial.
+const formatUserName = (fullName) => {
+  if (!fullName) return '';
+  
+  const names = fullName.trim().split(' ');
+  
+  if (names.length === 1) {
+    // If only one name, return as is
+    return names[0];
+  } else {
+    // Return first name + first letter of last name
+    const firstName = names[0];
+    const lastNameInitial = names[names.length - 1].charAt(0);
+    return `${firstName} ${lastNameInitial}.`;
+  }
+};
+
+// Also update parsePOCEmployees function similarly if needed
+const parsePOCEmployees = (pocString) => {
+  if (!pocString) return [];
+  
+  // Split by comma to get individual POC entries
+  const pocs = pocString.split(', ');
+  
+  return pocs.map(poc => {
+    // Split each entry by "||" to separate name from color
+    const parts = poc.split('||#');
+    
+    if (parts.length >= 2) {
+      const fullName = parts[0].trim();
+      const formattedName = formatUserName(fullName);
+      
+      return {
+        name: fullName,
+        displayName: formattedName,
+        color: `#${parts[1]}`
+      };
+    } else {
+      // If no color code found, just return the name
+      const fullName = poc.trim();
+      const formattedName = formatUserName(fullName);
+      
+      return {
+        name: fullName,
+        displayName: formattedName,
+        color: '#10B981' // Default color for POC
+      };
+    }
+  });
+};
 
   // Function to parse POC string
-  const parsePOCEmployees = (pocString) => {
-    if (!pocString) return [];
+  // const parsePOCEmployees = (pocString) => {
+  //   if (!pocString) return [];
     
-    // Split by comma to get individual POC entries
-    const pocs = pocString.split(', ');
+  //   // Split by comma to get individual POC entries
+  //   const pocs = pocString.split(', ');
     
-    return pocs.map(poc => {
-      // Split each entry by "||" to separate name from color
-      const parts = poc.split('||#');
+  //   return pocs.map(poc => {
+  //     // Split each entry by "||" to separate name from color
+  //     const parts = poc.split('||#');
       
-      if (parts.length >= 2) {
-        return {
-          name: parts[0].trim(),
-          color: `#${parts[1]}`
-        };
-      } else {
-        // If no color code found, just return the name
-        return {
-          name: poc.trim(),
-          color: '#10B981' // Default color for POC
-        };
-      }
-    });
-  };
+  //     if (parts.length >= 2) {
+  //       return {
+  //         name: parts[0].trim(),
+  //         color: `#${parts[1]}`
+  //       };
+  //     } else {
+  //       // If no color code found, just return the name
+  //       return {
+  //         name: poc.trim(),
+  //         color: '#10B981' // Default color for POC
+  //       };
+  //     }
+  //   });
+  // };
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -524,7 +584,7 @@ const ProjectsTable = () => {
                                       color: '#fff'
                                     }}
                                   >
-                                    {employee.name}
+                                    {employee.displayName || employee.name}
                                   </span>
                                 ))
                               ) : (
@@ -650,12 +710,12 @@ const ProjectsTable = () => {
                                     key={index}
                                     className="px-2 py-1 rounded-lg text-xs font-medium border"
                                     style={{
-                                      backgroundColor: `${employee.color}15`,
+                                      backgroundColor: `${employee.color}`,
                                       borderColor: `${employee.color}30`,
-                                      color: employee.color
+                                      color: '#fff'
                                     }}
                                   >
-                                    {employee.name}
+                                    {employee.displayName || employee.name}
                                   </span>
                                 ))
                               ) : (

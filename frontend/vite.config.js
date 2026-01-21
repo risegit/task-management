@@ -24,15 +24,15 @@ export default defineConfig(({ mode }) => {
       assetsDir: "assets", // puts images, CSS, JS in /assets
     },
     server: {
-    host: true,
-    proxy: {
-      '/api': {
-        target: 'http://192.168.1.105',
-        changeOrigin: true,
-        secure: false,
+      host: true,
+      proxy: {
+        '/api': {
+          target: 'http://192.168.1.105',
+          changeOrigin: true,
+          secure: false,
+        }
       }
     }
-  }
   };
 });
 
