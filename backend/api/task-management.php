@@ -84,7 +84,7 @@ switch ($method) {
                 $assignedTo[] = $row;
             }
 
-            $sql3 = "SELECT cu.client_id,cu.emp_id,cu.is_poc,u.name,d.name dept_name FROM client_users cu INNER JOIN users u ON u.id=cu.emp_id INNER JOIN departments d ON d.id=u.department_id WHERE cu.client_id='$clientId'";
+            $sql3 = "SELECT cu.client_id,cu.emp_id,cu.is_poc,u.name,d.name dept_name FROM client_users cu INNER JOIN users u ON u.id=cu.emp_id INNER JOIN departments d ON d.id=u.department_id WHERE cu.client_id='$clientId' and u.status='active'";
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result3 = $conn->query($sql3);
             $userBelongsToProject = [];
@@ -139,7 +139,9 @@ switch ($method) {
             }
             // $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, ta.time, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id WHERE t.id IN (SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id $whereClause) GROUP BY t.id ORDER BY t.id DESC";
 
-            $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, ta.time, GROUP_CONCAT(DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ') AS assigned_to_departments, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id $whereClause GROUP BY t.id ORDER BY t.id DESC";
+            // $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT CONCAT(u.name, '||', d.color_code) ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, ta.time, GROUP_CONCAT(DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ') AS assigned_to_departments, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY t.id ORDER BY t.id DESC";
+
+            $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT( DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ' ) AS assigned_to_ids, GROUP_CONCAT( DISTINCT CONCAT(u.name, '||', d.color_code) ORDER BY u.name SEPARATOR ', ' ) AS assigned_to_names, ta.time, GROUP_CONCAT( DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ' ) AS assigned_to_departments, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY t.id ORDER BY t.id DESC;";
 
             // $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, cb.name AS assigned_by_name, GROUP_CONCAT(DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ') AS assigned_to_ids, GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') AS assigned_to_names, ta.time, GROUP_CONCAT(DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ') AS assigned_to_departments, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id $whereClause GROUP BY t.id ORDER BY t.id DESC;";
 
@@ -182,7 +184,7 @@ switch ($method) {
             echo json_encode(["status" => "success","data" => $data]);
 
         }else if($project_id){
-            $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc,d.name dept_name FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id INNER JOIN departments d ON d.id=u.department_id WHERE c.id='$project_id'";
+            $sql1 = "SELECT u.name,cu.emp_id,cu.is_poc,d.name dept_name FROM clients c INNER JOIN client_users cu ON c.id=cu.client_id INNER JOIN users u ON u.id=cu.emp_id INNER JOIN departments d ON d.id=u.department_id WHERE c.id='$project_id' AND u.status='active'";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {

@@ -223,6 +223,7 @@ const ManageDepartment = () => {
   const filteredDepartments = departments.filter(dept =>
     (dept.name && dept.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (dept.description && dept.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (dept.color_code && dept.color_code.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (dept.id && dept.id.toString().toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -258,7 +259,7 @@ const ManageDepartment = () => {
   
   // Navigate to edit department page
   const handleEdit = (id) => {
-    navigate(`/dashboard/department/edit-deptartment/${id}`);
+    navigate(`/dashboard/department/edit-department/${id}`);
   };
   
   const goToPage = (page) => setCurrentPage(page);
@@ -377,6 +378,15 @@ const ManageDepartment = () => {
                         </th>
                         <th 
                           className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
+                          onClick={() => handleSort("color_code")}
+                        >
+                          <div className="flex items-center gap-2">
+                            Color Code
+                            <SortArrow columnKey="color_code" />
+                          </div>
+                        </th>
+                        <th 
+                          className="py-4 px-4 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors group"
                           onClick={() => handleSort("status")}
                         >
                           <div className="flex items-center gap-2">
@@ -412,6 +422,22 @@ const ManageDepartment = () => {
                           <td className="py-4 px-4">
                             <span className="text-slate-700">
                               {dept.description || "No description available"}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-slate-700 flex items-center gap-2">
+                              {dept.color_code || "Color Code Not Applied"}
+
+                              {dept.color_code && (
+                                <svg width="25" height="25" viewBox="0 0 12 12">
+                                  <circle
+                                    cx="6"
+                                    cy="6"
+                                    r="5"
+                                    fill={dept.color_code}
+                                  />
+                                </svg>
+                              )}
                             </span>
                           </td>
                           <td className="py-4 px-4">

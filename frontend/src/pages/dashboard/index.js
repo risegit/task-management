@@ -9,8 +9,8 @@ export * from "@/pages/dashboard/employee/edit-employee";
 export * from "@/pages/dashboard/task-management/createtask"
 export * from "@/pages/dashboard/task-management/view-task"
 export * from "@/pages/dashboard/department/add-deptartment";
-export * from "@/pages/dashboard/department/manage-deptartment";
-export * from "@/pages/dashboard/department/edit-deptartment";
+export * from "@/pages/dashboard/department/manage-department";
+export * from "@/pages/dashboard/department/edit-department";
 export * from "@/pages/dashboard/projects/add-project"; 
 export * from "@/pages/dashboard/projects/manage-projects";  
 export * from "@/pages/dashboard/projects/edit-project";

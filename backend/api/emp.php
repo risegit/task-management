@@ -10,7 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $emailId = $_GET['email'] ?? null;
 $allEmp = $_GET['all_emp'] ?? null;
-
+$empProject = $_GET['emp_project'] ?? null;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
@@ -30,7 +30,7 @@ switch ($method) {
                 $data[] = $row;
             }
 
-            $sql2 = "SELECT * FROM departments";
+            $sql2 = "SELECT * FROM departments WHERE status='active'";
             $result2 = $conn->query($sql2);
             $department = [];
             while ($row = $result2->fetch_assoc()) {
@@ -43,7 +43,12 @@ switch ($method) {
                 "departments" => $department
             ]);
         }else{
-            $sql1 = "SELECT u.id,u.name,u.role,u.email,u.status,dept.name dept_name FROM users u INNER JOIN departments dept ON u.department_id = dept.id order by u.id desc;";
+            if(!empty($empProject)){
+                $whereclause = "where u.status='active'";
+            }else{
+                $whereclause = '';
+            }
+            $sql1 = "SELECT u.id,u.name,u.role,u.email,u.status,dept.name dept_name FROM users u INNER JOIN departments dept ON u.department_id = dept.id $whereclause order by u.id desc;";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {

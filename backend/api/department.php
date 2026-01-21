@@ -10,6 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $userId = $_GET['id'] ?? null;
 $emailId = $_GET['email'] ?? null;
 $status = $_GET['status'] ?? null;
+$check_color = $_GET['check_color'] ?? null;
 
 if ($method === 'POST' && isset($_POST['_method'])) {
     $method = strtoupper($_POST['_method']);
@@ -23,6 +24,26 @@ switch ($method) {
     case 'GET':
         if($userId){
             $sql1 = "SELECT * FROM departments WHERE id='$userId'";
+            $result = $conn->query($sql1);
+            $data = [];
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+
+            $sql2 = "SELECT color_code FROM departments where color_code !=''";
+            $result2 = $conn->query($sql2);
+            $colorCodeData = [];
+            while ($row = $result2->fetch_assoc()) {
+                $colorCodeData[] = $row;
+            }
+
+            echo json_encode([
+                "status" => "success",
+                "data" => $data,
+                "colorCodeData" => $colorCodeData
+            ]);
+        }else if($check_color){
+            $sql1 = "SELECT color_code FROM departments where color_code !=''";
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {

@@ -68,6 +68,9 @@ switch ($method) {
                 }
             }
             $sql1 = "SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( CASE WHEN cu.is_poc = 1 THEN u.name END SEPARATOR ', ' ) AS poc_employee, GROUP_CONCAT( CASE WHEN cu.is_poc = 0 THEN u.name END SEPARATOR ', ' ) AS other_employees FROM clients c INNER JOIN client_users cu ON c.id = cu.client_id INNER JOIN users u ON cu.emp_id = u.id WHERE c.id IN ( SELECT client_id FROM client_users $whereClause ) $view_active_clients GROUP BY c.id ORDER BY c.id DESC";
+
+            $sql1 = "SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( DISTINCT CASE WHEN cu.is_poc = 1 THEN CONCAT(u.name, '||', d.color_code) END SEPARATOR ', ' ) AS poc_employees, GROUP_CONCAT( DISTINCT CASE WHEN cu.is_poc = 0 THEN CONCAT(u.name, '||', d.color_code) END SEPARATOR ', ' ) AS other_employees FROM clients c INNER JOIN client_users cu ON c.id = cu.client_id INNER JOIN users u ON cu.emp_id = u.id LEFT JOIN departments d ON u.department_id = d.id GROUP BY c.id ORDER BY c.id DESC";
+
             // echo json_encode(["status" => "success", "message" => $sql1]);
             $result = $conn->query($sql1);
             $project = [];

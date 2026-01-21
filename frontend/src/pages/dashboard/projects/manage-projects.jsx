@@ -34,6 +34,58 @@ const ProjectsTable = () => {
     );
   };
 
+  // Function to parse other_employees string to extract names and colors
+  const parseOtherEmployees = (otherEmployeesString) => {
+    if (!otherEmployeesString) return [];
+    
+    // Split by comma to get individual employee entries
+    const employees = otherEmployeesString.split(', ');
+    
+    return employees.map(employee => {
+      // Split each entry by "||" to separate name from color
+      const parts = employee.split('||#');
+      
+      if (parts.length >= 2) {
+        return {
+          name: parts[0].trim(),
+          color: `#${parts[1]}`
+        };
+      } else {
+        // If no color code found, just return the name
+        return {
+          name: employee.trim(),
+          color: '#6366F1' // Default color
+        };
+      }
+    });
+  };
+
+  // Function to parse POC string
+  const parsePOCEmployees = (pocString) => {
+    if (!pocString) return [];
+    
+    // Split by comma to get individual POC entries
+    const pocs = pocString.split(', ');
+    
+    return pocs.map(poc => {
+      // Split each entry by "||" to separate name from color
+      const parts = poc.split('||#');
+      
+      if (parts.length >= 2) {
+        return {
+          name: parts[0].trim(),
+          color: `#${parts[1]}`
+        };
+      } else {
+        // If no color code found, just return the name
+        return {
+          name: poc.trim(),
+          color: '#10B981' // Default color for POC
+        };
+      }
+    });
+  };
+
   useEffect(() => {
     const fetchProjects = async () => {
       setLoading(true);
@@ -54,25 +106,21 @@ const ProjectsTable = () => {
 
         if (result.status === "success") {
           const normalizedProjects = result.project.map((item, index) => {
-            // Handle POC - convert to array if it's a string
+            // Parse POC employees
             let pocArray = [];
-            if (item.poc_employee) {
-              if (Array.isArray(item.poc_employee)) {
-                pocArray = item.poc_employee;
-              } else if (typeof item.poc_employee === 'string') {
-                pocArray = [item.poc_employee];
-              }
+            if (item.poc_employees) {
+              pocArray = parsePOCEmployees(item.poc_employees);
             }
             
-            // Handle other_employees - convert to array if it's a string
+            // Parse other employees
             let otherEmployeesArray = [];
             if (item.other_employees) {
-              if (Array.isArray(item.other_employees)) {
-                otherEmployeesArray = item.other_employees;
-              } else if (typeof item.other_employees === 'string') {
-                otherEmployeesArray = [item.other_employees];
-              }
+              otherEmployeesArray = parseOtherEmployees(item.other_employees);
             }
+            
+            // Create string versions for searching
+            const pocNames = pocArray.map(poc => poc.name).join(', ');
+            const otherEmployeeNames = otherEmployeesArray.map(emp => emp.name).join(', ');
             
             return {
               id: item.client_id,
@@ -81,10 +129,10 @@ const ProjectsTable = () => {
               description: item.description || '',
               startDate: item.start_date || '',
               status: item.status === "active" ? "Active" : "Inactive",
-              poc: pocArray,
-              pocString: pocArray.join(', '), // String version for searching
-              other_employees: otherEmployeesArray,
-              otherEmployeesString: otherEmployeesArray.join(', '), // String version for searching
+              poc: pocArray, // Array of objects with name and color
+              pocString: pocNames, // String version for searching
+              other_employees: otherEmployeesArray, // Array of objects with name and color
+              otherEmployeesString: otherEmployeeNames, // String version for searching
               client_name: item.client_name || '',
               description: item.description || ''
             };
@@ -168,7 +216,7 @@ const ProjectsTable = () => {
     // Search in POC (check each POC in the array)
     if (project.poc && Array.isArray(project.poc)) {
       for (const pocItem of project.poc) {
-        if (pocItem && pocItem.toLowerCase().includes(searchTerms)) {
+        if (pocItem.name && pocItem.name.toLowerCase().includes(searchTerms)) {
           return true;
         }
       }
@@ -182,7 +230,7 @@ const ProjectsTable = () => {
     // Search in other employees (check each employee in the array)
     if (project.other_employees && Array.isArray(project.other_employees)) {
       for (const employee of project.other_employees) {
-        if (employee && employee.toLowerCase().includes(searchTerms)) {
+        if (employee.name && employee.name.toLowerCase().includes(searchTerms)) {
           return true;
         }
       }
@@ -229,15 +277,15 @@ const ProjectsTable = () => {
       return 0;
     } else if (sortConfig.key === 'poc') {
       // Sort by first POC name
-      const pocA = (a.poc && a.poc[0]) || '';
-      const pocB = (b.poc && b.poc[0]) || '';
+      const pocA = (a.poc && a.poc[0]?.name) || '';
+      const pocB = (b.poc && b.poc[0]?.name) || '';
       if (pocA.toLowerCase() < pocB.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
       if (pocA.toLowerCase() > pocB.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
     } else if (sortConfig.key === 'other_employees') {
       // Sort by first other employee name
-      const empA = (a.other_employees && a.other_employees[0]) || '';
-      const empB = (b.other_employees && b.other_employees[0]) || '';
+      const empA = (a.other_employees && a.other_employees[0]?.name) || '';
+      const empB = (b.other_employees && b.other_employees[0]?.name) || '';
       if (empA.toLowerCase() < empB.toLowerCase()) return sortConfig.direction === "ascending" ? -1 : 1;
       if (empA.toLowerCase() > empB.toLowerCase()) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
@@ -448,9 +496,14 @@ const ProjectsTable = () => {
                                 project.poc.map((pocItem, index) => (
                                   <span 
                                     key={index}
-                                    className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+                                    className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                                    style={{
+                                      backgroundColor: `${pocItem.color}`,
+                                      borderColor: `${pocItem.color}30`,
+                                      color: '#fff'
+                                    }}
                                   >
-                                    {pocItem}
+                                    {pocItem.name}
                                   </span>
                                 ))
                               ) : (
@@ -464,9 +517,14 @@ const ProjectsTable = () => {
                                 project.other_employees.map((employee, index) => (
                                   <span 
                                     key={index}
-                                    className="px-2.5 py-1 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg text-xs font-medium border border-green-100"
+                                    className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                                    style={{
+                                      backgroundColor: `${employee.color}`,
+                                      borderColor: `${employee.color}30`,
+                                      color: '#fff'
+                                    }}
                                   >
-                                    {employee}
+                                    {employee.name}
                                   </span>
                                 ))
                               ) : (
@@ -562,9 +620,14 @@ const ProjectsTable = () => {
                                 project.poc.map((pocItem, index) => (
                                   <span 
                                     key={index}
-                                    className="px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100"
+                                    className="px-2 py-1 rounded-lg text-xs font-medium border"
+                                    style={{
+                                      backgroundColor: `${pocItem.color}15`,
+                                      borderColor: `${pocItem.color}30`,
+                                      color: pocItem.color
+                                    }}
                                   >
-                                    {pocItem}
+                                    {pocItem.name}
                                   </span>
                                 ))
                               ) : (
@@ -585,9 +648,14 @@ const ProjectsTable = () => {
                                 project.other_employees.map((employee, index) => (
                                   <span 
                                     key={index}
-                                    className="px-2 py-1 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg text-xs font-medium border border-green-100"
+                                    className="px-2 py-1 rounded-lg text-xs font-medium border"
+                                    style={{
+                                      backgroundColor: `${employee.color}15`,
+                                      borderColor: `${employee.color}30`,
+                                      color: employee.color
+                                    }}
                                   >
-                                    {employee}
+                                    {employee.name}
                                   </span>
                                 ))
                               ) : (

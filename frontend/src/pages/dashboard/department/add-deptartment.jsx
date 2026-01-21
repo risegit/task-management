@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getCurrentUser } from "../../../utils/api";
 import Swal from "sweetalert2";
+import axios from "axios";
 
 export default function AddItemTable() {
   const [formData, setFormData] = useState({
@@ -13,6 +14,7 @@ export default function AddItemTable() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [usedColors, setUsedColors] = useState([]); // Store used colors from API
   
   const user = getCurrentUser();
 
@@ -31,6 +33,75 @@ export default function AddItemTable() {
     "#14B8A6", // Teal
     "#64748B", // Slate
   ];
+
+  useEffect(() => {
+    const fetchDepartment = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/department.php`,
+          {
+            params: { 
+              'check_color': 'true'
+            }, 
+          }
+        );
+        
+        const result = response.data;
+        console.log('result=', result);
+        
+        if (result.status === 'success' && result.data && Array.isArray(result.data)) {
+          // Extract color codes from the response
+          const colorsInUse = result.data
+            .map(item => item.color_code)
+            .filter(color => color); // Filter out any null/undefined values
+          
+          setUsedColors(colorsInUse);
+          console.log('Used colors:', colorsInUse);
+          
+          // If current selected color is already used, change it to first available color
+          if (colorsInUse.includes(formData.color)) {
+            const availableColor = colorOptions.find(color => !colorsInUse.includes(color));
+            if (availableColor) {
+              setFormData(prev => ({ ...prev, color: availableColor }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Axios error:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Connection Error',
+          text: 'Failed to fetch department data.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33',
+        });
+      }
+    };
+    
+    fetchDepartment();
+  }, []);
+
+  // Check if a color is already used
+  const isColorUsed = (color) => usedColors.includes(color);
+
+  // Get available colors
+  const getAvailableColors = () => colorOptions.filter(color => !isColorUsed(color));
+
+  // Function to get color status text
+  const getColorStatus = (color) => {
+    if (isColorUsed(color)) {
+      return "Already used by another department";
+    }
+    return "Available";
+  };
+
+  // Function to get color opacity class
+  const getColorOpacityClass = (color) => {
+    if (isColorUsed(color)) {
+      return "opacity-40 cursor-not-allowed";
+    }
+    return "hover:scale-110 cursor-pointer";
+  };
 
   const validate = () => {
     let newErrors = {};
@@ -51,6 +122,8 @@ export default function AddItemTable() {
     const colorRegex = /^#([0-9A-F]{3}){1,2}$/i;
     if (!formData.color || !colorRegex.test(formData.color)) {
       newErrors.color = "Please select a valid color";
+    } else if (isColorUsed(formData.color)) {
+      newErrors.color = "This color is already used by another department";
     }
 
     setErrors(newErrors);
@@ -72,6 +145,18 @@ export default function AddItemTable() {
   };
 
   const handleColorChange = (color) => {
+    // Don't allow selection of used colors
+    if (isColorUsed(color)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Color Already Used',
+        text: 'This color is already used by another department. Please select a different color.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b',
+      });
+      return;
+    }
+    
     setFormData({ ...formData, color });
     setShowColorPicker(false);
     
@@ -84,6 +169,18 @@ export default function AddItemTable() {
     const value = e.target.value;
     // Only update if it's a valid hex color
     if (value.match(/^#[0-9A-F]{6}$/i) || value === "") {
+      // Check if the manually entered color is already used
+      if (isColorUsed(value) && value !== "") {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Color Already Used',
+          text: 'This color is already used by another department. Please select a different color.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#f59e0b',
+        });
+        return;
+      }
+      
       setFormData({ ...formData, color: value });
       
       if (errors.color) {
@@ -94,6 +191,18 @@ export default function AddItemTable() {
 
   const handleSubmit = async () => {
     if (!validate()) return;
+
+    // Double-check if color is already used (in case of manual entry)
+    if (isColorUsed(formData.color)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Color Already Used',
+        text: 'This color is already used by another department. Please select a different color.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33',
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -130,11 +239,18 @@ export default function AddItemTable() {
           timerProgressBar: true,
         });
 
+        // Add the new color to used colors list
+        setUsedColors(prev => [...prev, formData.color]);
+        
+        // Reset form and select next available color
+        const availableColors = getAvailableColors();
+        const nextColor = availableColors.length > 0 ? availableColors[0] : "#3B82F6";
+        
         setFormData({
           name: "",
           description: "",
           active: true,
-          color: "#3B82F6", // Reset to default color
+          color: nextColor,
         });
         setErrors({});
       } else {
@@ -263,13 +379,17 @@ export default function AddItemTable() {
                   <div className="relative">
                     <div className="flex items-center gap-3">
                       <div 
-                        className="w-12 h-12 rounded-xl border-2 border-slate-200 shadow-sm cursor-pointer transition-transform hover:scale-105"
+                        className={`w-12 h-12 rounded-xl border-2 ${isColorUsed(formData.color) ? 'border-red-300' : 'border-slate-200'} shadow-sm cursor-pointer transition-transform hover:scale-105`}
                         style={{ backgroundColor: formData.color }}
                         onClick={() => setShowColorPicker(!showColorPicker)}
                       >
                         <div className="w-full h-full rounded-lg flex items-center justify-center">
-                          {formData.color && (
-                            <div className="w-6 h-6 bg-white/20 rounded-full backdrop-blur-sm"></div>
+                          {isColorUsed(formData.color) && (
+                            <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -280,7 +400,7 @@ export default function AddItemTable() {
                           name="color"
                           value={formData.color}
                           onChange={handleColorInputChange}
-                          className="w-32 px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-32 px-3 py-2 rounded-lg border ${isColorUsed(formData.color) ? 'border-red-300' : 'border-slate-300'} text-sm font-mono focus:outline-none focus:ring-2 ${isColorUsed(formData.color) ? 'focus:ring-red-500' : 'focus:ring-blue-500'}`}
                           placeholder="#3B82F6"
                           maxLength="7"
                         />
@@ -304,18 +424,33 @@ export default function AddItemTable() {
                     {showColorPicker && (
                       <div className="absolute z-10 mt-2 bg-white rounded-xl shadow-lg border border-slate-200 p-4 w-80">
                         <div className="mb-4">
-                          <h4 className="text-sm font-semibold text-slate-700 mb-2">Suggested Colors</h4>
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-sm font-semibold text-slate-700">Suggested Colors</h4>
+                            <span className="text-xs text-slate-500">
+                              {getAvailableColors().length} of {colorOptions.length} available
+                            </span>
+                          </div>
                           <div className="grid grid-cols-6 gap-2">
                             {colorOptions.map((color) => (
                               <button
                                 key={color}
                                 type="button"
-                                className="w-8 h-8 rounded-lg border border-slate-200 hover:scale-110 transition-transform"
+                                className={`w-8 h-8 rounded-lg border ${isColorUsed(color) ? 'border-red-300' : 'border-slate-200'} ${getColorOpacityClass(color)} transition-transform relative`}
                                 style={{ backgroundColor: color }}
                                 onClick={() => handleColorChange(color)}
-                                title={color}
+                                title={`${color} - ${getColorStatus(color)}`}
+                                disabled={isColorUsed(color)}
                               >
-                                {formData.color === color && (
+                                {isColorUsed(color) && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-4 h-4 bg-white/80 rounded-full flex items-center justify-center">
+                                      <svg className="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+                                {formData.color === color && !isColorUsed(color) && (
                                   <div className="w-full h-full rounded-lg flex items-center justify-center">
                                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -331,10 +466,26 @@ export default function AddItemTable() {
                           <h4 className="text-sm font-semibold text-slate-700 mb-2">Current Color</h4>
                           <div className="flex items-center gap-3">
                             <div 
-                              className="w-10 h-10 rounded-lg border border-slate-300"
+                              className={`w-10 h-10 rounded-lg border ${isColorUsed(formData.color) ? 'border-red-300' : 'border-slate-300'}`}
                               style={{ backgroundColor: formData.color }}
                             />
-                            <span className="text-sm font-mono text-slate-600">{formData.color}</span>
+                            <div>
+                              <span className="text-sm font-mono text-slate-600 block">{formData.color}</span>
+                              <span className={`text-xs ${isColorUsed(formData.color) ? 'text-red-600' : 'text-green-600'}`}>
+                                {getColorStatus(formData.color)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 flex justify-between items-center text-xs text-slate-500">
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span>Available</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                            <span>Already Used</span>
                           </div>
                         </div>
                         
@@ -362,7 +513,8 @@ export default function AddItemTable() {
                 )}
                 
                 <p className="text-slate-500 text-xs mt-2">
-                  This color will be used to identify the department in charts, labels, and UI elements
+                  This color will be used to identify the department in charts, labels, and UI elements. 
+                  Colors already used by other departments cannot be selected.
                 </p>
               </div>
 
