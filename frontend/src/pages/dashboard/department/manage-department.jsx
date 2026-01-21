@@ -426,7 +426,7 @@ const ManageDepartment = () => {
                           </td>
                           <td className="py-4 px-4">
                             <span className="text-slate-700 flex items-center gap-2">
-                              {dept.color_code || "Color Code Not Applied"}
+                              {/* {dept.color_code || "Color Code Not Applied"} */}
 
                               {dept.color_code && (
                                 <svg width="25" height="25" viewBox="0 0 12 12">
@@ -437,7 +437,7 @@ const ManageDepartment = () => {
                                     fill={dept.color_code}
                                   />
                                 </svg>
-                              )}
+                              ) || "Color Code Not Applied"}
                             </span>
                           </td>
                           <td className="py-4 px-4">

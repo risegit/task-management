@@ -1982,11 +1982,11 @@ const ManageDepartment = () => {
                                     : "No remarks"
                                   }
                                 </span>
-                                {task.remark && task.remark.split(' ').length > 15 && (
+                                {/* {task.remark && task.remark.split(' ').length > 15 && (
                                   <span className="text-xs text-slate-500 block mt-1">
                                     {task.remark.split(' ').length} words total
                                   </span>
-                                )}
+                                )} */}
                               </div>
                             </td>
                             <td className="py-4 px-4 text-right">
@@ -2414,11 +2414,11 @@ const ManageDepartment = () => {
                   <h4 className="text-sm font-semibold text-slate-500 mb-2">Remarks</h4>
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-slate-700">{selectedTask.remark || "No remarks"}</p>
-                    {selectedTask.remark && selectedTask.remark.split(' ').length > 15 && (
+                    {/* {selectedTask.remark && selectedTask.remark.split(' ').length > 15 && (
                       <p className="text-xs text-slate-500 mt-2">
                         Showing 15 of {selectedTask.remark.split(' ').length} words
                       </p>
-                    )}
+                    )} */}
                   </div>
                 </div>
 
