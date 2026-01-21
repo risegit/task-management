@@ -711,6 +711,53 @@ const ManageDepartment = () => {
     }
   };
 
+  // Custom styles for client filter dropdown
+  const clientFilterStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: 'white',
+      minHeight: '52px',
+      boxShadow: state.isFocused ? '0 0 0 4px rgba(59, 130, 246, 0.1)' : 'none',
+      "&:hover": {
+        borderColor: '#94a3b8',
+      },
+      width: '100%',
+      maxWidth: '250px',
+    }),
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: '#1e293b',
+      fontWeight: '600',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? '#e0f2fe' : 'white',
+      color: state.isSelected ? '#0369a1' : '#334155',
+      fontWeight: state.isSelected ? '600' : '500',
+      borderLeft: state.isSelected ? '4px solid #3b82f6' : '4px solid transparent',
+      '&:hover': {
+        backgroundColor: '#f1f5f9',
+      },
+    }),
+  };
+
+  // Clear client filter
+  const clearClientFilter = () => {
+    setSelectedClient(null);
+    setCurrentPage(1);
+  };
+
   // NEW FUNCTION: Check if current user is assigned to the task
   const isUserAssignedToTask = (task) => {
     if (!task || !userId || !userName) return false;
@@ -803,6 +850,75 @@ const ManageDepartment = () => {
     return false;
   };
 
+  // Fetch clients from API
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      console.log("Fetching clients...");
+      
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/project.php`,
+        {
+          params: { 
+            user_id: userId,
+            user_code: userCode,
+            view_active_clients: "'active'"
+          }
+        }
+      );
+      
+      const result = response.data;
+      console.log("Clients API Response:", result);
+
+      if (result.status === "success" && result.project && Array.isArray(result.project)) {
+        // Transform API data to match react-select format
+        const clientOptions = result.project.map(client => ({
+          value: client.client_id,
+          label: client.client_name,
+          clientCode: client.client_code,
+          description: client.description,
+          startDate: client.start_date
+        }));
+        
+        // Add "All Clients" option
+        const allClientsOption = {
+          value: "all",
+          label: "All Clients",
+          color: "#3b82f6"
+        };
+        
+        setClients([allClientsOption, ...clientOptions]);
+        console.log("Client options:", [allClientsOption, ...clientOptions]);
+      } else {
+        console.warn("No clients found in API response");
+        // Set default "All Clients" option
+        setClients([{
+          value: "all",
+          label: "All Clients",
+          color: "#3b82f6"
+        }]);
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      // Set default "All Clients" option
+      setClients([{
+        value: "all",
+        label: "All Clients",
+        color: "#3b82f6"
+      }]);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error Loading Clients',
+        text: 'Failed to load clients. Showing all tasks.',
+        timer: 3000,
+        showConfirmButton: false,
+        timerProgressBar: true,
+      });
+    } finally {
+      setLoadingClients(false);
+    }
+  };
+
   // ========== REST OF THE COMPONENT CODE ==========
   // (Keep everything else exactly as you have it, starting from useEffect)
 
@@ -887,7 +1003,7 @@ const ManageDepartment = () => {
     };
 
     fetchTasks();
-    fetchClients(); // Fetch clients when component mounts
+    fetchClients();
   }, [userId, userCode]); // Only depend on primitive values
 
   // Handle client filter change
@@ -921,8 +1037,24 @@ const ManageDepartment = () => {
     );
   };
 
-  // Filter tasks using enhanced search
-  const filteredTasks = tasks.filter(filterTasks);
+  // Filter tasks based on search query AND client filter
+  const filteredTasks = tasks.filter(task => {
+    // Apply client filter first
+    const clientFilterPass = !selectedClient || 
+                            selectedClient.value === "all" || 
+                            task.clientId === selectedClient.value;
+    
+    // Then apply search filter
+    const searchFilterPass = 
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.assignedBy && task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.clientName && task.clientName.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    return clientFilterPass && searchFilterPass;
+  });
 
   // Apply sorting to filtered results
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -1174,28 +1306,45 @@ const ManageDepartment = () => {
                 )}
               </div>
               
-              {/* Search Box */}
-              <div className="w-full lg:w-96">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search by task name, assigned by, assigned to, or status..."
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
-                  />
-                  <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {searchQuery && (
-                    <button 
-                      onClick={clearSearch} 
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+              {/* Search Box and Client Filter */}
+              <div className="w-full lg:w-auto">
+
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* Client Filter Dropdown */}
+                  {user.role !== 'staff' && (
+                  <div className="w-full md:w-64">
+                    <div className="relative">
+                      <Select
+                        options={clients}
+                        value={selectedClient}
+                        onChange={handleClientFilterChange}
+                        classNamePrefix="react-select"
+                        styles={clientFilterStyles}
+                        placeholder="Filter by client..."
+                        isLoading={loadingClients}
+                        isClearable={true}
+                        isSearchable={true}
+                        formatOptionLabel={(option) => (
+                          <div className="flex items-center gap-2">
+                            {option.value === "all" && (
+                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            )}
+                            <span>{option.label}</span>
+                            {/* {option.clientCode && (
+                              <span className="text-xs text-slate-500 ml-auto">
+                                {option.clientCode}
+                              </span>
+                            )} */}
+                          </div>
+                        )}
+                      />
+                    </div>
+                    {selectedClient && selectedClient.value !== "all" && (
+                      <p className="text-xs text-blue-100 mt-1 ml-1">
+                        Showing tasks for: {selectedClient.label}
+                      </p>
+                    )}
+                  </div>
                   )}
                   
                   {/* Search Box */}
