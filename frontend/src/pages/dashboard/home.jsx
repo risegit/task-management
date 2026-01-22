@@ -351,7 +351,7 @@ const Home = () => {
               <h4 className="font-semibold text-black-800 text-sm mb-1">
                 {task.task_name || "Task"}
               </h4>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-black-800">
                 {task.clients} • Priority: <span className={
                   task.priority === "High" ? "font-semibold text-red-600" : 
                   task.priority === "Medium" ? "font-semibold text-orange-600" : 
