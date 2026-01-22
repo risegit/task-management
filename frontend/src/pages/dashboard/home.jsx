@@ -77,7 +77,8 @@ const Home = () => {
               ...task,
               count_tasks: parseInt(task.count_tasks) || 1,
               task_name: task.task_name || "Task",
-              clients: task.clients || "Client"
+              clients: task.clients || "Client",
+              priority: task.priority || "Medium" // Ensure priority is included
             };
           } else {
             // For regular users - create individual task entries
@@ -86,7 +87,8 @@ const Home = () => {
               count_tasks: 1, // Each item is a single task
               task_name: task.task_name || "Task",
               clients: task.clients || "Client",
-              name: task.name || "Unknown"
+              name: task.name || "Unknown",
+              priority: task.priority || "Medium" // Ensure priority is included
             };
           }
         });
@@ -238,6 +240,33 @@ const Home = () => {
     return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  // Function to get task card styles based on priority
+  const getTaskCardStyles = (priority) => {
+    if (priority === "High") {
+      return {
+        background: "bg-gradient-to-r from-red-50 to-pink-50",
+        borderColor: "border-red-500",
+        iconColor: "text-red-600",
+        countColor: "text-red-700"
+      };
+    } else if (priority === "Medium") {
+      return {
+        background: "bg-gradient-to-r from-orange-50 to-yellow-50",
+        borderColor: "border-orange-500",
+        iconColor: "text-orange-600",
+        countColor: "text-orange-700"
+      };
+    } else {
+      // Low priority - using green
+      return {
+        background: "bg-gradient-to-r from-green-50 to-emerald-50",
+        borderColor: "border-green-500",
+        iconColor: "text-green-600",
+        countColor: "text-green-700"
+      };
+    }
+  };
+
   // Pagination component
   const PaginationControls = ({ currentPage, totalPages, onPageChange, category }) => {
     if (totalPages <= 1) return null;
@@ -296,16 +325,17 @@ const Home = () => {
   // Helper function to render task card based on user role
   const renderTaskCard = (task, index, status) => {
     const isAdmin = user?.role !== "staff";
+    const styles = getTaskCardStyles(task.priority || "Medium");
     
     if (isAdmin) {
       // Admin view
       return (
-        <div key={task.user_id || index} className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow">
+        <div key={task.user_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
           <div className="flex items-start">
-            <ClipboardDocumentCheckIcon className="w-5 h-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
+            <ClipboardDocumentCheckIcon className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
             <div>
               <h4 className="font-semibold text-black-800 text-sm mb-1">
-                {task.name || "Unknown User"} has <span className="text-red-900">{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                {task.name || "Unknown User"} has <span className={styles.countColor}>{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
               </h4>
             </div>
           </div>
@@ -314,15 +344,19 @@ const Home = () => {
     } else {
       // Regular user view
       return (
-        <div key={task.ta_id || index} className="p-4 bg-gradient-to-r mb-2 from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow">
+        <div key={task.ta_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
           <div className="flex items-start">
-            <ClipboardDocumentCheckIcon className="w-5 h-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
+            <ClipboardDocumentCheckIcon className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
             <div>
               <h4 className="font-semibold text-black-800 text-sm mb-1">
                 {task.task_name || "Task"}
               </h4>
               <p className="text-xs text-gray-600">
-                {task.clients} • Priority: {task.priority}
+                {task.clients} • Priority: <span className={
+                  task.priority === "High" ? "font-semibold text-red-600" : 
+                  task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                  "font-semibold text-green-600"
+                }>{task.priority}</span>
                 {task.deadline && <span> • Deadline: {task.deadline}</span>}
               </p>
             </div>
@@ -410,59 +444,70 @@ const Home = () => {
                   <p className="text-gray-500 text-sm">No tasks in progress</p>
                 </div>
               ) : (
-                getPaginatedTasks(inProgressTasks, inProgressPage).map((task, index) => (
-                  user.role !== "staff" ? (
-                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                      <div className="p-4 bg-gradient-to-r mb-2 from-orange-50 to-yellow-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow">
-                        <div className="flex items-start">
-                          <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5 mr-3 flex-shrink-0" />
-                          <div>
-                            {user?.role !== "staff" ? (
-                              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
-                              </h4>
-                            ) : (
-                              <>
+                getPaginatedTasks(inProgressTasks, inProgressPage).map((task, index) => {
+                  const styles = getTaskCardStyles(task.priority || "Medium");
+                  return (
+                    user.role !== "staff" ? (
+                      <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <TrendingUp className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              {user?.role !== "staff" ? (
                                 <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                  {task.task_name || "Task"}
+                                  {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
                                 </h4>
-                                <p className="text-xs text-gray-600">
-                                  {task.clients} • Priority: {task.priority}
-                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                </p>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                    {task.task_name || "Task"}
+                                  </h4>
+                                  <p className="text-xs text-gray-600">
+                                    {task.clients} • Priority: <span className={
+                                      task.priority === "High" ? "font-semibold text-red-600" : 
+                                      task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                      "font-semibold text-green-600"
+                                    }>{task.priority}</span>
+                                    {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  ): (
-                    <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                      <div className="p-4 bg-gradient-to-r mb-2 from-orange-50 to-yellow-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow">
-                        <div className="flex items-start">
-                          <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5 mr-3 flex-shrink-0" />
-                          <div>
-                            {user?.role !== "staff" ? (
-                              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
-                              </h4>
-                            ) : (
-                              <>
+                      </Link>
+                    ): (
+                      <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <TrendingUp className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              {user?.role !== "staff" ? (
                                 <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                  {task.task_name || "Task"}
+                                  {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
                                 </h4>
-                                <p className="text-xs text-gray-600">
-                                  {task.clients} • Priority: {task.priority}
-                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                </p>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                    {task.task_name || "Task"}
+                                  </h4>
+                                  <p className="text-xs text-gray-600">
+                                    {task.clients} • Priority: <span className={
+                                      task.priority === "High" ? "font-semibold text-red-600" : 
+                                      task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                      "font-semibold text-green-600"
+                                    }>{task.priority}</span>
+                                    {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  )
-                ))
+                      </Link>
+                    )
+                  );
+                })
               )}
             </div>
             <PaginationControls
@@ -491,59 +536,70 @@ const Home = () => {
                   <p className="text-gray-500 text-sm">No overdue tasks</p>
                 </div>
               ) : (
-                getPaginatedTasks(overdueTasks, overduePage).map((task, index) => (
-                  user.role !== "staff" ? (
-                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                      <div className="p-4 bg-gradient-to-r mb-2 from-red-50 to-pink-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow">
-                        <div className="flex items-start">
-                          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
-                          <div>
-                            {user?.role !== "staff" ? (
-                              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                              </h4>
-                            ) : (
-                              <>
+                getPaginatedTasks(overdueTasks, overduePage).map((task, index) => {
+                  const styles = getTaskCardStyles(task.priority || "Medium");
+                  return (
+                    user.role !== "staff" ? (
+                      <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              {user?.role !== "staff" ? (
                                 <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                  {task.task_name || "Task"}
+                                  {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
                                 </h4>
-                                <p className="text-xs text-gray-600">
-                                  {task.clients} • Priority: {task.priority}
-                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                </p>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                    {task.task_name || "Task"}
+                                  </h4>
+                                  <p className="text-xs text-gray-600">
+                                    {task.clients} • Priority: <span className={
+                                      task.priority === "High" ? "font-semibold text-red-600" : 
+                                      task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                      "font-semibold text-green-600"
+                                    }>{task.priority}</span>
+                                    {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  ) : (
+                      </Link>
+                    ) : (
                       <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                      <div className="p-4 bg-gradient-to-r mb-2 from-red-50 to-pink-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition-shadow">
-                        <div className="flex items-start">
-                          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
-                          <div>
-                            {user?.role !== "staff" ? (
-                              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.name} has <span className="text-red-900">{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                              </h4>
-                            ) : (
-                              <>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              {user?.role !== "staff" ? (
                                 <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                  {task.task_name || "Task"}
+                                  {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
                                 </h4>
-                                <p className="text-xs text-gray-600">
-                                  {task.clients} • Priority: {task.priority}
-                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                </p>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                    {task.task_name || "Task"}
+                                  </h4>
+                                  <p className="text-xs text-gray-600">
+                                    {task.clients} • Priority: <span className={
+                                      task.priority === "High" ? "font-semibold text-red-600" : 
+                                      task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                      "font-semibold text-green-600"
+                                    }>{task.priority}</span>
+                                    {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  )
-                ))
+                      </Link>
+                    )
+                  );
+                })
               )}
             </div>
             <PaginationControls
@@ -575,59 +631,72 @@ const Home = () => {
                   <p className="text-gray-500 text-sm">No completed tasks</p>
                 </div>
               ) : (
-                getPaginatedTasks(completedTasks, completedPage).map((task, index) => (
-                  user.role !== "staff" ? (
-                    <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                      <div className="p-4 bg-gradient-to-r mb-2 from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition-shadow">
-                        <div className="flex items-start">
-                          <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
-                          <div>
-                            {user?.role !== "staff" ? (
-                              <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
-                                {task.name} has Completed <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                              </h4>
-                            ) : (
-                              <>
-                                <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
-                                  {task.task_name || "Task"}
+                getPaginatedTasks(completedTasks, completedPage).map((task, index) => {
+                  const styles = getTaskCardStyles(task.priority || "Medium");
+                  const textDecoration = task.status === "completed" ? "line-through" : "";
+                  
+                  return (
+                    user.role !== "staff" ? (
+                      <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              {user?.role !== "staff" ? (
+                                <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
+                                  {task.name} has Completed <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
                                 </h4>
-                                <p className="text-xs text-gray-600 line-through">
-                                  {task.clients} • Priority: {task.priority}
-                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                </p>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
+                                    {task.task_name || "Task"}
+                                  </h4>
+                                  <p className={`text-xs text-gray-600 ${textDecoration}`}>
+                                    {task.clients} • Priority: <span className={
+                                      task.priority === "High" ? "font-semibold text-red-600" : 
+                                      task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                      "font-semibold text-green-600"
+                                    }>{task.priority}</span>
+                                    {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  ) :(
-                    <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                      <div className="p-4 bg-gradient-to-r mb-2 from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition-shadow">
-                        <div className="flex items-start">
-                          <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
-                          <div>
-                            {user?.role !== "staff" ? (
-                              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                {task.name} has Completed <span className="text-red-900">{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                              </h4>
-                            ) : (
-                              <>
-                                <h4 className="font-semibold text-black-800 text-sm mb-1 line-through">
-                                  {task.task_name || "Task"}
+                      </Link>
+                    ) : (
+                      <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              {user?.role !== "staff" ? (
+                                <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                  {task.name} has Completed <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
                                 </h4>
-                                <p className="text-xs text-gray-600 line-through">
-                                  {task.clients} • Priority: {task.priority}
-                                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                </p>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
+                                    {task.task_name || "Task"}
+                                  </h4>
+                                  <p className={`text-xs text-gray-600 ${textDecoration}`}>
+                                    {task.clients} • Priority: <span className={
+                                      task.priority === "High" ? "font-semibold text-red-600" : 
+                                      task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                      "font-semibold text-green-600"
+                                    }>{task.priority}</span>
+                                    {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  )
-                ))
+                      </Link>
+                    )
+                  );
+                })
               )}
             </div>
             <PaginationControls
@@ -640,33 +709,6 @@ const Home = () => {
 
           {/* Combined Today's Thought & Announcements Card */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
-            {/* Today's Thought Section */}
-            {/* <div className="mb-6">
-              <div className="flex items-center mb-4">
-                <div className="bg-gradient-to-r from-purple-100 to-purple-50 p-2 rounded-lg">
-                  <Lightbulb className="w-5 h-5 text-purple-600" />
-                </div>
-                <h2 className="text-lg font-semibold text-gray-800 ml-3">Today's Thought</h2>
-              </div>
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">"</span>
-                    </div>
-                  </div>
-                  <div className="ml-3">
-                    <blockquote className="text-gray-700 italic text-sm leading-relaxed">
-                      "If you aspire to the highest place, it is no disgrace to stop at the second or even the third place."
-                    </blockquote>
-                    <div className="mt-3 pt-2 border-t border-purple-100">
-                      <p className="text-xs text-gray-500 font-medium">- Marcus Tullius Cicero</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div> */}
-
             {/* Announcements Section */}
             <div className="flex-grow">
               <div className="flex items-center mb-4">
