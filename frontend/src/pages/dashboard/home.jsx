@@ -236,8 +236,41 @@ const Home = () => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  // const formatDate = (date) => {
+  //   return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  // };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Helper function to convert 24-hour format to 12-hour AM/PM format
+  const formatTimeTo12Hour = (time24) => {
+    if (!time24 || !time24.includes(':')) return time24;
+    
+    try {
+      const [hours, minutes] = time24.split(':');
+      const hour = parseInt(hours, 10);
+      const minute = parseInt(minutes, 10);
+      
+      if (isNaN(hour) || isNaN(minute)) return time24;
+      
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      const formattedMinutes = minute.toString().padStart(2, '0');
+      
+      return `${hour12}:${formattedMinutes} ${period}`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return time24;
+    }
   };
 
   // Function to get task card styles based on priority
@@ -358,6 +391,7 @@ const Home = () => {
                   "font-semibold text-green-600"
                 }>{task.priority}</span>
                 {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
               </p>
             </div>
           </div>
@@ -491,13 +525,14 @@ const Home = () => {
                                   <h4 className="font-semibold text-black-800 text-sm mb-1">
                                     {task.task_name || "Task"}
                                   </h4>
-                                  <p className="text-xs text-gray-600">
+                                  <p className="text-xs text-black-600">
                                     {task.clients} • Priority: <span className={
                                       task.priority === "High" ? "font-semibold text-red-600" : 
                                       task.priority === "Medium" ? "font-semibold text-orange-600" : 
                                       "font-semibold text-green-600"
                                     }>{task.priority}</span>
                                     {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                    <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {task.created_date} : {task.created_time}</span>}</span>
                                   </p>
                                 </>
                               )}
@@ -583,13 +618,14 @@ const Home = () => {
                                   <h4 className="font-semibold text-black-800 text-sm mb-1">
                                     {task.task_name || "Task"}
                                   </h4>
-                                  <p className="text-xs text-gray-600">
+                                  <p className="text-xs text-black-600">
                                     {task.clients} • Priority: <span className={
                                       task.priority === "High" ? "font-semibold text-red-600" : 
                                       task.priority === "Medium" ? "font-semibold text-orange-600" : 
                                       "font-semibold text-green-600"
                                     }>{task.priority}</span>
                                     {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                    <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
                                   </p>
                                 </>
                               )}
@@ -651,13 +687,14 @@ const Home = () => {
                                   <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
                                     {task.task_name || "Task"}
                                   </h4>
-                                  <p className={`text-xs text-gray-600 ${textDecoration}`}>
+                                  <p className={`text-xs text-black-600 ${textDecoration}`}>
                                     {task.clients} • Priority: <span className={
                                       task.priority === "High" ? "font-semibold text-red-600" : 
                                       task.priority === "Medium" ? "font-semibold text-orange-600" : 
                                       "font-semibold text-green-600"
                                     }>{task.priority}</span>
                                     {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                    <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
                                   </p>
                                 </>
                               )}
