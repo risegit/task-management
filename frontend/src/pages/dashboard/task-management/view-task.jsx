@@ -72,6 +72,8 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
     assignedTo: [],
     deadline: "",
     time: "",
+    created_date: "",
+    created_time: "",
     remarks: "",
     priority: "",
   });
@@ -334,6 +336,8 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
           assignedTo: [],
           deadline: "",
           time: "",
+          created_date: "",
+          created_time: "",
           remarks: "",
           priority: "",
         });
@@ -928,7 +932,7 @@ const ManageDepartment = () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) return "text-red-600 font-semibold";
-    if (diffDays <= 7) return "text-amber-600 font-semibold";
+    if (diffDays <= 7) return "text-black-600 font-semibold";
     return "text-green-600 font-medium";
   };
 
@@ -1265,6 +1269,8 @@ const ManageDepartment = () => {
                 [],
               deadline: task.deadline,
               time: task.time,
+              created_date: task.created_date,
+              created_time: task.created_time,
               remark: task.remarks,
               taskStatus: task.task_status || "not-acknowledge",
               createdBy: task.created_by,
@@ -1866,9 +1872,11 @@ const ManageDepartment = () => {
                                   style={{ color: getColorStyles(task.assignedByColor).text }}
                                   title={task.assignedByOriginal}
                                 >
-                                  {task.assignedBy}
+                                  {task.assignedBy}<br/>
                                 </span>
                               </div>
+                              <span className="font-medium block text-sm mt-1 text-black">{formatDate(task.created_date)}</span>
+                              <span className="font-medium block text-sm mt-1 text-black">{formatTimeTo12Hour(task.created_time)}</span>
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex flex-wrap gap-1 max-w-xs">
