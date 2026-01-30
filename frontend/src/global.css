@@ -77,8 +77,10 @@ aside {
 .text-progress-600 {
     color: rgb(251 140 0);
 }
-
-
+/* .overdue-badge:before{
+    content: '⚠️';
+    margin-right: 3px;
+} */
 
 /* marquee css start */
 /* Container */

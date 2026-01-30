@@ -60,6 +60,16 @@ switch ($method) {
             if($view_active_clients == "'active'"){
                 $view_active_clients = "AND c.status = 'active'";
             }
+            // if (!empty($userCode)) {
+            //     if (str_starts_with($userCode, 'ST') || str_starts_with($userCode, 'MN')) {
+            //         $whereClause = "WHERE emp_id = '$userId'";
+            //         $sql1 ="SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( CASE WHEN cu.is_poc = 1 THEN u.name END SEPARATOR ', ' ) AS poc_employees, GROUP_CONCAT( CASE WHEN cu.is_poc = 0 THEN u.name END SEPARATOR ', ' ) AS other_employees, MAX( CASE WHEN cu.emp_id = '$userId' AND cu.is_poc = 1 THEN 1 ELSE 0 END ) AS is_poc FROM clients c INNER JOIN client_users cu ON c.id = cu.client_id INNER JOIN users u ON cu.emp_id = u.id WHERE c.id IN ( SELECT client_id FROM client_users WHERE emp_id = '$userId' ) GROUP BY c.id ORDER BY c.id DESC";
+            //     } elseif (str_starts_with($userCode, 'AD')) {
+            //         $whereClause = '';
+            //         $sql1= "SELECT c.id AS client_id, c.client_code, c.name AS client_name, c.description, c.start_date, c.status, GROUP_CONCAT( CASE WHEN cu.is_poc = 1 THEN u.name END SEPARATOR ', ' ) AS poc_employees, GROUP_CONCAT( CASE WHEN cu.is_poc = 0 THEN u.name END SEPARATOR ', ' ) AS other_employees, MAX( CASE WHEN cu.is_poc = 1 THEN 1 ELSE 0 END ) AS has_poc FROM clients c INNER JOIN client_users cu ON c.id = cu.client_id INNER JOIN users u ON cu.emp_id = u.id WHERE c.id IN ( SELECT DISTINCT client_id FROM client_users ) GROUP BY c.id ORDER BY c.id DESC;";
+            //     }
+            // }
+            
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST') || str_starts_with($userCode, 'MN')) {
                     $whereClause = "WHERE emp_id = '$userId'";
