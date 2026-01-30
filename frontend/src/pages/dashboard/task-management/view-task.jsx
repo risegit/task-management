@@ -1887,7 +1887,7 @@ const ManageDepartment = () => {
                                     return (
                                       <span 
                                         key={index}
-                                        className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                                        className="px-2.5 overdue-badge py-1 rounded-lg text-xs font-medium border"
                                         style={{
                                           backgroundColor: colorStyles.text,
                                           borderColor: colorStyles.border,
@@ -1903,7 +1903,7 @@ const ManageDepartment = () => {
                                   <span className="text-slate-500 text-sm">No assignments</span>
                                 )}
                                 {task.assignedTo && task.assignedTo.length > 4 && (
-                                  <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
+                                  <span className="px-2.5 pulse py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
                                     +{task.assignedTo.length - 4} more
                                   </span>
                                 )}
