@@ -20,7 +20,7 @@ export default function EditTask() {
   const [userBelongsToProject, setUserBelongsToProject] = useState([]); // Store user details including department
   const [originalGraphicType, setOriginalGraphicType] = useState(""); // Store original graphic type separately
   const [timeSlotOptions, setTimeSlotOptions] = useState([]); // Time slot options state
-  const [originalTimeSlot, setOriginalTimeSlot] = useState("");
+  const [originalTimeSlots, setOriginalTimeSlots] = useState({}); // Store original time slots for each user
 
   const user = getCurrentUser();
   const userId = user?.id;
@@ -45,15 +45,47 @@ export default function EditTask() {
   // Graphic options for Graphic Design members
   const graphicOptions = [
     { value: "Logo Design", label: "Logo Design" },
-    { value: "Flyer Design", label: "Flyer Design" },
-    { value: "Brochure Design", label: "Brochure Design" },
-    { value: "Social Media Graphics", label: "Social Media Graphics" },
-    { value: "Banner Design", label: "Banner Design" },
-    { value: "Infographic Design", label: "Infographic Design" },
-    { value: "Packaging Design", label: "Packaging Design" },
+    // Website Graphics
+    { value: "Website UI Design", label: "Website UI Design" },
+    { value: "Website Banner", label: "Website Banner" },
+    { value: "Website Slider", label: "Website Slider" },
+    { value: "Landing Page", label: "Landing Page" },
+    { value: "Web Icons", label: "Web Icons" },
+    { value: "Website Illustrations", label: "Website Illustrations" },
+    { value: "Website Infographics", label: "Website Infographics" },
+    { value: "Website Graphics", label: "Website Graphics" },
+    // Print & Digital Banners
+    { value: "Banner Print", label: "Banner (Print)" },
+    { value: "Banner Digital", label: "Banner (Digital)" },
+    // Print Collaterals
+    { value: "Standee Print", label: "Standee (Print)" },
+    { value: "Selfie Booth Print", label: "Selfie Booth (Print)" },
+    { value: "Business Card", label: "Business Card" },
+    { value: "Letterhead", label: "Letterheads" },
+    { value: "Magazine Ads", label: "Magazine Ads" },
+    // Brochures & Flyers
+    { value: "Flyer One Pager", label: "Flyer (One-Pager)" },
+    { value: "Brochure Multi Page", label: "Brochure (Multi Page)" },
+    { value: "Booklet", label: "Booklet" },
+    { value: "Tri Fold", label: "Tri-Fold (3 Pages)" },
+    // Digital Creatives
+    { value: "Static Post", label: "Static (Post)" },
+    { value: "Carousel Post", label: "Carousel (Post)" },
+    { value: "Reel Post", label: "Reel (Post)" },
+    { value: "Animated Reel", label: "Animated Reel (Graphic + Video)" },
+    // Branding
     { value: "Icon Design", label: "Icon Design" },
-    { value: "Post", label: "Post" },
-    { value: "Reels", label: "Reels" },
+    { value: "Packaging Design", label: "Packaging Design" },
+    { value: "Brand Guideline", label: "Brand Guideline" },
+    // Corporate & Marketing
+    { value: "PPT Design", label: "PPT" },
+    { value: "Email Signature", label: "Email Signature" },
+    { value: "Emailer Newsletter", label: "Emailer / Newsletter" },
+    // Video
+    { value: "Brand Video", label: "Brand Video" },
+    { value: "Explainer Video", label: "Explainer Video" },
+    // Events
+    { value: "Booth Creatives", label: "Booth Creatives" }
   ];
 
   const [taskData, setTaskData] = useState({
@@ -67,30 +99,29 @@ export default function EditTask() {
     status: "",
     taskStatus: "",
     graphicType: "", // New field for graphic type
-    time: "", // New field for time slot
+    timeSlots: {}, // Store time slots per graphic user { userId1: timeValue1, userId2: timeValue2 }
   });
 
-  // Check if any assigned user is from Graphic Design department
-  const hasGraphicDesignMember = () => {
-    if (taskData.assignedTo.length === 0) return false;
+  // Get graphic design team members from assigned users
+  const getGraphicDesignMembers = () => {
+    if (taskData.assignedTo.length === 0) return [];
     
-    // Get the IDs of selected users
     const selectedUserIds = taskData.assignedTo.map(user => user.value);
     
-    // Check if any selected user is from Graphic Design department
-    return userBelongsToProject.some(user => 
+    return userBelongsToProject.filter(user => 
       selectedUserIds.includes(user.emp_id || user.id) && 
       user.dept_name === "Graphic Design / Video Editor"
     );
   };
 
-  // Get all graphic design users from the assigned users
-  const getGraphicDesignUsers = () => {
-    const selectedUserIds = taskData.assignedTo.map(user => user.value);
-    return userBelongsToProject.filter(user => 
-      selectedUserIds.includes(user.emp_id || user.id) && 
-      user.dept_name === "Graphic Design / Video Editor"
-    );
+  // Check if any assigned user is from Graphic Design department
+  const hasGraphicDesignMember = () => {
+    return getGraphicDesignMembers().length > 0;
+  };
+
+  // Check if "Animated Reel" is selected
+  const isAnimatedReelSelected = () => {
+    return taskData.graphicType?.value === "Animated Reel";
   };
 
   // Update time slots when deadline changes
@@ -150,6 +181,35 @@ export default function EditTask() {
 
     updateTimeSlots();
   }, [taskData.deadline]); // Re-run when deadline changes
+
+  // Reset time slots when assigned users or graphic type changes
+  useEffect(() => {
+    if (!hasGraphicDesignMember() || !isAnimatedReelSelected()) {
+      setTaskData(prev => ({ ...prev, timeSlots: {} }));
+    } else {
+      // Initialize time slots for graphic design members
+      const graphicMembers = getGraphicDesignMembers();
+      const newTimeSlots = { ...taskData.timeSlots };
+      
+      // Add time slots for new graphic members
+      graphicMembers.forEach(member => {
+        const userId = member.emp_id || member.id;
+        if (!newTimeSlots[userId]) {
+          // Check if we have an original time slot for this user
+          newTimeSlots[userId] = originalTimeSlots[userId] || "";
+        }
+      });
+      
+      // Remove time slots for members no longer selected
+      Object.keys(newTimeSlots).forEach(userId => {
+        if (!graphicMembers.some(member => (member.emp_id || member.id) === userId)) {
+          delete newTimeSlots[userId];
+        }
+      });
+      
+      setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
+    }
+  }, [taskData.assignedTo, taskData.graphicType]);
 
   // Helper functions
   const getAvatarColor = (id) => {
@@ -462,47 +522,51 @@ export default function EditTask() {
             setTaskData(prev => ({ ...prev, graphicType: originalGraphicType }));
           }
           
-          // Restore time slot if it exists
-          if (originalTimeSlot) {
-            // Check if the time slot is still valid (not disabled for today)
-            const isTimeSlotValid = () => {
-              if (!taskData.deadline) return true;
-              
-              const deadlineDate = new Date(taskData.deadline);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              deadlineDate.setHours(0, 0, 0, 0);
-              
-              // If deadline is today, check if time is not in the past
-              if (deadlineDate.getTime() === today.getTime()) {
-                const currentHour = new Date().getHours();
-                const currentMinutes = new Date().getMinutes();
-                const currentTime = currentHour + (currentMinutes / 60);
+          // Restore time slots if they exist
+          if (Object.keys(originalTimeSlots).length > 0) {
+            const newTimeSlots = { ...taskData.timeSlots };
+            Object.keys(originalTimeSlots).forEach(userId => {
+              // Check if this user is still in the selection
+              if (newSelection.some(user => user.value === userId)) {
+                // Check if the time slot is still valid (not disabled for today)
+                const isTimeSlotValid = () => {
+                  if (!taskData.deadline) return true;
+                  
+                  const deadlineDate = new Date(taskData.deadline);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  deadlineDate.setHours(0, 0, 0, 0);
+                  
+                  // If deadline is today, check if time is not in the past
+                  if (deadlineDate.getTime() === today.getTime()) {
+                    const currentHour = new Date().getHours();
+                    const currentMinutes = new Date().getMinutes();
+                    const currentTime = currentHour + (currentMinutes / 60);
+                    
+                    // Check if the time slot hour is in the future
+                    return originalTimeSlots[userId]?.hour > currentTime;
+                  }
+                  
+                  return true; // For future dates, all time slots are valid
+                };
                 
-                // Check if the time slot hour is in the future
-                return originalTimeSlot.hour > currentTime;
+                if (isTimeSlotValid()) {
+                  newTimeSlots[userId] = originalTimeSlots[userId];
+                }
               }
-              
-              return true; // For future dates, all time slots are valid
-            };
+            });
             
-            if (isTimeSlotValid()) {
-              setTaskData(prev => ({ ...prev, time: originalTimeSlot }));
-              console.log("Restored time slot:", originalTimeSlot);
-            } else {
-              console.log("Time slot is no longer valid for today");
-              // Don't restore if it's in the past for today's deadline
-            }
+            setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
           }
         }, 100);
       }
       
-      // If no graphic design members, clear the graphic type and time in UI
+      // If no graphic design members, clear the graphic type and timeSlots in UI
       if (!hasGraphicDesignMemberNow) {
         setTaskData(prev => ({ 
           ...prev, 
           graphicType: "",
-          time: "" 
+          timeSlots: {}
         }));
       }
     } else {
@@ -511,15 +575,30 @@ export default function EditTask() {
       // If graphic type is being set, update the originalGraphicType as well
       if (field === "graphicType" && selected) {
         setOriginalGraphicType(selected);
-      }
-      
-      // If time is being set, update the originalTimeSlot as well
-      if (field === "time" && selected) {
-        setOriginalTimeSlot(selected);
+        
+        // Clear timeSlots if changing from Animated Reel
+        if (selected.value !== "Animated Reel") {
+          setTaskData(prev => ({ ...prev, timeSlots: {} }));
+        }
       }
     }
     
     if (errors[field]) setErrors({ ...errors, [field]: "" });
+  };
+
+  // Handle time slot change for specific user
+  const handleTimeSlotChange = (userId, selected) => {
+    setTaskData(prev => ({
+      ...prev,
+      timeSlots: {
+        ...prev.timeSlots,
+        [userId]: selected
+      }
+    }));
+    
+    if (errors.time) {
+      setErrors({ ...errors, time: "" });
+    }
   };
 
   // Validation
@@ -537,9 +616,29 @@ export default function EditTask() {
       newErrors.graphicType = "Graphic type is required for Graphic Design members";
     }
 
-    // Time Slot validation (only if graphic design member is selected)
-    if (hasGraphicDesignMember() && !taskData.time) {
-      newErrors.time = "Time slot is required for Graphic Design members";
+    // Time Slot validation for Animated Reel
+    if (isAnimatedReelSelected()) {
+      const graphicMembers = getGraphicDesignMembers();
+      let allTimeSlotsValid = true;
+      
+      graphicMembers.forEach(member => {
+        const userId = member.emp_id || member.id;
+        if (!taskData.timeSlots[userId]) {
+          allTimeSlotsValid = false;
+        }
+      });
+      
+      if (!allTimeSlotsValid) {
+        newErrors.time = "Time slot is required for each Graphic Design member for Animated Reel";
+      }
+    }
+    // Regular time slot validation for other graphic types
+    else if (hasGraphicDesignMember() && !isAnimatedReelSelected()) {
+      // For non-animated reel, we only need one time slot
+      const hasAnyTimeSlot = Object.values(taskData.timeSlots).some(slot => slot !== "");
+      if (!hasAnyTimeSlot) {
+        newErrors.time = "Time slot is required for Graphic Design members";
+      }
     }
 
     if (!taskData.priority) newErrors.priority = "Priority is required";
@@ -567,6 +666,23 @@ export default function EditTask() {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Helper function to format time label
+  const formatTimeLabel = (timeValue) => {
+    const timeMap = {
+      "10:00": "10:00 AM",
+      "11:00": "11:00 AM",
+      "12:00": "12:00 PM",
+      "13:00": "1:00 PM",
+      "14:00": "2:00 PM",
+      "15:00": "3:00 PM",
+      "16:00": "4:00 PM",
+      "17:00": "5:00 PM",
+      "18:00": "6:00 PM",
+      "19:00": "7:00 PM"
+    };
+    return timeMap[timeValue] || timeValue;
   };
 
   // Fetch task data for editing
@@ -616,7 +732,8 @@ export default function EditTask() {
           const userStatusMap = {};
           let loggedInUserAssignment = null;
           let isUserInAssignedTo = false;
-          let graphicDesignTimeSlot = null;
+          const timeSlotsMap = {};
+          const originalTimeSlotsMap = {};
           
           if (data.assignedTo) {
             data.assignedTo.forEach(user => {
@@ -630,13 +747,25 @@ export default function EditTask() {
               
               // Check if this user has a time slot (graphic design user)
               if (user.time && user.time.trim() !== "") {
-                graphicDesignTimeSlot = user.time;
+                const timeLabel = formatTimeLabel(user.time);
+                const timeHour = parseInt(user.time.split(':')[0]);
+                timeSlotsMap[user.user_id] = {
+                  value: user.time,
+                  label: timeLabel,
+                  hour: timeHour
+                };
+                originalTimeSlotsMap[user.user_id] = {
+                  value: user.time,
+                  label: timeLabel,
+                  hour: timeHour
+                };
               }
             });
           }
           
           setAssignedUsersStatus(userStatusMap);
           setIsUserAssignedToTask(isUserInAssignedTo);
+          setOriginalTimeSlots(originalTimeSlotsMap);
           
           // Store the logged-in user's status
           if (loggedInUserAssignment) {
@@ -711,23 +840,6 @@ export default function EditTask() {
           // Store original graphic type separately
           setOriginalGraphicType(graphicTypeValue);
 
-          // Find time slot from assigned users (if any graphic design member has time)
-          let timeSlotValue = null;
-          let storedTimeSlotValue = null;
-          if (graphicDesignTimeSlot) {
-            const timeLabel = formatTimeLabel(graphicDesignTimeSlot);
-            const timeHour = parseInt(graphicDesignTimeSlot.split(':')[0]);
-            timeSlotValue = {
-              value: graphicDesignTimeSlot,
-              label: timeLabel,
-              hour: timeHour
-            };
-            storedTimeSlotValue = timeSlotValue;
-          }
-
-          // Store original time slot separately
-          setOriginalTimeSlot(storedTimeSlotValue);
-
           // Set task data
           setTaskData({
             name: task.task_name || "",
@@ -741,11 +853,10 @@ export default function EditTask() {
             created_date: task.created_date || "",
             taskStatus: task.task_status || "",
             graphicType: graphicTypeValue,
-            time: timeSlotValue
+            timeSlots: timeSlotsMap
           });
 
         } else {
-          // alert("Task not found or has been deleted.");
           Swal.fire({
             icon: 'error',
             title: 'Error',
@@ -776,23 +887,6 @@ export default function EditTask() {
     
     fetchTaskData();
   }, [id]);
-
-  // Helper function to format time label
-  const formatTimeLabel = (timeValue) => {
-    const timeMap = {
-      "10:00": "10:00 AM",
-      "11:00": "11:00 AM",
-      "12:00": "12:00 PM",
-      "13:00": "1:00 PM",
-      "14:00": "2:00 PM",
-      "15:00": "3:00 PM",
-      "16:00": "4:00 PM",
-      "17:00": "5:00 PM",
-      "18:00": "6:00 PM",
-      "19:00": "7:00 PM"
-    };
-    return timeMap[timeValue] || timeValue;
-  };
 
   // Submit form
   const handleSubmit = async () => {
@@ -826,31 +920,31 @@ export default function EditTask() {
         formData.append("graphic_type", taskData.graphicType.value);
       }
       
-      // Add time slot if it exists
-      if (taskData.time) {
-        formData.append("time_slot", taskData.time.value);
-      }
-      
       formData.append("deadline", taskData.deadline);
       formData.append("remarks", taskData.remarks.trim());
       
-      // Create assignedTo payload in the correct format
+      // Create assignedTo payload in the correct format with time slots
       const assignedToPayload = taskData.assignedTo.map(selectedUser => {
         // Find user details from userBelongsToProject
         const userDetails = userBelongsToProject.find(
           u => (u.emp_id || u.id) === selectedUser.value
         );
 
-        return {
+        const userData = {
           user_id: selectedUser.value,
           dept_name: userDetails?.dept_name || ""
         };
+
+        // Add time slot for graphic design members if they have one
+        if (userDetails?.dept_name === "Graphic Design / Video Editor" && taskData.timeSlots[selectedUser.value]) {
+          userData.time_slot = taskData.timeSlots[selectedUser.value].value;
+        }
+
+        return userData;
       });
 
       // Append as JSON string
       formData.append("assignedTo", JSON.stringify(assignedToPayload));
-      // const assignedUserIds = taskData.assignedTo.map(emp => emp.value);
-      // formData.append("assignedTo", assignedUserIds.join(","));
       
       // Add project/client ID if available
       if (selectedProject && selectedProject.value) {
@@ -874,7 +968,7 @@ export default function EditTask() {
         priority: taskData.priority?.value,
         status: taskData.status?.value,
         graphic_type: taskData.graphicType?.value,
-        time_slot: taskData.time?.value,
+        time_slots: taskData.timeSlots,
         deadline: taskData.deadline,
         remarks: taskData.remarks,
         task_id: id || "new",
@@ -909,8 +1003,8 @@ export default function EditTask() {
       if (result.status === "success") {
         await Swal.fire({ 
           icon: 'success', 
-          title: id ? 'Task Updated!' : 'Task Created!', 
-          text: result.message || (id ? 'Task has been updated successfully.' : 'Task has been created successfully.'),
+          title: 'Task Updated!', 
+          text: result.message || 'Task has been updated successfully.',
           timer: 2000, 
           showConfirmButton: false 
         });
@@ -1285,7 +1379,7 @@ export default function EditTask() {
                       </div>
                     </div>
 
-                    {/* Priority, Deadline, and Time Slot Row */}
+                    {/* Priority and Status Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Priority */}
                       <div className="space-y-2">
@@ -1415,151 +1509,233 @@ export default function EditTask() {
                       </div>
                     </div>
 
-                    {/* Deadline and Time Slot Row */}
-                    <div className={`grid grid-cols-1 lg:grid-cols-${hasGraphicDesignMember() ? '2' : '1'} gap-6`}>
-                      {/* Deadline - ALWAYS VISIBLE */}
+                    {/* Deadline Row */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        Deadline
+                        <span className="text-red-500">*</span>
+                        {!isTaskCreator && (
+                          <span className="text-xs text-amber-600 font-normal">
+                            (Read-only)
+                          </span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          name="deadline"
+                          value={taskData.deadline}
+                          onChange={isTaskCreator ? handleChange : undefined}
+                          min={taskData.created_date ? taskData.created_date : new Date().toISOString().split('T')[0]}
+                          className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
+                            errors.deadline 
+                              ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
+                              : isTaskCreator 
+                                ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                                : "border-slate-100 bg-slate-50/50"
+                          } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
+                          readOnly={!isTaskCreator}
+                        />
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg
+                            className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : isTaskCreator ? 'text-blue-500' : 'text-slate-400'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      {errors.deadline && isTaskCreator ? (
+                        <p className="text-red-500 text-sm flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.deadline}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          {taskData.created_date 
+                            ? `Cannot select dates before ${taskData.created_date}` 
+                            : 'Cannot select past dates'}
+                          {!isTaskCreator && ' (Read-only)'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Time Slot Section - Different layout for Animated Reel */}
+                    {isAnimatedReelSelected() ? (
+                      // Multiple time slots for Animated Reel - Side by side
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <label className="text-sm font-semibold text-slate-700">
+                            Time Slots for Graphic Design Members
+                          </label>
+                          <span className="text-red-500">*</span>
+                          <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                            Separate time slots required for Animated Reel
+                          </span>
+                          {!isTaskCreator && (
+                            <span className="text-xs text-amber-600 font-normal">
+                              (Read-only)
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {getGraphicDesignMembers().map((member) => (
+                            <div key={member.emp_id || member.id} className="space-y-2">
+                              <label className="text-sm font-semibold text-slate-700">
+                                {member.name} - Time Slot
+                              </label>
+                              <Select
+                                options={timeSlotOptions}
+                                value={taskData.timeSlots[member.emp_id || member.id]}
+                                onChange={isTaskCreator ? (selected) => handleTimeSlotChange(member.emp_id || member.id, selected) : undefined}
+                                classNamePrefix="react-select"
+                                styles={{
+                                  ...timeSlotCustomStyles,
+                                  control: (provided, state) => ({
+                                    ...provided,
+                                    border: `2px solid ${errors.time ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#8b5cf6' : '#e2e8f0') : '#e2e8f0'}`,
+                                    borderRadius: '0.75rem',
+                                    padding: '8px 4px',
+                                    backgroundColor: errors.time ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+                                    minHeight: '52px',
+                                    boxShadow: state.isFocused && isTaskCreator ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                                    "&:hover": {
+                                      borderColor: errors.time ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+                                    },
+                                    opacity: !isTaskCreator ? 0.7 : 1,
+                                    cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+                                  }),
+                                  indicatorSeparator: (provided) => ({
+                                    ...provided,
+                                    display: isTaskCreator ? 'flex' : 'none',
+                                  }),
+                                  dropdownIndicator: (provided) => ({
+                                    ...provided,
+                                    display: isTaskCreator ? 'flex' : 'none',
+                                  }),
+                                }}
+                                placeholder="Select time..."
+                                isOptionDisabled={(option) => option.isDisabled}
+                                isDisabled={!isTaskCreator}
+                              />
+                              <div className="text-xs text-slate-500">
+                                {member.dept_name === "Graphic Design / Video Editor" ? 
+                                  "Time slot for this graphic designer" : 
+                                  "Regular team member - no time slot required"}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {errors.time && isTaskCreator && (
+                          <p className="text-red-500 text-sm flex items-center gap-1 mt-2">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.time}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      // Single time slot for other graphic types
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                          Deadline
+                          Time Slot
                           <span className="text-red-500">*</span>
+                          <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                            Graphic Design Only
+                          </span>
                           {!isTaskCreator && (
                             <span className="text-xs text-amber-600 font-normal">
                               (Read-only)
                             </span>
                           )}
                         </label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            name="deadline"
-                            value={taskData.deadline}
-                            onChange={isTaskCreator ? handleChange : undefined}
-                            min={taskData.created_date ? taskData.created_date : new Date().toISOString().split('T')[0]}
-                            className={`w-full px-4 py-3 pl-12 rounded-xl border-2 ${
-                              errors.deadline 
-                                ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100" 
-                                : isTaskCreator 
-                                  ? "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                                  : "border-slate-100 bg-slate-50/50"
-                            } ${isTaskCreator ? 'focus:ring-4' : ''} outline-none transition-all`}
-                            readOnly={!isTaskCreator}
-                          />
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <svg
-                              className={`w-5 h-5 ${errors.deadline ? 'text-red-500' : isTaskCreator ? 'text-blue-500' : 'text-slate-400'}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                        {errors.deadline && isTaskCreator ? (
+                        <Select
+                          options={timeSlotOptions}
+                          value={Object.values(taskData.timeSlots)[0] || ""}
+                          onChange={isTaskCreator ? (selected) => {
+                            // Set the same time slot for all graphic design members
+                            const graphicMembers = getGraphicDesignMembers();
+                            const newTimeSlots = {};
+                            graphicMembers.forEach(member => {
+                              newTimeSlots[member.emp_id || member.id] = selected;
+                            });
+                            setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
+                          } : undefined}
+                          classNamePrefix="react-select"
+                          styles={{
+                            ...timeSlotCustomStyles,
+                            control: (provided, state) => ({
+                              ...provided,
+                              border: `2px solid ${errors.time ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#8b5cf6' : '#e2e8f0') : '#e2e8f0'}`,
+                              borderRadius: '0.75rem',
+                              padding: '8px 4px',
+                              backgroundColor: errors.time ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
+                              minHeight: '52px',
+                              boxShadow: state.isFocused && isTaskCreator ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                              "&:hover": {
+                                borderColor: errors.time ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
+                              },
+                              opacity: !isTaskCreator ? 0.7 : 1,
+                              cursor: isTaskCreator ? 'pointer' : 'not-allowed',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                            dropdownIndicator: (provided) => ({
+                              ...provided,
+                              display: isTaskCreator ? 'flex' : 'none',
+                            }),
+                          }}
+                          placeholder="Select time..."
+                          isOptionDisabled={(option) => option.isDisabled}
+                          noOptionsMessage={() => {
+                            if (taskData.deadline) {
+                              const today = new Date();
+                              const deadlineDate = new Date(taskData.deadline);
+                              today.setHours(0, 0, 0, 0);
+                              deadlineDate.setHours(0, 0, 0, 0);
+                              
+                              if (today.getTime() === deadlineDate.getTime()) {
+                                const enabledSlots = timeSlotOptions.filter(slot => !slot.isDisabled);
+                                if (enabledSlots.length === 0) {
+                                  return "No available time slots for today. Please select a future deadline.";
+                                }
+                              }
+                            }
+                            return "No options available";
+                          }}
+                          isDisabled={!isTaskCreator}
+                        />
+                        {errors.time && isTaskCreator && (
                           <p className="text-red-500 text-sm flex items-center gap-1">
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                             </svg>
-                            {errors.deadline}
+                            {errors.time}
                           </p>
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            {taskData.created_date 
-                              ? `Cannot select dates before ${taskData.created_date}` 
-                              : 'Cannot select past dates'}
-                            {!isTaskCreator && ' (Read-only)'}
+                        )}
+                        {taskData.deadline && 
+                        new Date(taskData.deadline).toDateString() === new Date().toDateString() && (
+                          <p className="text-xs text-purple-600">
+                            Showing only future time slots for today's deadline
                           </p>
                         )}
                       </div>
-
-                      {/* Time Slot - ONLY when graphic design members are selected */}
-                      {hasGraphicDesignMember() && (
-                        <div className="space-y-2">
-                          <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                            Time Slot
-                            <span className="text-red-500">*</span>
-                            <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                              Graphic Design Only
-                            </span>
-                            {!isTaskCreator && (
-                              <span className="text-xs text-amber-600 font-normal">
-                                (Read-only)
-                              </span>
-                            )}
-                          </label>
-                          <Select
-                            options={timeSlotOptions}
-                            value={taskData.time}
-                            onChange={isTaskCreator ? (selected) => handleSelectChange("time", selected) : undefined}
-                            classNamePrefix="react-select"
-                            styles={{
-                              ...timeSlotCustomStyles,
-                              control: (provided, state) => ({
-                                ...provided,
-                                border: `2px solid ${errors.time ? '#fca5a5' : isTaskCreator ? (state.isFocused ? '#8b5cf6' : '#e2e8f0') : '#e2e8f0'}`,
-                                borderRadius: '0.75rem',
-                                padding: '8px 4px',
-                                backgroundColor: errors.time ? '#fef2f2' : (isTaskCreator ? 'white' : '#f8fafc'),
-                                minHeight: '52px',
-                                boxShadow: state.isFocused && isTaskCreator ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
-                                "&:hover": {
-                                  borderColor: errors.time ? '#f87171' : (isTaskCreator ? '#94a3b8' : '#e2e8f0'),
-                                },
-                                opacity: !isTaskCreator ? 0.7 : 1,
-                                cursor: isTaskCreator ? 'pointer' : 'not-allowed',
-                              }),
-                              indicatorSeparator: (provided) => ({
-                                ...provided,
-                                display: isTaskCreator ? 'flex' : 'none',
-                              }),
-                              dropdownIndicator: (provided) => ({
-                                ...provided,
-                                display: isTaskCreator ? 'flex' : 'none',
-                              }),
-                            }}
-                            placeholder="Select time..."
-                            isOptionDisabled={(option) => option.isDisabled}
-                            noOptionsMessage={() => {
-                              if (taskData.deadline) {
-                                const today = new Date();
-                                const deadlineDate = new Date(taskData.deadline);
-                                today.setHours(0, 0, 0, 0);
-                                deadlineDate.setHours(0, 0, 0, 0);
-                                
-                                if (today.getTime() === deadlineDate.getTime()) {
-                                  const enabledSlots = timeSlotOptions.filter(slot => !slot.isDisabled);
-                                  if (enabledSlots.length === 0) {
-                                    return "No available time slots for today. Please select a future deadline.";
-                                  }
-                                }
-                              }
-                              return "No options available";
-                            }}
-                            isDisabled={!isTaskCreator}
-                          />
-                          {errors.time && isTaskCreator && (
-                            <p className="text-red-500 text-sm flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                              {errors.time}
-                            </p>
-                          )}
-                          {taskData.deadline && 
-                          new Date(taskData.deadline).toDateString() === new Date().toDateString() && (
-                            <p className="text-xs text-purple-600">
-                              Showing only future time slots for today's deadline
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </>
                 )}
 
