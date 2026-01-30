@@ -29,141 +29,167 @@ export default function CreateTask() {
     name: "",
     assignedTo: [],
     deadline: "",
-    time: "",
     remarks: "",
     priority: "",
     graphicType: "",
+    // Store time slots per graphic user
+    timeSlots: {}, // Will store { userId1: timeValue1, userId2: timeValue2 }
   });
 
   // Graphic type options
   const graphicOptions = [
     { value: "Logo Design", label: "Logo Design" },
-    { value: "Flyer Design", label: "Flyer Design" },
-    { value: "Brochure Design", label: "Brochure Design" },
-    { value: "Social Media Graphics", label: "Social Media Graphics" },
-    { value: "Banner Design", label: "Banner Design" },
-    { value: "Infographic Design", label: "Infographic Design" },
-    { value: "Packaging Design", label: "Packaging Design" },
+    // Website Graphics
+    { value: "Website UI Design", label: "Website UI Design" },
+    { value: "Website Banner", label: "Website Banner" },
+    { value: "Website Slider", label: "Website Slider" },
+    { value: "Landing Page", label: "Landing Page" },
+    { value: "Web Icons", label: "Web Icons" },
+    { value: "Website Illustrations", label: "Website Illustrations" },
+    { value: "Website Infographics", label: "Website Infographics" },
+    { value: "Website Graphics", label: "Website Graphics" },
+    {value:"Static Post",label:"Static Post"},
+    // Print & Digital Banners
+    { value: "Banner Print", label: "Banner (Print)" },
+    { value: "Banner Digital", label: "Banner (Digital)" },
+    // Print Collaterals
+    { value: "Standee Print", label: "Standee (Print)" },
+    { value: "Selfie Booth Print", label: "Selfie Booth (Print)" },
+    { value: "Business Card", label: "Business Card" },
+    { value: "Letterhead", label: "Letterheads" },
+    { value: "Magazine Ads", label: "Magazine Ads" },
+    // Brochures & Flyers
+    { value: "Flyer One Pager", label: "Flyer (One-Pager)" },
+    { value: "Brochure Multi Page", label: "Brochure (Multi Page)" },
+    { value: "Booklet", label: "Booklet" },
+    { value: "Tri Fold", label: "Tri-Fold (3 Pages)" },
+    // Digital Creatives
+    { value: "Static Post", label: "Static (Post)" },
+    { value: "Carousel Post", label: "Carousel (Post)" },
+    { value: "Reel Post", label: "Reel (Post)" },
+    { value: "Animated Reel", label: "Animated Reel (Graphic + Video)" },
+    // Branding
     { value: "Icon Design", label: "Icon Design" },
-    { value: "Post", label: "Post" },
-    { value: "Reels", label: "Reels" },
+    { value: "Packaging Design", label: "Packaging Design" },
+    { value: "Brand Guideline", label: "Brand Guideline" },
+    // Corporate & Marketing
+    { value: "PPT Design", label: "PPT" },
+    { value: "Email Signature", label: "Email Signature" },
+    { value: "Emailer Newsletter", label: "Emailer / Newsletter" },
+    // Video
+    { value: "Brand Video", label: "Brand Video" },
+    { value: "Explainer Video", label: "Explainer Video" },
+    // Events
+    { value: "Booth Creatives", label: "Booth Creatives" }
   ];
 
-  // Time slot options from 10AM to 7PM
- // Replace the static timeSlotOptions array with a function
-const getTimeSlotOptions = () => {
-  const timeSlots = [
-    { value: "10:00", label: "10:00 AM", hour: 10 },
-    { value: "11:00", label: "11:00 AM", hour: 11 },
-    { value: "12:00", label: "12:00 PM", hour: 12 },
-    { value: "13:00", label: "1:00 PM", hour: 13 },
-    { value: "14:00", label: "2:00 PM", hour: 14 },
-    { value: "15:00", label: "3:00 PM", hour: 15 },
-    { value: "16:00", label: "4:00 PM", hour: 16 },
-    { value: "17:00", label: "5:00 PM", hour: 17 },
-    { value: "18:00", label: "6:00 PM", hour: 18 },
-    { value: "19:00", label: "7:00 PM", hour: 19 },
-  ];
-
-  // Check if deadline is today
-  if (taskData.deadline) {
-    const deadlineDate = new Date(taskData.deadline);
-    const today = new Date();
-    
-    // Check if deadline is today (same year, month, and date)
-    const isToday = 
-      deadlineDate.getFullYear() === today.getFullYear() &&
-      deadlineDate.getMonth() === today.getMonth() &&
-      deadlineDate.getDate() === today.getDate();
-    
-    if (isToday) {
-      const currentHour = today.getHours();
-      
-      // Filter time slots that are in the future
-      return timeSlots.map(slot => ({
-        ...slot,
-        isDisabled: slot.hour <= currentHour
-      }));
-    }
-  }
-  
-  // For future dates or no deadline, show all slots as enabled
-  return timeSlots.map(slot => ({
-    ...slot,
-    isDisabled: false
-  }));
-};
-
-useEffect(() => {
-  const updateTimeSlots = () => {
-    const timeSlots = [
-      { value: "10:00", label: "10:00 AM", hour: 10 },
-      { value: "11:00", label: "11:00 AM", hour: 11 },
-      { value: "12:00", label: "12:00 PM", hour: 12 },
-      { value: "13:00", label: "1:00 PM", hour: 13 },
-      { value: "14:00", label: "2:00 PM", hour: 14 },
-      { value: "15:00", label: "3:00 PM", hour: 15 },
-      { value: "16:00", label: "4:00 PM", hour: 16 },
-      { value: "17:00", label: "5:00 PM", hour: 17 },
-      { value: "18:00", label: "6:00 PM", hour: 18 },
-      { value: "19:00", label: "7:00 PM", hour: 19 },
-    ];
-
-    if (taskData.deadline) {
-      const deadlineDate = new Date(taskData.deadline);
-      const today = new Date();
-      
-      // Reset time part for comparison
-      today.setHours(0, 0, 0, 0);
-      const deadlineForCompare = new Date(deadlineDate);
-      deadlineForCompare.setHours(0, 0, 0, 0);
-      
-      // Check if deadline is today
-      const isToday = deadlineForCompare.getTime() === today.getTime();
-      
-      if (isToday) {
-        const currentHour = new Date().getHours();
-        const currentMinutes = new Date().getMinutes();
-        
-        // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
-        const currentTime = currentHour + (currentMinutes / 60);
-        
-        // Filter time slots that are in the future
-        const updatedSlots = timeSlots.map(slot => ({
-          ...slot,
-          isDisabled: slot.hour <= currentTime
-        }));
-        
-        setTimeSlotOptions(updatedSlots);
-        return;
-      }
-    }
-    
-    // For future dates or no deadline, show all slots as enabled
-    const updatedSlots = timeSlots.map(slot => ({
-      ...slot,
-      isDisabled: false
-    }));
-    
-    setTimeSlotOptions(updatedSlots);
-  };
-
-  updateTimeSlots();
-}, [taskData.deadline]); // Re-run when deadline changes
-
-  
-
-  // Check if any assigned user is from Graphic Design department
-  const hasGraphicDesignMember = () => {
-    if (taskData.assignedTo.length === 0) return false;
+  // Get graphic design team members from assigned users
+  const getGraphicDesignMembers = () => {
+    if (taskData.assignedTo.length === 0) return [];
     
     const selectedUserIds = taskData.assignedTo.map(user => user.value);
     
-    return assignedUsersDetails.some(user => 
+    return assignedUsersDetails.filter(user => 
       selectedUserIds.includes(user.emp_id || user.id) && 
       user.dept_name === "Graphic Design / Video Editor"
     );
   };
+
+  // Check if any assigned user is from Graphic Design department
+  const hasGraphicDesignMember = () => {
+    return getGraphicDesignMembers().length > 0;
+  };
+
+  // Check if "Animated Reel" is selected
+  const isAnimatedReelSelected = () => {
+    return taskData.graphicType?.value === "Animated Reel";
+  };
+
+  // Get time slot options based on deadline
+  useEffect(() => {
+    const updateTimeSlots = () => {
+      const timeSlots = [
+        { value: "10:00", label: "10:00 AM", hour: 10 },
+        { value: "11:00", label: "11:00 AM", hour: 11 },
+        { value: "12:00", label: "12:00 PM", hour: 12 },
+        { value: "13:00", label: "1:00 PM", hour: 13 },
+        { value: "14:00", label: "2:00 PM", hour: 14 },
+        { value: "15:00", label: "3:00 PM", hour: 15 },
+        { value: "16:00", label: "4:00 PM", hour: 16 },
+        { value: "17:00", label: "5:00 PM", hour: 17 },
+        { value: "18:00", label: "6:00 PM", hour: 18 },
+        { value: "19:00", label: "7:00 PM", hour: 19 },
+      ];
+
+      if (taskData.deadline) {
+        const deadlineDate = new Date(taskData.deadline);
+        const today = new Date();
+        
+        // Reset time part for comparison
+        today.setHours(0, 0, 0, 0);
+        const deadlineForCompare = new Date(deadlineDate);
+        deadlineForCompare.setHours(0, 0, 0, 0);
+        
+        // Check if deadline is today
+        const isToday = deadlineForCompare.getTime() === today.getTime();
+        
+        if (isToday) {
+          const currentHour = new Date().getHours();
+          const currentMinutes = new Date().getMinutes();
+          
+          // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
+          const currentTime = currentHour + (currentMinutes / 60);
+          
+          // Filter time slots that are in the future
+          const updatedSlots = timeSlots.map(slot => ({
+            ...slot,
+            isDisabled: slot.hour <= currentTime
+          }));
+          
+          setTimeSlotOptions(updatedSlots);
+          return;
+        }
+      }
+      
+      // For future dates or no deadline, show all slots as enabled
+      const updatedSlots = timeSlots.map(slot => ({
+        ...slot,
+        isDisabled: false
+      }));
+      
+      setTimeSlotOptions(updatedSlots);
+    };
+
+    updateTimeSlots();
+  }, [taskData.deadline]);
+
+  // Reset time slots when assigned users change
+  useEffect(() => {
+    if (!hasGraphicDesignMember() || !isAnimatedReelSelected()) {
+      setTaskData(prev => ({ ...prev, timeSlots: {} }));
+    } else {
+      // Initialize time slots for graphic design members
+      const graphicMembers = getGraphicDesignMembers();
+      const newTimeSlots = { ...taskData.timeSlots };
+      
+      // Add time slots for new graphic members
+      graphicMembers.forEach(member => {
+        const userId = member.emp_id || member.id;
+        if (!newTimeSlots[userId]) {
+          newTimeSlots[userId] = "";
+        }
+      });
+      
+      // Remove time slots for members no longer selected
+      Object.keys(newTimeSlots).forEach(userId => {
+        if (!graphicMembers.some(member => (member.emp_id || member.id) === userId)) {
+          delete newTimeSlots[userId];
+        }
+      });
+      
+      setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
+    }
+  }, [taskData.assignedTo, taskData.graphicType]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -177,13 +203,18 @@ useEffect(() => {
   const handleSelectChange = (field, selected) => {
     setTaskData({ ...taskData, [field]: selected });
     
-    // Clear graphicType and time if no graphic design members are selected anymore
+    // Clear graphicType and timeSlots if no graphic design members are selected
     if (field === "assignedTo" && !hasGraphicDesignMember()) {
       setTaskData(prev => ({ 
         ...prev, 
         graphicType: "",
-        time: "" 
+        timeSlots: {}
       }));
+    }
+    
+    // Clear timeSlots if graphic type changes from Animated Reel
+    if (field === "graphicType" && selected?.value !== "Animated Reel") {
+      setTaskData(prev => ({ ...prev, timeSlots: {} }));
     }
     
     if (errors[field]) {
@@ -191,7 +222,22 @@ useEffect(() => {
     }
   };
 
-  // Updated validation function to include graphicType and time slot
+  // Handle time slot change for specific user
+  const handleTimeSlotChange = (userId, selected) => {
+    setTaskData(prev => ({
+      ...prev,
+      timeSlots: {
+        ...prev.timeSlots,
+        [userId]: selected
+      }
+    }));
+    
+    if (errors.time) {
+      setErrors({ ...errors, time: "" });
+    }
+  };
+
+  // Updated validation function
   const validate = () => {
     let newErrors = {};
 
@@ -214,9 +260,29 @@ useEffect(() => {
       newErrors.graphicType = "Graphic type is required for Graphic Design members";
     }
 
-    // Time Slot validation (only if graphic design member is selected)
-    if (hasGraphicDesignMember() && !taskData.time) {
-      newErrors.time = "Time slot is required for Graphic Design members";
+    // Time Slot validation for Animated Reel
+    if (isAnimatedReelSelected()) {
+      const graphicMembers = getGraphicDesignMembers();
+      let allTimeSlotsValid = true;
+      
+      graphicMembers.forEach(member => {
+        const userId = member.emp_id || member.id;
+        if (!taskData.timeSlots[userId]) {
+          allTimeSlotsValid = false;
+        }
+      });
+      
+      if (!allTimeSlotsValid) {
+        newErrors.time = "Time slot is required for each Graphic Design member for Animated Reel";
+      }
+    }
+    // Regular time slot validation for other graphic types
+    else if (hasGraphicDesignMember() && !isAnimatedReelSelected()) {
+      // For non-animated reel, we only need one time slot
+      const hasAnyTimeSlot = Object.values(taskData.timeSlots).some(slot => slot !== "");
+      if (!hasAnyTimeSlot) {
+        newErrors.time = "Time slot is required for Graphic Design members";
+      }
     }
 
     // Priority validation
@@ -338,12 +404,12 @@ useEffect(() => {
           setTaskData(prev => ({ ...prev, assignedTo: filteredAssignedTo }));
         }
 
-        // Clear graphicType and time if graphic design members are no longer available
+        // Clear graphicType and timeSlots if graphic design members are no longer available
         if (!hasGraphicDesignMember()) {
           setTaskData(prev => ({ 
             ...prev, 
             graphicType: "",
-            time: "" 
+            timeSlots: {}
           }));
         }
 
@@ -393,10 +459,17 @@ useEffect(() => {
           u => (u.emp_id || u.id) === selectedUser.value
         );
 
-        return {
+        const userData = {
           user_id: selectedUser.value,
           dept_name: userDetails?.dept_name || null
         };
+
+        // Add time slot for graphic design members
+        if (userDetails?.dept_name === "Graphic Design / Video Editor" && taskData.timeSlots[selectedUser.value]) {
+          userData.time_slot = taskData.timeSlots[selectedUser.value].value;
+        }
+
+        return userData;
       });
 
       form.append("project_id", selectedProject.value);
@@ -410,11 +483,6 @@ useEffect(() => {
       // Add graphicType if it exists
       if (taskData.graphicType) {
         form.append("graphic_type", taskData.graphicType.value);
-      }
-      
-      // Add time slot if it exists
-      if (taskData.time) {
-        form.append("time_slot", taskData.time.value);
       }
 
       console.log("Submitting form data...");
@@ -430,9 +498,9 @@ useEffect(() => {
             "Content-Type": "multipart/form-data",
           },
           params: {
-              id: user?.id,
-              user_code: user?.user_code,
-            }
+            id: user?.id,
+            user_code: user?.user_code,
+          }
         }
       );
 
@@ -454,10 +522,10 @@ useEffect(() => {
           name: "",
           assignedTo: [],
           deadline: "",
-          time: "",
           remarks: "",
           priority: "",
           graphicType: "",
+          timeSlots: {},
         });
         setErrors({});
         setSelectedProject(null);
@@ -846,14 +914,11 @@ useEffect(() => {
                           {errors.graphicType}
                         </p>
                       )}
-                      {/* <p className="text-xs text-purple-600">
-                        Only shown when Graphic Design members are selected
-                      </p> */}
                     </div>
                   </div>
 
-                  {/* Priority, Deadline, and Time Slot Row - All in one row */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Priority and Deadline Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Priority */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -927,7 +992,95 @@ useEffect(() => {
                         <p className="text-xs text-slate-500">Cannot select past dates</p>
                       )}
                     </div>
-                    {/* Time Slot Dropdown */}
+                  </div>
+
+                  {/* Time Slot Section - Different layout for Animated Reel */}
+                  {isAnimatedReelSelected() ? (
+                    // Multiple time slots for Animated Reel - Side by side
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <label className="text-sm font-semibold text-slate-700">
+                          Time Slots for Graphic Design Members
+                        </label>
+                        <span className="text-red-500">*</span>
+                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                          Separate time slots required for Animated Reel
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {getGraphicDesignMembers().map((member) => (
+                          <div key={member.emp_id || member.id} className="space-y-2">
+                            <label className="text-sm font-semibold text-slate-700">
+                              {member.name} - Time Slot
+                            </label>
+                            <Select
+                              options={timeSlotOptions}
+                              value={taskData.timeSlots[member.emp_id || member.id]}
+                              onChange={(selected) => handleTimeSlotChange(member.emp_id || member.id, selected)}
+                              classNamePrefix="react-select"
+                              styles={{
+                                menu: (provided) => ({ 
+                                  ...provided, 
+                                  zIndex: 9999,
+                                  borderRadius: '0.75rem',
+                                  marginTop: '4px',
+                                  boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                                }),
+                                control: (provided, state) => ({
+                                  ...provided,
+                                  border: `2px solid ${errors.time ? '#fca5a5' : state.isFocused ? '#8b5cf6' : '#e2e8f0'}`,
+                                  borderRadius: '0.75rem',
+                                  padding: '8px 4px',
+                                  backgroundColor: errors.time ? '#fef2f2' : 'white',
+                                  minHeight: '52px',
+                                  boxShadow: state.isFocused ? (errors.time ? '0 0 0 4px rgba(248, 113, 113, 0.1)' : '0 0 0 4px rgba(139, 92, 246, 0.1)') : 'none',
+                                  "&:hover": {
+                                    borderColor: errors.time ? '#f87171' : '#94a3b8',
+                                  },
+                                }),
+                                placeholder: (provided) => ({
+                                  ...provided,
+                                  color: '#94a3b8',
+                                }),
+                                singleValue: (provided) => ({
+                                  ...provided,
+                                  color: '#7c3aed',
+                                  fontWeight: '500',
+                                }),
+                                option: (provided, state) => ({
+                                  ...provided,
+                                  backgroundColor: state.isSelected ? '#8b5cf6' : state.isDisabled ? '#f1f5f9' : 'white',
+                                  color: state.isDisabled ? '#94a3b8' : state.isSelected ? 'white' : '#7c3aed',
+                                  cursor: state.isDisabled ? 'not-allowed' : 'default',
+                                  '&:hover': {
+                                    backgroundColor: state.isDisabled ? '#f1f5f9' : '#f3f4f6',
+                                  },
+                                }),
+                              }}
+                              placeholder="Select time..."
+                              isOptionDisabled={(option) => option.isDisabled}
+                            />
+                            <div className="text-xs text-slate-500">
+                              {member.dept_name === "Graphic Design / Video Editor" ? 
+                                "Time slot for this graphic designer" : 
+                                "Regular team member - no time slot required"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {errors.time && (
+                        <p className="text-red-500 text-sm flex items-center gap-1 mt-2">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.time}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    // Single time slot for other graphic types
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                         Time Slot
@@ -938,8 +1091,16 @@ useEffect(() => {
                       </label>
                       <Select
                         options={timeSlotOptions}
-                        value={taskData.time}
-                        onChange={(selected) => handleSelectChange("time", selected)}
+                        value={Object.values(taskData.timeSlots)[0] || ""}
+                        onChange={(selected) => {
+                          // Set the same time slot for all graphic design members
+                          const graphicMembers = getGraphicDesignMembers();
+                          const newTimeSlots = {};
+                          graphicMembers.forEach(member => {
+                            newTimeSlots[member.emp_id || member.id] = selected;
+                          });
+                          setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
+                        }}
                         classNamePrefix="react-select"
                         className={`react-select-container ${errors.time ? 'error' : ''}`}
                         styles={{
@@ -1008,14 +1169,8 @@ useEffect(() => {
                           {errors.time}
                         </p>
                       )}
-                      {/* {taskData.deadline && 
-                      new Date(taskData.deadline).toDateString() === new Date().toDateString() && (
-                        <p className="text-xs text-purple-600">
-                          Showing only future time slots for today's deadline
-                        </p>
-                      )} */}
                     </div>
-                  </div>
+                  )}
                 </>
               )}
 
@@ -1176,10 +1331,10 @@ useEffect(() => {
                     name: "",
                     assignedTo: [],
                     deadline: "",
-                    time: "",
                     remarks: "",
                     priority: "",
                     graphicType: "",
+                    timeSlots: {},
                   });
                   setErrors({});
                   setSelectedProject(null);
