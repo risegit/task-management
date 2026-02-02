@@ -26,7 +26,6 @@ const Home = () => {
   
   const itemsPerPage = 3;
 
-
   // Clock update (keeping for time display)
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -79,7 +78,9 @@ const Home = () => {
               count_tasks: parseInt(task.count_tasks) || 1,
               task_name: task.task_name || "Task",
               clients: task.clients || "Client",
-              priority: task.priority || "Medium" // Ensure priority is included
+              priority: task.priority || "Medium",
+              user_id: task.user_id || task.assigned_to_id || null,
+              task_id: task.task_id || null
             };
           } else {
             // For regular users - create individual task entries
@@ -89,7 +90,9 @@ const Home = () => {
               task_name: task.task_name || "Task",
               clients: task.clients || "Client",
               name: task.name || "Unknown",
-              priority: task.priority || "Medium" // Ensure priority is included
+              priority: task.priority || "Medium",
+              user_id: task.user_id || task.assigned_to_id || null,
+              task_id: task.task_id || null
             };
           }
         });
@@ -128,7 +131,7 @@ const Home = () => {
     };
 
     fetchTask();
-  }, []);
+  }, [user]);
 
   // Function to generate marquee items based on overdue tasks
   const generateMarqueeItems = (overdueTasks, isAdmin) => {
@@ -160,7 +163,6 @@ const Home = () => {
 
       setMarqueeItems(items);
     } else {
-      
       // For regular user: Show individual tasks or count
       const userName = user?.name || "You";
       const totalTasks = overdueTasks.length;
@@ -236,10 +238,6 @@ const Home = () => {
   const formatTime = (date) => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
-
-  // const formatDate = (date) => {
-  //   return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  // };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -362,15 +360,27 @@ const Home = () => {
     const styles = getTaskCardStyles(task.priority || "Medium");
     
     if (isAdmin) {
-      // Admin view
+      // Admin view - Clickable with state parameters
       return (
         <div key={task.user_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
           <div className="flex items-start">
             <ClipboardDocumentCheckIcon className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
             <div>
-              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                {task.name || "Unknown User"} has <span className={styles.countColor}>{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-              </h4>
+              <Link 
+                to="/dashboard/task-management/view-task" 
+                state={{ 
+                  filterBy: "employee",
+                  employeeName: task.name,
+                  employeeId: task.user_id,
+                  statusFilter: status.toLowerCase().replace(" ", ""),
+                  deadlineFilter: "currentAndFuture"
+                }}
+                className="block"
+              >
+                <h4 className="font-semibold text-black-800 text-sm mb-1 hover:text-blue-600 transition-colors">
+                  {task.name || "Unknown User"} has <span className={styles.countColor}>{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+                </h4>
+              </Link>
             </div>
           </div>
         </div>
@@ -382,18 +392,20 @@ const Home = () => {
           <div className="flex items-start">
             <ClipboardDocumentCheckIcon className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
             <div>
-              <h4 className="font-semibold text-black-800 text-sm mb-1">
-                {task.task_name || "Task"}
-              </h4>
-              <p className="text-xs text-black-800">
-                {task.clients} • Priority: <span className={
-                  task.priority === "High" ? "font-semibold text-red-600" : 
-                  task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                  "font-semibold text-green-600"
-                }>{task.priority}</span>
-                {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
-              </p>
+              <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} className="block">
+                <h4 className="font-semibold text-black-800 text-sm mb-1 hover:text-blue-600 transition-colors">
+                  {task.task_name || "Task"}
+                </h4>
+                <p className="text-xs text-black-800">
+                  {task.clients} • Priority: <span className={
+                    task.priority === "High" ? "font-semibold text-red-600" : 
+                    task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                    "font-semibold text-green-600"
+                  }>{task.priority}</span>
+                  {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                  <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
+                </p>
+              </Link>
             </div>
           </div>
         </div>
@@ -401,443 +413,348 @@ const Home = () => {
     }
   };
 
+  // Render task cards for In Progress, Overdue, Completed sections
+  const renderAdminTaskCard = (task, index, status, statusType) => {
+    const styles = getTaskCardStyles(task.priority || "Medium");
+    const icon = statusType === "inProgress" ? TrendingUp : 
+                 statusType === "overdue" ? AlertTriangle : 
+                 statusType === "completed" ? CheckCircle : 
+                 ClipboardDocumentCheckIcon;
+    
+    return (
+      <div key={task.user_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${statusType === "overdue" ? "bg-gradient-to-r from-red-50 to-pink-50 border-red-500" : styles.background} ${statusType === "overdue" ? "border-red-500" : styles.borderColor}`}>
+        <div className="flex items-start">
+          {React.createElement(icon, { className: `w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}` })}
+          <div>
+            <Link 
+              to="/dashboard/task-management/view-task" 
+              state={{ 
+                filterBy: "employee",
+                employeeName: task.name,
+                employeeId: task.user_id,
+                statusFilter: statusType,
+                deadlineFilter: statusType === "overdue" ? "overdueOnly" : "currentAndFuture"
+              }}
+              className="block"
+            >
+              <h4 className="font-semibold text-black-800 text-sm mb-1 hover:text-blue-600 transition-colors">
+                {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+              </h4>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name : " "}!</h1>
+          <p className="text-gray-600 mt-2">{formatDate(currentTime)} • {formatTime(currentTime)}</p>
+        </div>
 
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="mx-auto">
-          {/* Marquee for Overdue Tasks */}
-          {/* {marqueeItems.length > 0 && (
-            <CapsuleGridMarquee 
-              items={marqueeItems} 
-              speed={25} 
-              type="overdue"
-              userRole={user?.role}
+        {/* First Row - 3 Task Boxes (Larger) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* To Do Tasks */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
+            <div className="flex items-center mb-4">
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <Clock className="w-5 h-5 text-blue-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-black-800 ml-3">To Do</h2>
+              <span className="ml-auto bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                {getTotalTodoTaskCount()}
+              </span>
+            </div>
+            <div className="space-y-3 flex-grow">
+              {todoTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <ClipboardDocumentCheckIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No tasks pending</p>
+                </div>
+              ) : (
+                getPaginatedTasks(todoTasks, todoPage).map((task, index) => (
+                  renderTaskCard(task, index, "To Do")
+                ))
+              )}
+            </div>
+            <PaginationControls
+              currentPage={todoPage}
+              totalPages={getTotalPages(todoTasks)}
+              onPageChange={setTodoPage}
+              category="todo"
             />
-          )} */}
-
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Welcome back {user.name ? user.name : " "}!</h1>
-            <p className="text-gray-600 mt-2">{formatDate(currentTime)} • {formatTime(currentTime)}</p>
           </div>
 
-          {/* First Row - 3 Task Boxes (Larger) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* To Do Tasks */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
-              <div className="flex items-center mb-4">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                </div>
-                <h2 className="text-lg font-semibold text-black-800 ml-3">To Do</h2>
-                <span className="ml-auto bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                  {getTotalTodoTaskCount()}
-                </span>
+          {/* In Progress Tasks */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
+            <div className="flex items-center mb-4">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-orange-600" />
               </div>
-              <div className="space-y-3 flex-grow">
-                {todoTasks.length === 0 ? (
-                  <div className="text-center py-8">
-                    <ClipboardDocumentCheckIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">No tasks pending</p>
-                  </div>
-                ) : (
-                  getPaginatedTasks(todoTasks, todoPage).map((task, index) => (
-                    user.role !== "staff" ? (
-                      <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                        {renderTaskCard(task, index, "To Do")}
-                      </Link>
-                    ) : (
+              <h2 className="text-lg font-semibold text-black-800 ml-3">In Progress</h2>
+              <span className="ml-auto bg-orange-600 text-white text-xs px-2 py-1 rounded-full">
+                {getTotalInProgressTaskCount()}
+              </span>
+            </div>
+            <div className="space-y-3 flex-grow">
+              {inProgressTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No tasks in progress</p>
+                </div>
+              ) : (
+                getPaginatedTasks(inProgressTasks, inProgressPage).map((task, index) => {
+                  if (user?.role !== "staff") {
+                    return renderAdminTaskCard(task, index, "In Progress", "inProgress");
+                  } else {
+                    const styles = getTaskCardStyles(task.priority || "Medium");
+                    return (
                       <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                        {renderTaskCard(task, index, "To Do")}
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
+                          <div className="flex items-start">
+                            <TrendingUp className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.task_name || "Task"}
+                              </h4>
+                              <p className="text-xs text-black-600">
+                                {task.clients} • Priority: <span className={
+                                  task.priority === "High" ? "font-semibold text-red-600" : 
+                                  task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                  "font-semibold text-green-600"
+                                }>{task.priority}</span>
+                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </Link>
-                    )
-                  ))
-                )}
-              </div>
-              <PaginationControls
-                currentPage={todoPage}
-                totalPages={getTotalPages(todoTasks)}
-                onPageChange={setTodoPage}
-                category="todo"
-              />
-            </div>
-
-            {/* In Progress Tasks */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
-              <div className="flex items-center mb-4">
-                <div className="bg-orange-100 p-2 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-orange-600" />
-                </div>
-                <h2 className="text-lg font-semibold text-black-800 ml-3">In Progress</h2>
-                <span className="ml-auto bg-orange-600 text-white text-xs px-2 py-1 rounded-full">
-                  {getTotalInProgressTaskCount()}
-                </span>
-              </div>
-              <div className="space-y-3 flex-grow">
-                {inProgressTasks.length === 0 ? (
-                  <div className="text-center py-8">
-                    <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">No tasks in progress</p>
-                  </div>
-                ) : (
-                  getPaginatedTasks(inProgressTasks, inProgressPage).map((task, index) => {
-                    const styles = getTaskCardStyles(task.priority || "Medium");
-                    return (
-                      user.role !== "staff" ? (
-                        <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                          <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
-                            <div className="flex items-start">
-                              <TrendingUp className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
-                              <div>
-                                {user?.role !== "staff" ? (
-                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                    {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
-                                  </h4>
-                                ) : (
-                                  <>
-                                    <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                      {task.task_name || "Task"}
-                                    </h4>
-                                    <p className="text-xs text-gray-600">
-                                      {task.clients} • Priority: <span className={
-                                        task.priority === "High" ? "font-semibold text-red-600" : 
-                                        task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                                        "font-semibold text-green-600"
-                                      }>{task.priority}</span>
-                                      {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      ): (
-                        <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                          <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}>
-                            <div className="flex items-start">
-                              <TrendingUp className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
-                              <div>
-                                {user?.role !== "staff" ? (
-                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                    {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''} in Progress
-                                  </h4>
-                                ) : (
-                                  <>
-                                    <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                      {task.task_name || "Task"}
-                                    </h4>
-                                    <p className="text-xs text-black-600">
-                                      {task.clients} • Priority: <span className={
-                                        task.priority === "High" ? "font-semibold text-red-600" : 
-                                        task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                                        "font-semibold text-green-600"
-                                      }>{task.priority}</span>
-                                      {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                      <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {task.created_date} : {task.created_time}</span>}</span>
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      )
                     );
-                  })
-                )}
-              </div>
-              <PaginationControls
-                currentPage={inProgressPage}
-                totalPages={getTotalPages(inProgressTasks)}
-                onPageChange={setInProgressPage}
-                category="inProgress"
-              />
+                  }
+                })
+              )}
             </div>
-
-            {/* Overdue Tasks */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
-              <div className="flex items-center mb-4">
-                <div className="bg-red-100 p-2 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                </div>
-                <h2 className="text-lg font-semibold text-black-800 ml-3">Overdue</h2>
-                <span className="ml-auto bg-red-600 text-white text-xs px-2 py-1 rounded-full">
-                  {getTotalOverdueTaskCount()}
-                </span>
-              </div>
-              <div className="space-y-3 flex-grow">
-                {overdueTasks.length === 0 ? (
-                  <div className="text-center py-8">
-                    <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">No overdue tasks</p>
-                  </div>
-                ) : (
-                  getPaginatedTasks(overdueTasks, overduePage).map((task, index) => {
-                    const styles = getTaskCardStyles(task.priority || "Medium");
-                    return (
-                      user.role !== "staff" ? (
-                        <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                          {/* <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}> */}
-                          <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-red-50 to-pink-50 border-red-500`}>
-                            <div className="flex items-start">
-                              <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
-                              <div>
-                                {user?.role !== "staff" ? (
-                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                    {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                                  </h4>
-                                ) : (
-                                  <>
-                                    <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                      {task.task_name || "Task"}
-                                    </h4>
-                                    <p className="text-xs text-gray-600">
-                                      {task.clients} • Priority: <span className={
-                                        task.priority === "High" ? "font-semibold text-red-600" : 
-                                        task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                                        "font-semibold text-green-600"
-                                      }>{task.priority}</span>
-                                      {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      ) : (
-                        <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                          <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-red-50 to-pink-50 border-red-500`}>
-                            <div className="flex items-start">
-                              <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
-                              <div>
-                                {user?.role !== "staff" ? (
-                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                    {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> Overdue Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                                  </h4>
-                                ) : (
-                                  <>
-                                    <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                      {task.task_name || "Task"}
-                                    </h4>
-                                    <p className="text-xs text-black-600">
-                                      {task.clients} • Priority: <span className={
-                                        task.priority === "High" ? "font-semibold text-red-600" : 
-                                        task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                                        "font-semibold text-green-600"
-                                      }>{task.priority}</span>
-                                      {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                      <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      )
-                    );
-                  })
-                )}
-              </div>
-              <PaginationControls
-                currentPage={overduePage}
-                totalPages={getTotalPages(overdueTasks)}
-                onPageChange={setOverduePage}
-                category="overdue"
-              />
-            </div>
+            <PaginationControls
+              currentPage={inProgressPage}
+              totalPages={getTotalPages(inProgressTasks)}
+              onPageChange={setInProgressPage}
+              category="inProgress"
+            />
           </div>
 
-          {/* Second Row - 3 Boxes (Completed, Combined Today's Thought & Announcements, Birthday & Anniversary) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Completed Tasks */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
-              <div className="flex items-center mb-4">
-                <div className="bg-green-100 p-2 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <h2 className="text-lg font-semibold text-black-800 ml-3">Completed</h2>
-                <span className="ml-auto bg-green-600 text-white text-xs px-2 py-1 rounded-full">
-                  {getTotalCompletedTaskCount()}
-                </span>
+          {/* Overdue Tasks */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
+            <div className="flex items-center mb-4">
+              <div className="bg-red-100 p-2 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
-              <div className="space-y-3 flex-grow">
-                {completedTasks.length === 0 ? (
-                  <div className="text-center py-8">
-                    <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">No completed tasks</p>
-                  </div>
-                ) : (
-                  getPaginatedTasks(completedTasks, completedPage).map((task, index) => {
+              <h2 className="text-lg font-semibold text-black-800 ml-3">Overdue</h2>
+              <span className="ml-auto bg-red-600 text-white text-xs px-2 py-1 rounded-full">
+                {getTotalOverdueTaskCount()}
+              </span>
+            </div>
+            <div className="space-y-3 flex-grow">
+              {overdueTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No overdue tasks</p>
+                </div>
+              ) : (
+                getPaginatedTasks(overdueTasks, overduePage).map((task, index) => {
+                  if (user?.role !== "staff") {
+                    return renderAdminTaskCard(task, index, "Overdue", "overdue");
+                  } else {
+                    const styles = getTaskCardStyles(task.priority || "Medium");
+                    return (
+                      <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-red-50 to-pink-50 border-red-500`}>
+                          <div className="flex items-start">
+                            <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              <h4 className="font-semibold text-black-800 text-sm mb-1">
+                                {task.task_name || "Task"}
+                              </h4>
+                              <p className="text-xs text-black-600">
+                                {task.clients} • Priority: <span className={
+                                  task.priority === "High" ? "font-semibold text-red-600" : 
+                                  task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                  "font-semibold text-green-600"
+                                }>{task.priority}</span>
+                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }
+                })
+              )}
+            </div>
+            <PaginationControls
+              currentPage={overduePage}
+              totalPages={getTotalPages(overdueTasks)}
+              onPageChange={setOverduePage}
+              category="overdue"
+            />
+          </div>
+        </div>
+
+        {/* Second Row - 3 Boxes (Completed, Combined Today's Thought & Announcements, Birthday & Anniversary) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Completed Tasks */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
+            <div className="flex items-center mb-4">
+              <div className="bg-green-100 p-2 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-black-800 ml-3">Completed</h2>
+              <span className="ml-auto bg-green-600 text-white text-xs px-2 py-1 rounded-full">
+                {getTotalCompletedTaskCount()}
+              </span>
+            </div>
+            <div className="space-y-3 flex-grow">
+              {completedTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No completed tasks</p>
+                </div>
+              ) : (
+                getPaginatedTasks(completedTasks, completedPage).map((task, index) => {
+                  if (user?.role !== "staff") {
+                    return renderAdminTaskCard(task, index, "Completed", "completed");
+                  } else {
                     const styles = getTaskCardStyles(task.priority || "Medium");
                     const textDecoration = task.status === "completed" ? "line-through" : "";
                     
                     return (
-                      user.role !== "staff" ? (
-                        <Link to="/dashboard/task-management/view-task" key={task.ta_id || task.user_id || index}>
-                          {/* <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}> */}
-                          <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-red-50 to-pink-50 border-red-500`}>
-                            <div className="flex items-start">
-                              <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
-                              <div>
-                                {user?.role !== "staff" ? (
-                                  <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
-                                    {task.name} has Completed <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                                  </h4>
-                                ) : (
-                                  <>
-                                    <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
-                                      {task.task_name || "Task"}
-                                    </h4>
-                                    <p className={`text-xs text-black-600 ${textDecoration}`}>
-                                      {task.clients} • Priority: <span className={
-                                        task.priority === "High" ? "font-semibold text-red-600" : 
-                                        task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                                        "font-semibold text-green-600"
-                                      }>{task.priority}</span>
-                                      {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                      <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
-                                    </p>
-                                  </>
-                                )}
-                              </div>
+                      <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
+                        <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-green-50 to-emerald-50 border-green-500`}>
+                          <div className="flex items-start">
+                            <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <div>
+                              <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
+                                {task.task_name || "Task"}
+                              </h4>
+                              <p className={`text-xs text-black-600 ${textDecoration}`}>
+                                {task.clients} • Priority: <span className={
+                                  task.priority === "High" ? "font-semibold text-red-600" : 
+                                  task.priority === "Medium" ? "font-semibold text-orange-600" : 
+                                  "font-semibold text-green-600"
+                                }>{task.priority}</span>
+                                {task.deadline && <span> • Deadline: {task.deadline}</span>}
+                                <span className="font-semibold">{task.task_created_by_name && <span> • Assigned By: {task.task_created_by_name} - {formatDate(task.created_date)} : {formatTimeTo12Hour(task.created_time)}</span>}</span>
+                              </p>
                             </div>
-                          </div>
-                        </Link>
-                      ) : (
-                        <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
-                          {/* <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${styles.background} ${styles.borderColor}`}> */}
-                          <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-green-50 to-emerald-50 border-green-500`}>
-                            <div className="flex items-start">
-                              <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
-                              <div>
-                                {user?.role !== "staff" ? (
-                                  <h4 className="font-semibold text-black-800 text-sm mb-1">
-                                    {task.name} has Completed <span className={styles.countColor}>{task.count_tasks || 1}</span> Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
-                                  </h4>
-                                ) : (
-                                  <>
-                                    <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
-                                      {task.task_name || "Task"}
-                                    </h4>
-                                    <p className={`text-xs text-gray-600 ${textDecoration}`}>
-                                      {task.clients} • Priority: <span className={
-                                        task.priority === "High" ? "font-semibold text-red-600" : 
-                                        task.priority === "Medium" ? "font-semibold text-orange-600" : 
-                                        "font-semibold text-green-600"
-                                      }>{task.priority}</span>
-                                      {task.deadline && <span> • Deadline: {task.deadline}</span>}
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      )
-                    );
-                  })
-                )}
-              </div>
-              <PaginationControls
-                currentPage={completedPage}
-                totalPages={getTotalPages(completedTasks)}
-                onPageChange={setCompletedPage}
-                category="completed"
-              />
-            </div>
-
-            {/* Combined Today's Thought & Announcements Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
-              {/* Announcements Section */}
-              <div className="flex-grow">
-                <div className="flex items-center mb-4">
-                  <div className="bg-gradient-to-r from-indigo-100 to-indigo-50 p-2 rounded-lg">
-                    <Megaphone className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <h2 className="text-lg font-semibold text-gray-800 ml-3">Announcements</h2>
-                  <span className="ml-auto bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">
-                    {currentAnnouncements.length}
-                  </span>
-                </div>
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                  {currentAnnouncements.length === 0 ? (
-                    <div className="text-center py-4">
-                      <Megaphone className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-gray-500 text-sm">No announcements</p>
-                    </div>
-                  ) : (
-                    currentAnnouncements.map((announce, index) => (
-                      <div
-                        key={announce.id}
-                        className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-3 border-l-3 border-indigo-400 hover:shadow-sm transition-shadow duration-200"
-                      >
-                        <div className="flex items-start">
-                          <Calendar className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
-                          <div className="ml-2 flex-grow">
-                            <h4 className="font-semibold text-gray-800 text-xs mb-1 line-clamp-1">
-                              {announce.name}
-                            </h4>
-                            <p className="text-xs text-gray-600 line-clamp-2">
-                              {announce.description}
-                            </p>
                           </div>
                         </div>
+                      </Link>
+                    );
+                  }
+                })
+              )}
+            </div>
+            <PaginationControls
+              currentPage={completedPage}
+              totalPages={getTotalPages(completedTasks)}
+              onPageChange={setCompletedPage}
+              category="completed"
+            />
+          </div>
+
+          {/* Combined Today's Thought & Announcements Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
+            {/* Announcements Section */}
+            <div className="flex-grow">
+              <div className="flex items-center mb-4">
+                <div className="bg-gradient-to-r from-indigo-100 to-indigo-50 p-2 rounded-lg">
+                  <Megaphone className="w-5 h-5 text-indigo-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-800 ml-3">Announcements</h2>
+                <span className="ml-auto bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">
+                  {currentAnnouncements.length}
+                </span>
+              </div>
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                {currentAnnouncements.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Megaphone className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">No announcements</p>
+                  </div>
+                ) : (
+                  currentAnnouncements.map((announce, index) => (
+                    <div
+                      key={announce.id}
+                      className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-3 border-l-3 border-indigo-400 hover:shadow-sm transition-shadow duration-200"
+                    >
+                      <div className="flex items-start">
+                        <Calendar className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
+                        <div className="ml-2 flex-grow">
+                          <h4 className="font-semibold text-gray-800 text-xs mb-1 line-clamp-1">
+                            {announce.name}
+                          </h4>
+                          <p className="text-xs text-gray-600 line-clamp-2">
+                            {announce.description}
+                          </p>
+                        </div>
                       </div>
-                    ))
-                  )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Birthday & Anniversary Box */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-800">Celebrations</h2>
+              <Calendar className="w-5 h-5 text-gray-400" />
+            </div>
+
+            {/* Birthday Section */}
+            <div className="mb-6">
+              <div className="flex items-center mb-3">
+                <div className="bg-gradient-to-r from-pink-100 to-pink-50 p-2 rounded-lg">
+                  <Cake className="w-5 h-5 text-pink-600" />
+                </div>
+                <h3 className="font-semibold text-black-700 ml-3">Birthdays Today</h3>
+              </div>
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
+                <div className="text-center py-3">
+                  <Cake className="w-8 h-8 text-black-300 mx-auto mb-2" />
+                  <p className="text-black-500 text-sm">No birthdays today</p>
+                  <p className="text-xs text-black-400 mt-1">Wish your colleagues tomorrow!</p>
                 </div>
               </div>
             </div>
 
-            {/* Birthday & Anniversary Box */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-semibold text-gray-800">Celebrations</h2>
-                <Calendar className="w-5 h-5 text-gray-400" />
+            {/* Anniversary Section */}
+            <div>
+              <div className="flex items-center mb-3">
+                <div className="bg-gradient-to-r from-blue-100 to-blue-50 p-2 rounded-lg">
+                  <Award className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-gray-700 ml-3">Work Anniversaries</h3>
               </div>
-
-              {/* Birthday Section */}
-              <div className="mb-6">
-                <div className="flex items-center mb-3">
-                  <div className="bg-gradient-to-r from-pink-100 to-pink-50 p-2 rounded-lg">
-                    <Cake className="w-5 h-5 text-pink-600" />
-                  </div>
-                  <h3 className="font-semibold text-black-700 ml-3">Birthdays Today</h3>
-                </div>
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
-                  <div className="text-center py-3">
-                    <Cake className="w-8 h-8 text-black-300 mx-auto mb-2" />
-                    <p className="text-black-500 text-sm">No birthdays today</p>
-                    <p className="text-xs text-black-400 mt-1">Wish your colleagues tomorrow!</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Anniversary Section */}
-              <div>
-                <div className="flex items-center mb-3">
-                  <div className="bg-gradient-to-r from-blue-100 to-blue-50 p-2 rounded-lg">
-                    <Award className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-700 ml-3">Work Anniversaries</h3>
-                </div>
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
-                  <div className="text-center py-3">
-                    <Award className="w-8 h-8 text-black-300 mx-auto mb-2" />
-                    <p className="text-black-500 text-sm">No Work Anniversaries Today</p>
-                    <p className="text-xs text-black-400 mt-1">Celebrate milestones tomorrow!</p>
-                  </div>
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
+                <div className="text-center py-3">
+                  <Award className="w-8 h-8 text-black-300 mx-auto mb-2" />
+                  <p className="text-black-500 text-sm">No Work Anniversaries Today</p>
+                  <p className="text-xs text-black-400 mt-1">Celebrate milestones tomorrow!</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
