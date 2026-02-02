@@ -41,6 +41,7 @@ export default function CreateTask() {
     { value: "Logo Design", label: "Logo Design" },
     // Website Graphics
     { value: "Website UI Design", label: "Website UI Design" },
+    {value:"ID Card Design",label:"ID Card Design"},
     { value: "Website Banner", label: "Website Banner" },
     { value: "Website Slider", label: "Website Slider" },
     { value: "Landing Page", label: "Landing Page" },
@@ -106,62 +107,86 @@ export default function CreateTask() {
   };
 
   // Get time slot options based on deadline
-  useEffect(() => {
-    const updateTimeSlots = () => {
-      const timeSlots = [
-        { value: "10:00", label: "10:00 AM", hour: 10 },
-        { value: "11:00", label: "11:00 AM", hour: 11 },
-        { value: "12:00", label: "12:00 PM", hour: 12 },
-        { value: "13:00", label: "1:00 PM", hour: 13 },
-        { value: "14:00", label: "2:00 PM", hour: 14 },
-        { value: "15:00", label: "3:00 PM", hour: 15 },
-        { value: "16:00", label: "4:00 PM", hour: 16 },
-        { value: "17:00", label: "5:00 PM", hour: 17 },
-        { value: "18:00", label: "6:00 PM", hour: 18 },
-        { value: "19:00", label: "7:00 PM", hour: 19 },
-      ];
-
-      if (taskData.deadline) {
-        const deadlineDate = new Date(taskData.deadline);
-        const today = new Date();
+useEffect(() => {
+  const updateTimeSlots = () => {
+    // Create half-hour slots from 10:00 AM to 7:00 PM
+    const timeSlots = [];
+    const startHour = 10; // 10:00 AM
+    const endHour = 19; // 7:00 PM (19 in 24-hour format)
+    
+    for (let hour = startHour; hour <= endHour; hour++) {
+      // Create both :00 and :30 slots for each hour, except the last hour
+      if (hour < endHour) {
+        // :00 slot
+        timeSlots.push({
+          value: `${hour.toString().padStart(2, '0')}:00`,
+          label: `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
+          hour: hour,
+          minute: 0
+        });
         
-        // Reset time part for comparison
-        today.setHours(0, 0, 0, 0);
-        const deadlineForCompare = new Date(deadlineDate);
-        deadlineForCompare.setHours(0, 0, 0, 0);
-        
-        // Check if deadline is today
-        const isToday = deadlineForCompare.getTime() === today.getTime();
-        
-        if (isToday) {
-          const currentHour = new Date().getHours();
-          const currentMinutes = new Date().getMinutes();
-          
-          // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
-          const currentTime = currentHour + (currentMinutes / 60);
-          
-          // Filter time slots that are in the future
-          const updatedSlots = timeSlots.map(slot => ({
-            ...slot,
-            isDisabled: slot.hour <= currentTime
-          }));
-          
-          setTimeSlotOptions(updatedSlots);
-          return;
-        }
+        // :30 slot
+        timeSlots.push({
+          value: `${hour.toString().padStart(2, '0')}:30`,
+          label: `${hour > 12 ? hour - 12 : hour}:30 ${hour >= 12 ? 'PM' : 'AM'}`,
+          hour: hour,
+          minute: 30
+        });
+      } else {
+        // For the last hour (7:00 PM), only include :00 slot
+        timeSlots.push({
+          value: `${hour.toString().padStart(2, '0')}:00`,
+          label: `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
+          hour: hour,
+          minute: 0
+        });
       }
-      
-      // For future dates or no deadline, show all slots as enabled
-      const updatedSlots = timeSlots.map(slot => ({
-        ...slot,
-        isDisabled: false
-      }));
-      
-      setTimeSlotOptions(updatedSlots);
-    };
+    }
 
-    updateTimeSlots();
-  }, [taskData.deadline]);
+    if (taskData.deadline) {
+      const deadlineDate = new Date(taskData.deadline);
+      const today = new Date();
+      
+      // Reset time part for comparison
+      today.setHours(0, 0, 0, 0);
+      const deadlineForCompare = new Date(deadlineDate);
+      deadlineForCompare.setHours(0, 0, 0, 0);
+      
+      // Check if deadline is today
+      const isToday = deadlineForCompare.getTime() === today.getTime();
+      
+      if (isToday) {
+        const currentHour = new Date().getHours();
+        const currentMinutes = new Date().getMinutes();
+        
+        // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
+        const currentTime = currentHour + (currentMinutes / 60);
+        
+        // Filter time slots that are in the future
+        const updatedSlots = timeSlots.map(slot => {
+          const slotTime = slot.hour + (slot.minute / 60);
+          return {
+            ...slot,
+            isDisabled: slotTime <= currentTime
+          };
+        });
+        
+        setTimeSlotOptions(updatedSlots);
+        return;
+      }
+    }
+    
+    // For future dates or no deadline, show all slots as enabled
+    const updatedSlots = timeSlots.map(slot => ({
+      ...slot,
+      isDisabled: false
+    }));
+    
+    setTimeSlotOptions(updatedSlots);
+  };
+
+  updateTimeSlots();
+}, [taskData.deadline]);
 
   // Reset time slots when assigned users change
   useEffect(() => {

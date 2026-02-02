@@ -17,10 +17,10 @@ export default function EditTask() {
   const [loggedInUserStatus, setLoggedInUserStatus] = useState(null);
   const [isTaskCreator, setIsTaskCreator] = useState(false);
   const [isUserAssignedToTask, setIsUserAssignedToTask] = useState(false);
-  const [userBelongsToProject, setUserBelongsToProject] = useState([]); // Store user details including department
-  const [originalGraphicType, setOriginalGraphicType] = useState(""); // Store original graphic type separately
-  const [timeSlotOptions, setTimeSlotOptions] = useState([]); // Time slot options state
-  const [originalTimeSlots, setOriginalTimeSlots] = useState({}); // Store original time slots for each user
+  const [userBelongsToProject, setUserBelongsToProject] = useState([]);
+  const [originalGraphicType, setOriginalGraphicType] = useState("");
+  const [timeSlotOptions, setTimeSlotOptions] = useState([]);
+  const [originalTimeSlots, setOriginalTimeSlots] = useState({});
 
   const user = getCurrentUser();
   const userId = user?.id;
@@ -34,7 +34,6 @@ export default function EditTask() {
     { value: "High", label: "High", color: "#ef4444" },
   ];
 
-  // Status options with colors
   const statusOptions = [
     { value: "not-acknowledge", label: "Not Acknowledge", color: "#9ca3af", bgColor: "#f3f4f6" },
     { value: "acknowledge", label: "Acknowledge", color: "#3b82f6", bgColor: "#dbeafe" },
@@ -42,10 +41,9 @@ export default function EditTask() {
     { value: "completed", label: "Completed", color: "#10b981", bgColor: "#d1fae5" },
   ];
 
-  // Graphic options for Graphic Design members
   const graphicOptions = [
     { value: "Logo Design", label: "Logo Design" },
-    // Website Graphics
+    { value: "ID Card Design",label:"ID Card Design"},
     { value: "Website UI Design", label: "Website UI Design" },
     { value: "Website Banner", label: "Website Banner" },
     { value: "Website Slider", label: "Website Slider" },
@@ -54,37 +52,29 @@ export default function EditTask() {
     { value: "Website Illustrations", label: "Website Illustrations" },
     { value: "Website Infographics", label: "Website Infographics" },
     { value: "Website Graphics", label: "Website Graphics" },
-    // Print & Digital Banners
+    { value: "Static Post", label: "Static Post" },
     { value: "Banner Print", label: "Banner (Print)" },
     { value: "Banner Digital", label: "Banner (Digital)" },
-    // Print Collaterals
     { value: "Standee Print", label: "Standee (Print)" },
     { value: "Selfie Booth Print", label: "Selfie Booth (Print)" },
     { value: "Business Card", label: "Business Card" },
     { value: "Letterhead", label: "Letterheads" },
     { value: "Magazine Ads", label: "Magazine Ads" },
-    // Brochures & Flyers
     { value: "Flyer One Pager", label: "Flyer (One-Pager)" },
     { value: "Brochure Multi Page", label: "Brochure (Multi Page)" },
     { value: "Booklet", label: "Booklet" },
     { value: "Tri Fold", label: "Tri-Fold (3 Pages)" },
-    // Digital Creatives
-    { value: "Static Post", label: "Static (Post)" },
     { value: "Carousel Post", label: "Carousel (Post)" },
     { value: "Reel Post", label: "Reel (Post)" },
     { value: "Animated Reel", label: "Animated Reel (Graphic + Video)" },
-    // Branding
     { value: "Icon Design", label: "Icon Design" },
     { value: "Packaging Design", label: "Packaging Design" },
     { value: "Brand Guideline", label: "Brand Guideline" },
-    // Corporate & Marketing
     { value: "PPT Design", label: "PPT" },
     { value: "Email Signature", label: "Email Signature" },
     { value: "Emailer Newsletter", label: "Emailer / Newsletter" },
-    // Video
     { value: "Brand Video", label: "Brand Video" },
     { value: "Explainer Video", label: "Explainer Video" },
-    // Events
     { value: "Booth Creatives", label: "Booth Creatives" }
   ];
 
@@ -98,11 +88,10 @@ export default function EditTask() {
     priority: "",
     status: "",
     taskStatus: "",
-    graphicType: "", // New field for graphic type
-    timeSlots: {}, // Store time slots per graphic user { userId1: timeValue1, userId2: timeValue2 }
+    graphicType: "",
+    timeSlots: {},
   });
 
-  // Get graphic design team members from assigned users
   const getGraphicDesignMembers = () => {
     if (taskData.assignedTo.length === 0) return [];
     
@@ -114,63 +103,81 @@ export default function EditTask() {
     );
   };
 
-  // Check if any assigned user is from Graphic Design department
   const hasGraphicDesignMember = () => {
     return getGraphicDesignMembers().length > 0;
   };
 
-  // Check if "Animated Reel" is selected
   const isAnimatedReelSelected = () => {
     return taskData.graphicType?.value === "Animated Reel";
   };
 
-  // Update time slots when deadline changes
   useEffect(() => {
     const updateTimeSlots = () => {
-      const timeSlots = [
-        { value: "10:00", label: "10:00 AM", hour: 10 },
-        { value: "11:00", label: "11:00 AM", hour: 11 },
-        { value: "12:00", label: "12:00 PM", hour: 12 },
-        { value: "13:00", label: "1:00 PM", hour: 13 },
-        { value: "14:00", label: "2:00 PM", hour: 14 },
-        { value: "15:00", label: "3:00 PM", hour: 15 },
-        { value: "16:00", label: "4:00 PM", hour: 16 },
-        { value: "17:00", label: "5:00 PM", hour: 17 },
-        { value: "18:00", label: "6:00 PM", hour: 18 },
-        { value: "19:00", label: "7:00 PM", hour: 19 },
-      ];
+      // Create half-hour slots from 10:00 AM to 7:00 PM
+      const timeSlots = [];
+      const startHour = 10; // 10:00 AM
+      const endHour = 19; // 7:00 PM (19 in 24-hour format)
+      
+      for (let hour = startHour; hour <= endHour; hour++) {
+        // Convert 24-hour to 12-hour format for display
+        const displayHour = hour % 12 || 12;
+        const period = hour >= 12 ? 'PM' : 'AM';
+        
+        if (hour < endHour) {
+          // :00 slot
+          timeSlots.push({
+            value: `${hour.toString().padStart(2, '0')}:00`,
+            label: `${displayHour}:00 ${period}`,
+            hour: hour,
+            minute: 0
+          });
+          
+          // :30 slot
+          timeSlots.push({
+            value: `${hour.toString().padStart(2, '0')}:30`,
+            label: `${displayHour}:30 ${period}`,
+            hour: hour,
+            minute: 30
+          });
+        } else {
+          // For the last hour (7:00 PM), only include :00 slot
+          timeSlots.push({
+            value: `${hour.toString().padStart(2, '0')}:00`,
+            label: `${displayHour}:00 ${period}`,
+            hour: hour,
+            minute: 0
+          });
+        }
+      }
 
       if (taskData.deadline) {
         const deadlineDate = new Date(taskData.deadline);
         const today = new Date();
         
-        // Reset time part for comparison
         today.setHours(0, 0, 0, 0);
         const deadlineForCompare = new Date(deadlineDate);
         deadlineForCompare.setHours(0, 0, 0, 0);
         
-        // Check if deadline is today
         const isToday = deadlineForCompare.getTime() === today.getTime();
         
         if (isToday) {
           const currentHour = new Date().getHours();
           const currentMinutes = new Date().getMinutes();
-          
-          // Convert current time to decimal for comparison (e.g., 12:30 = 12.5)
           const currentTime = currentHour + (currentMinutes / 60);
           
-          // Filter time slots that are in the future
-          const updatedSlots = timeSlots.map(slot => ({
-            ...slot,
-            isDisabled: slot.hour <= currentTime
-          }));
+          const updatedSlots = timeSlots.map(slot => {
+            const slotTime = slot.hour + (slot.minute / 60);
+            return {
+              ...slot,
+              isDisabled: slotTime <= currentTime
+            };
+          });
           
           setTimeSlotOptions(updatedSlots);
           return;
         }
       }
       
-      // For future dates or no deadline, show all slots as enabled
       const updatedSlots = timeSlots.map(slot => ({
         ...slot,
         isDisabled: false
@@ -180,27 +187,22 @@ export default function EditTask() {
     };
 
     updateTimeSlots();
-  }, [taskData.deadline]); // Re-run when deadline changes
+  }, [taskData.deadline]);
 
-  // Reset time slots when assigned users or graphic type changes
   useEffect(() => {
-    if (!hasGraphicDesignMember() || !isAnimatedReelSelected()) {
+    if (!hasGraphicDesignMember() || !taskData.graphicType) {
       setTaskData(prev => ({ ...prev, timeSlots: {} }));
     } else {
-      // Initialize time slots for graphic design members
       const graphicMembers = getGraphicDesignMembers();
       const newTimeSlots = { ...taskData.timeSlots };
       
-      // Add time slots for new graphic members
       graphicMembers.forEach(member => {
         const userId = member.emp_id || member.id;
         if (!newTimeSlots[userId]) {
-          // Check if we have an original time slot for this user
           newTimeSlots[userId] = originalTimeSlots[userId] || "";
         }
       });
       
-      // Remove time slots for members no longer selected
       Object.keys(newTimeSlots).forEach(userId => {
         if (!graphicMembers.some(member => (member.emp_id || member.id) === userId)) {
           delete newTimeSlots[userId];
@@ -209,9 +211,8 @@ export default function EditTask() {
       
       setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
     }
-  }, [taskData.assignedTo, taskData.graphicType]);
+  }, [taskData.assignedTo, taskData.graphicType, originalTimeSlots]);
 
-  // Helper functions
   const getAvatarColor = (id) => {
     const colors = ["bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-red-500", "bg-purple-500"];
     return colors[parseInt(id) % colors.length];
@@ -230,13 +231,29 @@ export default function EditTask() {
     });
   };
 
-  // Check if user status prevents removal
   const isUserRemovable = (userId) => {
     const status = assignedUsersStatus[userId];
     return !(status === "in-progress" || status === "completed");
   };
 
-  // Custom styles for priority dropdown
+  const formatTimeLabel = (timeValue) => {
+    if (!timeValue) return "";
+    
+    try {
+      const [hours, minutes] = timeValue.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      
+      if (minutes === 30) {
+        return `${displayHours}:30 ${period}`;
+      } else {
+        return `${displayHours}:00 ${period}`;
+      }
+    } catch (error) {
+      return timeValue;
+    }
+  };
+
   const priorityCustomStyles = {
     option: (provided, state) => ({
       ...provided,
@@ -277,7 +294,6 @@ export default function EditTask() {
     }),
   };
 
-  // Custom styles for status dropdown
   const statusCustomStyles = {
     option: (provided, state) => ({
       ...provided,
@@ -319,7 +335,6 @@ export default function EditTask() {
     }),
   };
 
-  // Custom styles for graphic type dropdown
   const graphicCustomStyles = {
     option: (provided, state) => ({
       ...provided,
@@ -360,7 +375,6 @@ export default function EditTask() {
     }),
   };
 
-  // Custom styles for time slot dropdown
   const timeSlotCustomStyles = {
     option: (provided, state) => ({
       ...provided,
@@ -402,7 +416,6 @@ export default function EditTask() {
     }),
   };
 
-  // Custom format option label for priority
   const formatOptionLabel = ({ value, label, color }) => (
     <div className="flex items-center gap-3">
       <div 
@@ -413,7 +426,6 @@ export default function EditTask() {
     </div>
   );
 
-  // Custom format option label for status
   const formatStatusOptionLabel = ({ value, label, color, bgColor }) => (
     <div className="flex items-center gap-3">
       <div 
@@ -424,18 +436,6 @@ export default function EditTask() {
     </div>
   );
 
-  // Custom format value for status
-  const formatStatusValue = (option) => (
-    <div className="flex items-center gap-3">
-      <div 
-        className="w-3 h-3 rounded-full"
-        style={{ backgroundColor: option.color }}
-      />
-      <span>{option.label}</span>
-    </div>
-  );
-
-  // Custom MultiValueRemove component
   const CustomMultiValueRemove = (props) => {
     const { data } = props;
     const isRemovable = isUserRemovable(data.value);
@@ -447,15 +447,12 @@ export default function EditTask() {
     return <components.MultiValueRemove {...props} />;
   };
 
-  // Custom MultiValue component
   const CustomMultiValue = (props) => {
     const { data } = props;
     const isRemovable = isUserRemovable(data.value);
     
-    // Get display name
     let displayName = data.originalName || data.label || '';
     
-    // Remove (POC) suffix from display name if present
     if (displayName.includes(' (POC)')) {
       displayName = displayName.replace(' (POC)', '');
     }
@@ -475,7 +472,6 @@ export default function EditTask() {
     );
   };
 
-  // Form handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setTaskData({ ...taskData, [name]: value });
@@ -483,14 +479,11 @@ export default function EditTask() {
   };
 
   const handleSelectChange = (field, selected) => {
-    // For assignedTo, we need to prevent removal of certain users
     if (field === "assignedTo") {
-      // Get current non-removable users
       const nonRemovableUsers = taskData.assignedTo.filter(user => 
         !isUserRemovable(user.value)
       );
       
-      // Merge non-removable users with new selection
       const newSelection = [
         ...nonRemovableUsers,
         ...selected.filter(newUser => 
@@ -499,7 +492,6 @@ export default function EditTask() {
         )
       ];
       
-      // Check if we have any graphic design users in the new selection
       const hasGraphicDesignMemberNow = (() => {
         const selectedUserIds = newSelection.map(user => user.value);
         return userBelongsToProject.some(user => 
@@ -508,51 +500,21 @@ export default function EditTask() {
         );
       })();
       
-      // Check if we previously had graphic design members
       const hadGraphicDesignMemberBefore = hasGraphicDesignMember();
       
       setTaskData(prev => ({ ...prev, [field]: newSelection }));
       
-      // If graphic design member was added back, restore the graphic type and time
       if (!hadGraphicDesignMemberBefore && hasGraphicDesignMemberNow) {
-        // Use a timeout to ensure state updates are complete
         setTimeout(() => {
-          // Restore graphic type if it exists
           if (originalGraphicType) {
             setTaskData(prev => ({ ...prev, graphicType: originalGraphicType }));
           }
           
-          // Restore time slots if they exist
           if (Object.keys(originalTimeSlots).length > 0) {
             const newTimeSlots = { ...taskData.timeSlots };
             Object.keys(originalTimeSlots).forEach(userId => {
-              // Check if this user is still in the selection
               if (newSelection.some(user => user.value === userId)) {
-                // Check if the time slot is still valid (not disabled for today)
-                const isTimeSlotValid = () => {
-                  if (!taskData.deadline) return true;
-                  
-                  const deadlineDate = new Date(taskData.deadline);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  deadlineDate.setHours(0, 0, 0, 0);
-                  
-                  // If deadline is today, check if time is not in the past
-                  if (deadlineDate.getTime() === today.getTime()) {
-                    const currentHour = new Date().getHours();
-                    const currentMinutes = new Date().getMinutes();
-                    const currentTime = currentHour + (currentMinutes / 60);
-                    
-                    // Check if the time slot hour is in the future
-                    return originalTimeSlots[userId]?.hour > currentTime;
-                  }
-                  
-                  return true; // For future dates, all time slots are valid
-                };
-                
-                if (isTimeSlotValid()) {
-                  newTimeSlots[userId] = originalTimeSlots[userId];
-                }
+                newTimeSlots[userId] = originalTimeSlots[userId];
               }
             });
             
@@ -561,7 +523,6 @@ export default function EditTask() {
         }, 100);
       }
       
-      // If no graphic design members, clear the graphic type and timeSlots in UI
       if (!hasGraphicDesignMemberNow) {
         setTaskData(prev => ({ 
           ...prev, 
@@ -569,39 +530,67 @@ export default function EditTask() {
           timeSlots: {}
         }));
       }
+    } else if (field === "graphicType") {
+      setTaskData({ ...taskData, [field]: selected });
+      setOriginalGraphicType(selected);
+      
+      if (selected && hasGraphicDesignMember()) {
+        const graphicMembers = getGraphicDesignMembers();
+        const newTimeSlots = { ...taskData.timeSlots };
+        
+        graphicMembers.forEach(member => {
+          const userId = member.emp_id || member.id;
+          if (!newTimeSlots[userId] && originalTimeSlots[userId]) {
+            newTimeSlots[userId] = originalTimeSlots[userId];
+          }
+        });
+        
+        if (selected.value !== "Animated Reel" && graphicMembers.length > 0) {
+          const firstMemberId = graphicMembers[0].emp_id || graphicMembers[0].id;
+          const existingTimeSlot = newTimeSlots[firstMemberId] || originalTimeSlots[firstMemberId];
+          
+          if (existingTimeSlot) {
+            graphicMembers.forEach(member => {
+              const userId = member.emp_id || member.id;
+              newTimeSlots[userId] = existingTimeSlot;
+            });
+          }
+        }
+        
+        setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
+      }
     } else {
       setTaskData({ ...taskData, [field]: selected });
-      
-      // If graphic type is being set, update the originalGraphicType as well
-      if (field === "graphicType" && selected) {
-        setOriginalGraphicType(selected);
-        
-        // Clear timeSlots if changing from Animated Reel
-        if (selected.value !== "Animated Reel") {
-          setTaskData(prev => ({ ...prev, timeSlots: {} }));
-        }
-      }
     }
     
     if (errors[field]) setErrors({ ...errors, [field]: "" });
   };
 
-  // Handle time slot change for specific user
   const handleTimeSlotChange = (userId, selected) => {
-    setTaskData(prev => ({
-      ...prev,
-      timeSlots: {
-        ...prev.timeSlots,
-        [userId]: selected
+    setTaskData(prev => {
+      const newTimeSlots = { ...prev.timeSlots };
+      
+      if (isAnimatedReelSelected()) {
+        newTimeSlots[userId] = selected;
+      } else {
+        const graphicMembers = getGraphicDesignMembers();
+        graphicMembers.forEach(member => {
+          const memberId = member.emp_id || member.id;
+          newTimeSlots[memberId] = selected;
+        });
       }
-    }));
+      
+      return {
+        ...prev,
+        timeSlots: newTimeSlots
+      };
+    });
     
     if (errors.time) {
       setErrors({ ...errors, time: "" });
     }
   };
 
-  // Validation
   const validate = () => {
     let newErrors = {};
 
@@ -611,12 +600,10 @@ export default function EditTask() {
 
     if (taskData.assignedTo.length === 0) newErrors.assignedTo = "Please select at least one assignee";
     
-    // Graphic Type validation (only if graphic design member is selected)
     if (hasGraphicDesignMember() && !taskData.graphicType) {
       newErrors.graphicType = "Graphic type is required for Graphic Design members";
     }
 
-    // Time Slot validation for Animated Reel
     if (isAnimatedReelSelected()) {
       const graphicMembers = getGraphicDesignMembers();
       let allTimeSlotsValid = true;
@@ -632,9 +619,7 @@ export default function EditTask() {
         newErrors.time = "Time slot is required for each Graphic Design member for Animated Reel";
       }
     }
-    // Regular time slot validation for other graphic types
     else if (hasGraphicDesignMember() && !isAnimatedReelSelected()) {
-      // For non-animated reel, we only need one time slot
       const hasAnyTimeSlot = Object.values(taskData.timeSlots).some(slot => slot !== "");
       if (!hasAnyTimeSlot) {
         newErrors.time = "Time slot is required for Graphic Design members";
@@ -643,7 +628,6 @@ export default function EditTask() {
 
     if (!taskData.priority) newErrors.priority = "Priority is required";
     
-    // Only validate status if user is assigned to the task
     if (isUserAssignedToTask && !taskData.status) {
       newErrors.status = "Status is required";
     }
@@ -653,7 +637,6 @@ export default function EditTask() {
     } else {
       const deadlineDate = new Date(taskData.deadline);
       
-      // If we have created_date from the API response, check against it
       if (taskData.created_date) {
         const createdDate = new Date(taskData.created_date).setHours(0, 0, 0, 0);
         if (deadlineDate <= createdDate) {
@@ -668,26 +651,7 @@ export default function EditTask() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Helper function to format time label
-  const formatTimeLabel = (timeValue) => {
-    const timeMap = {
-      "10:00": "10:00 AM",
-      "11:00": "11:00 AM",
-      "12:00": "12:00 PM",
-      "13:00": "1:00 PM",
-      "14:00": "2:00 PM",
-      "15:00": "3:00 PM",
-      "16:00": "4:00 PM",
-      "17:00": "5:00 PM",
-      "18:00": "6:00 PM",
-      "19:00": "7:00 PM"
-    };
-    return timeMap[timeValue] || timeValue;
-  };
-
-  // Fetch task data for editing
   useEffect(() => {
-    // Only fetch if we have an ID (edit mode)
     if (!id) {
       setLoading(false);
       return;
@@ -713,22 +677,17 @@ export default function EditTask() {
         const data = response.data;
 
         console.log("API response:", data);
-        console.log("Logged-in user ID:", userId);
         
         if (data.status === "success" && data.data && data.data.length > 0) {
           const task = data.data[0];
           
-          // Store userBelongsToProject data for department checking
           if (data.userBelongsToProject) {
             setUserBelongsToProject(data.userBelongsToProject);
           }
           
-          // Check if logged-in user is the task creator
           const isCreator = task.assigned_by === userId;
           setIsTaskCreator(isCreator);
-          console.log("Is task creator:", isCreator, "Task assigned_by:", task.assigned_by, "User ID:", userId);
           
-          // Create a map of user statuses
           const userStatusMap = {};
           let loggedInUserAssignment = null;
           let isUserInAssignedTo = false;
@@ -739,26 +698,23 @@ export default function EditTask() {
             data.assignedTo.forEach(user => {
               userStatusMap[user.user_id] = user.status;
               
-              // Check if this is the logged-in user
               if (user.user_id === userId) {
                 loggedInUserAssignment = user;
                 isUserInAssignedTo = true;
               }
               
-              // Check if this user has a time slot (graphic design user)
               if (user.time && user.time.trim() !== "") {
                 const timeLabel = formatTimeLabel(user.time);
                 const timeHour = parseInt(user.time.split(':')[0]);
-                timeSlotsMap[user.user_id] = {
+                const timeMinute = parseInt(user.time.split(':')[1] || 0);
+                const timeOption = {
                   value: user.time,
                   label: timeLabel,
-                  hour: timeHour
+                  hour: timeHour,
+                  minute: timeMinute
                 };
-                originalTimeSlotsMap[user.user_id] = {
-                  value: user.time,
-                  label: timeLabel,
-                  hour: timeHour
-                };
+                timeSlotsMap[user.user_id] = timeOption;
+                originalTimeSlotsMap[user.user_id] = timeOption;
               }
             });
           }
@@ -767,18 +723,13 @@ export default function EditTask() {
           setIsUserAssignedToTask(isUserInAssignedTo);
           setOriginalTimeSlots(originalTimeSlotsMap);
           
-          // Store the logged-in user's status
           if (loggedInUserAssignment) {
-            console.log("Logged-in user found in assignedTo:", loggedInUserAssignment);
             setLoggedInUserStatus(loggedInUserAssignment.status);
           } else {
-            console.log("Logged-in user NOT found in assignedTo");
             setLoggedInUserStatus(null);
           }
           
-          // Format assignedTo data for react-select
           const assignedUsers = data.assignedTo?.map(user => {
-            // Find if this user is POC in the userBelongsToProject array
             const userInfo = data.userBelongsToProject?.find(u => u.emp_id === user.user_id);
             const isPOC = userInfo?.is_poc === "1";
             
@@ -793,7 +744,6 @@ export default function EditTask() {
             };
           }) || [];
 
-          // Get all available users for dropdown
           const allUsers = data.userBelongsToProject || [];
           const formattedUsers = allUsers
             .map(user => ({
@@ -806,13 +756,11 @@ export default function EditTask() {
           
           setAssignedTo(formattedUsers);
 
-          // Set selected project
           setSelectedProject({
             value: task.client_id,
             label: task.name || "Unknown Project"
           });
 
-          // Determine task status
           let determinedStatus = "not-acknowledge";
           
           if (isCreator && task.task_status) {
@@ -821,26 +769,19 @@ export default function EditTask() {
             determinedStatus = loggedInUserAssignment.status.toLowerCase().replace(/\s+/g, '-');
           }
 
-          console.log("Final determined status:", determinedStatus);
-
-          // Find status option
           const statusOption = statusOptions.find(opt => opt.value === determinedStatus) || 
                               statusOptions.find(opt => opt.value === "not-acknowledge");
 
-          // Find graphic type from assigned users (if any graphic design member has graphic_creative_type)
           let graphicTypeValue = "";
           if (data.assignedTo) {
-            // Find if any graphic design user has graphic_creative_type
             const graphicUser = data.assignedTo.find(user => user.graphic_creative_type && user.graphic_creative_type.trim() !== "");
             if (graphicUser && graphicUser.graphic_creative_type) {
               graphicTypeValue = graphicOptions.find(opt => opt.value === graphicUser.graphic_creative_type) || "";
             }
           }
 
-          // Store original graphic type separately
           setOriginalGraphicType(graphicTypeValue);
 
-          // Set task data
           setTaskData({
             name: task.task_name || "",
             projectName: task.name || "",
@@ -888,7 +829,22 @@ export default function EditTask() {
     fetchTaskData();
   }, [id]);
 
-  // Submit form
+  const getSingleTimeSlotValue = () => {
+    if (!hasGraphicDesignMember() || !taskData.graphicType) {
+      return "";
+    }
+    
+    const graphicMembers = getGraphicDesignMembers();
+    if (graphicMembers.length === 0) {
+      return "";
+    }
+    
+    const firstMember = graphicMembers[0];
+    const userId = firstMember.emp_id || firstMember.id;
+    
+    return taskData.timeSlots[userId] || "";
+  };
+
   const handleSubmit = async () => {
     if (!validate()) {
       const firstError = Object.values(errors)[0];
@@ -901,21 +857,17 @@ export default function EditTask() {
     setIsSubmitting(true);
 
     try {
-      // Create form data
       const formData = new FormData();
       
-      // Basic task information
       formData.append("taskName", taskData.name.trim());
       formData.append("assignedBy", taskData.assignedBy);
       formData.append("userName", user?.name);
       formData.append("priority", taskData.priority.value);
       
-      // Only include status if user is assigned to the task or is the creator
       if (isUserAssignedToTask || isTaskCreator) {
         formData.append("status", taskData.status.value);
       }
       
-      // Add graphic type if it exists
       if (taskData.graphicType) {
         formData.append("graphic_type", taskData.graphicType.value);
       }
@@ -923,9 +875,7 @@ export default function EditTask() {
       formData.append("deadline", taskData.deadline);
       formData.append("remarks", taskData.remarks.trim());
       
-      // Create assignedTo payload in the correct format with time slots
       const assignedToPayload = taskData.assignedTo.map(selectedUser => {
-        // Find user details from userBelongsToProject
         const userDetails = userBelongsToProject.find(
           u => (u.emp_id || u.id) === selectedUser.value
         );
@@ -935,7 +885,6 @@ export default function EditTask() {
           dept_name: userDetails?.dept_name || ""
         };
 
-        // Add time slot for graphic design members if they have one
         if (userDetails?.dept_name === "Graphic Design / Video Editor" && taskData.timeSlots[selectedUser.value]) {
           userData.time_slot = taskData.timeSlots[selectedUser.value].value;
         }
@@ -943,21 +892,17 @@ export default function EditTask() {
         return userData;
       });
 
-      // Append as JSON string
       formData.append("assignedTo", JSON.stringify(assignedToPayload));
       
-      // Add project/client ID if available
       if (selectedProject && selectedProject.value) {
         formData.append("client_id", selectedProject.value);
       }
       
-      // For editing mode
       if (id) {
         formData.append("taskId", id);
         formData.append("_method", "PUT");
       }
       
-      // Add user information for tracking
       formData.append("userId", userId);
       formData.append("userCode", user?.user_code || "");
       
@@ -976,13 +921,6 @@ export default function EditTask() {
         is_user_assigned: isUserAssignedToTask
       });
 
-      // Log the form data for debugging
-      console.log("Form data entries:");
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-      }
-
-      // Send the request using Axios
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}api/task-management.php`,
         formData,
@@ -1023,8 +961,6 @@ export default function EditTask() {
       let errorTitle = 'Error';
       
       if (error.response) {
-        console.error("Server Error Response:", error.response);
-        
         if (error.response.data) {
           errorMessage = error.response.data.message || 
                         error.response.data.error || 
@@ -1036,12 +972,10 @@ export default function EditTask() {
         errorTitle = 'Server Error';
         
       } else if (error.request) {
-        console.error("No Response Received:", error.request);
         errorMessage = 'No response from server. Please check your internet connection and try again.';
         errorTitle = 'Connection Error';
         
       } else {
-        console.error("Request Setup Error:", error.message);
         errorMessage = `Error: ${error.message}`;
       }
       
@@ -1056,22 +990,17 @@ export default function EditTask() {
     }
   };
 
-  // Custom components for react-select
   const customComponents = {
     MultiValue: CustomMultiValue,
     MultiValueRemove: CustomMultiValueRemove
   };
 
-  // Determine if user can edit status
   const canEditStatus = isUserAssignedToTask || isTaskCreator;
 
-  // Edit mode - show loading or form
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8">
-      {/* Main Form Card */}
       <div className="mx-auto">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-          {/* Card Header with Gradient */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -1096,7 +1025,6 @@ export default function EditTask() {
             )}
           </div>
 
-          {/* Form Content */}
           <div className="p-8">
             {loading ? (
               <div className="flex flex-col justify-center items-center h-64 space-y-4">
@@ -1106,7 +1034,6 @@ export default function EditTask() {
             ) : (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Project Name (Read-only) */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       Project
@@ -1118,7 +1045,6 @@ export default function EditTask() {
                     <p className="text-xs text-slate-500">Project is read-only</p>
                   </div>
 
-                  {/* Assigned To */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       Assigned To
@@ -1269,12 +1195,9 @@ export default function EditTask() {
                   </div>
                 </div>
 
-                {/* Conditional Task Name and Graphic Type Layout */}
                 {hasGraphicDesignMember() && (
                   <>
-                    {/* Task Name and Graphic Type Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Task Name (half width when graphic type is shown) */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Task Name
@@ -1317,7 +1240,6 @@ export default function EditTask() {
                         </div>
                       </div>
 
-                      {/* Graphic Type Dropdown */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           For Graphic (Creative Type)
@@ -1379,9 +1301,7 @@ export default function EditTask() {
                       </div>
                     </div>
 
-                    {/* Priority and Status Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Priority */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Priority
@@ -1437,7 +1357,6 @@ export default function EditTask() {
                         )}
                       </div>
 
-                      {/* Status - ALWAYS VISIBLE */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Status
@@ -1509,7 +1428,6 @@ export default function EditTask() {
                       </div>
                     </div>
 
-                    {/* Deadline Row */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                         Deadline
@@ -1570,9 +1488,7 @@ export default function EditTask() {
                       )}
                     </div>
 
-                    {/* Time Slot Section - Different layout for Animated Reel */}
                     {isAnimatedReelSelected() ? (
-                      // Multiple time slots for Animated Reel - Side by side
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-4">
                           <label className="text-sm font-semibold text-slate-700">
@@ -1648,7 +1564,6 @@ export default function EditTask() {
                         )}
                       </div>
                     ) : (
-                      // Single time slot for other graphic types
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Time Slot
@@ -1664,13 +1579,13 @@ export default function EditTask() {
                         </label>
                         <Select
                           options={timeSlotOptions}
-                          value={Object.values(taskData.timeSlots)[0] || ""}
+                          value={getSingleTimeSlotValue()}
                           onChange={isTaskCreator ? (selected) => {
-                            // Set the same time slot for all graphic design members
                             const graphicMembers = getGraphicDesignMembers();
                             const newTimeSlots = {};
                             graphicMembers.forEach(member => {
-                              newTimeSlots[member.emp_id || member.id] = selected;
+                              const userId = member.emp_id || member.id;
+                              newTimeSlots[userId] = selected;
                             });
                             setTaskData(prev => ({ ...prev, timeSlots: newTimeSlots }));
                           } : undefined}
@@ -1739,10 +1654,8 @@ export default function EditTask() {
                   </>
                 )}
 
-                {/* Regular Layout when no Graphic Design Member */}
                 {!hasGraphicDesignMember() && (
                   <>
-                    {/* Task Name */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                         Task Name
@@ -1785,9 +1698,7 @@ export default function EditTask() {
                       </div>
                     </div>
 
-                    {/* Priority, Status and Deadline Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Priority */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Priority
@@ -1843,7 +1754,6 @@ export default function EditTask() {
                         )}
                       </div>
 
-                      {/* Status */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Status
@@ -1914,7 +1824,6 @@ export default function EditTask() {
                         )}
                       </div>
                       
-                      {/* Deadline */}
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                           Deadline
@@ -1978,7 +1887,6 @@ export default function EditTask() {
                   </>
                 )}
 
-                {/* Remarks */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     Remarks
@@ -2021,7 +1929,6 @@ export default function EditTask() {
                   </div>
                 </div>
 
-                {/* Permission Notice */}
                 {!isTaskCreator && !isUserAssignedToTask && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                     <div className="flex items-start gap-3">
@@ -2062,7 +1969,6 @@ export default function EditTask() {
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="flex justify-end gap-4 mt-8 mb-8 pt-6 border-t border-slate-200">
               <button 
                 type="button"
@@ -2101,7 +2007,6 @@ export default function EditTask() {
                 )}
               </button>
             </div>
-            {/* Comments Component */}
             <TaskComments />
           </div>
         </div>
