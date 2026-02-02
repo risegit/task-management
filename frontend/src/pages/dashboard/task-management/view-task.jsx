@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
 import Swal from "sweetalert2";
 import axios from "axios";
 import { getCurrentUser } from "../../../utils/api";
 
-// CreateTask Modal Component
+// CreateTask Modal Component (keep as is)
 const CreateTask = ({ onClose, onSubmitSuccess }) => {
   const [allAssignedTo, setAssignedTo] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +13,6 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const user = getCurrentUser();
-  console.log('user=', user.department);
   
   // Function to format employee name: first word full, second word only first letter
   const formatEmployeeName = (fullName) => {
@@ -739,6 +738,7 @@ const CreateTask = ({ onClose, onSubmitSuccess }) => {
 // Main ManageDepartment Component
 const ManageDepartment = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Get location for state parameters
   
   const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
@@ -753,6 +753,15 @@ const ManageDepartment = () => {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   
+  // State from navigation (for filtering)
+  const [filterParams, setFilterParams] = useState({
+    filterBy: null,
+    employeeName: null,
+    employeeId: null,
+    statusFilter: null,
+    deadlineFilter: null
+  });
+  
   // Get user from JWT
   const user = getCurrentUser();
   
@@ -765,6 +774,24 @@ const ManageDepartment = () => {
   const hasFetched = useRef(false);
   
   const itemsPerPage = 10;
+
+  // Parse filter parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      setFilterParams({
+        filterBy: location.state.filterBy || null,
+        employeeName: location.state.employeeName || null,
+        employeeId: location.state.employeeId || null,
+        statusFilter: location.state.statusFilter || null,
+        deadlineFilter: location.state.deadlineFilter || null
+      });
+      
+      // Update search query with employee name if filtering by employee
+      if (location.state.filterBy === "employee" && location.state.employeeName) {
+        setSearchQuery(location.state.employeeName);
+      }
+    }
+  }, [location.state]);
 
   // Function to format employee name: first word full, second word only first letter
   const formatEmployeeName = (fullName) => {
@@ -936,6 +963,27 @@ const ManageDepartment = () => {
     return "text-green-600 font-medium";
   };
 
+  // Check if task deadline matches filter criteria
+  const checkDeadlineFilter = (taskDeadline, filterType) => {
+    if (!taskDeadline || !filterType) return true;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadlineDate = new Date(taskDeadline);
+    deadlineDate.setHours(0, 0, 0, 0);
+    
+    switch(filterType) {
+      case "currentAndFuture":
+        // Show tasks with today's date or future dates
+        return deadlineDate >= today;
+      case "overdueOnly":
+        // Show tasks with past dates
+        return deadlineDate < today;
+      default:
+        return true;
+    }
+  };
+
   // Get task status badge color
   const getTaskStatusBadge = (status) => {
     const normalizedStatus = status ? status.toLowerCase() : '';
@@ -1046,6 +1094,33 @@ const ManageDepartment = () => {
 
   // Enhanced filter function that searches in assignedTo array
   const filterTasks = (task) => {
+    // Apply employee filter if specified
+    if (filterParams.filterBy === "employee" && filterParams.employeeName) {
+      // Check if this task belongs to the specified employee
+      const isEmployeeTask = task.assignedToOriginal && 
+        task.assignedToOriginal.toLowerCase().includes(filterParams.employeeName.toLowerCase());
+      
+      if (!isEmployeeTask) return false;
+    }
+    
+    // Apply status filter if specified
+    // if (filterParams.statusFilter) {
+    //   const normalizedTaskStatus = task.taskStatus ? task.taskStatus.toLowerCase().replace("-", "") : "";
+    //   const normalizedFilterStatus = filterParams.statusFilter.toLowerCase().replace("-", "");
+      
+    //   if (normalizedFilterStatus !== normalizedTaskStatus) {
+    //     return false;
+    //   }
+    // }
+    
+    // Apply deadline filter if specified
+    if (filterParams.deadlineFilter && task.deadline) {
+      if (!checkDeadlineFilter(task.deadline, filterParams.deadlineFilter)) {
+        return false;
+      }
+    }
+    
+    // Apply search query filter
     if (!searchQuery) return true;
     
     const query = searchQuery.toLowerCase();
@@ -1329,24 +1404,17 @@ const ManageDepartment = () => {
     );
   };
 
-  // Filter tasks based on search query AND client filter
+  // Filter tasks based on search query AND client filter AND custom filters
   const filteredTasks = tasks.filter(task => {
     // Apply client filter first
     const clientFilterPass = !selectedClient || 
                             selectedClient.value === "all" || 
                             task.clientId === selectedClient.value;
     
-    // Then apply search filter
-    const searchFilterPass = 
-      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.assignedByOriginal && task.assignedByOriginal.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.remark && task.remark.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.taskStatus && task.taskStatus.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.clientName && task.clientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (task.assignedToOriginal && task.assignedToOriginal.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Apply custom filters (employee, status, deadline)
+    const customFilterPass = filterTasks(task);
     
-    return clientFilterPass && searchFilterPass;
+    return clientFilterPass && customFilterPass;
   });
 
   // Apply sorting to filtered results
@@ -1378,6 +1446,20 @@ const ManageDepartment = () => {
   };
   
   const clearSearch = () => setSearchQuery("");
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setSelectedClient(null);
+    setFilterParams({
+      filterBy: null,
+      employeeName: null,
+      employeeId: null,
+      statusFilter: null,
+      deadlineFilter: null
+    });
+    setCurrentPage(1);
+  };
   
   // Navigate to edit task page
   const handleEdit = (id) => {
@@ -1602,6 +1684,8 @@ const ManageDepartment = () => {
     );
   }
 
+  // Show filter indicator
+  const hasActiveFilters = filterParams.filterBy || selectedClient || searchQuery;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-5">
@@ -1619,18 +1703,24 @@ const ManageDepartment = () => {
                     </svg>
                   </div>
                   View All Tasks
+                  {filterParams.employeeName && (
+                    <span className="text-blue-100 text-lg font-normal">
+                      - Filtered by: {filterParams.employeeName}
+                    </span>
+                  )}
                 </h2>
                 <p className="text-blue-100 mt-2">View and manage all tasks with task assignments</p>
-                {searchQuery && (
+                {hasActiveFilters && (
                   <p className="text-blue-100 text-sm mt-1">
-                    Found {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} matching "{searchQuery}"
+                    Found {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} 
+                    {filterParams.employeeName && ` for ${filterParams.employeeName}`}
+                    {filterParams.statusFilter && ` with status: ${filterParams.statusFilter}`}
                   </p>
                 )}
               </div>
               
               {/* Search Box and Client Filter */}
               <div className="w-full lg:w-auto">
-
                 <div className="flex flex-col md:flex-row gap-4">
                   {/* Client Filter Dropdown */}
                   {user.role !== 'staff' && (
@@ -1697,10 +1787,49 @@ const ManageDepartment = () => {
           {/* Table Content */}
           <div className="p-6">
             {/* Filter Summary */}
-            {(selectedClient || searchQuery) && (
+            {hasActiveFilters && (
               <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-blue-700">Active Filters:</span>
+                  {filterParams.employeeName && (
+                    <span className="px-3 py-1 bg-white text-blue-700 rounded-lg text-sm font-medium border border-blue-200 flex items-center gap-2">
+                      <span className="font-semibold">Employee:</span> {filterParams.employeeName}
+                      <button 
+                        onClick={() => setFilterParams({...filterParams, employeeName: null, filterBy: null})}
+                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  {filterParams.statusFilter && (
+                    <span className="px-3 py-1 bg-white text-blue-700 rounded-lg text-sm font-medium border border-blue-200 flex items-center gap-2">
+                      <span className="font-semibold">Status:</span> {filterParams.statusFilter}
+                      <button 
+                        onClick={() => setFilterParams({...filterParams, statusFilter: null})}
+                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  {filterParams.deadlineFilter && (
+                    <span className="px-3 py-1 bg-white text-blue-700 rounded-lg text-sm font-medium border border-blue-200 flex items-center gap-2">
+                      <span className="font-semibold">Deadline:</span> {filterParams.deadlineFilter === "currentAndFuture" ? "Current & Future" : "Overdue Only"}
+                      <button 
+                        onClick={() => setFilterParams({...filterParams, deadlineFilter: null})}
+                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
                   {selectedClient && selectedClient.value !== "all" && (
                     <span className="px-3 py-1 bg-white text-blue-700 rounded-lg text-sm font-medium border border-blue-200 flex items-center gap-2">
                       <span className="font-semibold">Client:</span> {selectedClient.label}
@@ -1728,10 +1857,7 @@ const ManageDepartment = () => {
                     </span>
                   )}
                   <button 
-                    onClick={() => {
-                      setSelectedClient(null);
-                      setSearchQuery("");
-                    }}
+                    onClick={clearAllFilters}
                     className="ml-auto px-3 py-1 text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
                   >
                     Clear All Filters
@@ -1751,17 +1877,19 @@ const ManageDepartment = () => {
                   </svg>
                 </div>
                 <p className="text-slate-600 text-lg font-semibold mb-2">
-                  {searchQuery ? `No tasks found for "${searchQuery}"` : "No tasks found"}
+                  {searchQuery || filterParams.employeeName ? 
+                    `No tasks found ${filterParams.employeeName ? `for ${filterParams.employeeName}` : `for "${searchQuery}"`}` 
+                    : "No tasks found"}
                 </p>
                 <p className="text-slate-500 text-sm">
-                  {searchQuery ? "Try different search terms" : "No tasks available in the system"}
+                  {hasActiveFilters ? "Try clearing some filters" : "No tasks available in the system"}
                 </p>
-                {searchQuery && (
+                {hasActiveFilters && (
                   <button 
-                    onClick={clearSearch}
+                    onClick={clearAllFilters}
                     className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center gap-2 mx-auto"
                   >
-                    Clear Search
+                    Clear All Filters
                   </button>
                 )}
                 <button 
@@ -1990,11 +2118,6 @@ const ManageDepartment = () => {
                                     : "No remarks"
                                   }
                                 </span>
-                                {/* {task.remark && task.remark.split(' ').length > 15 && (
-                                  <span className="text-xs text-slate-500 block mt-1">
-                                    {task.remark.split(' ').length} words total
-                                  </span>
-                                )} */}
                               </div>
                             </td>
                             <td className="py-4 px-4 text-right">
@@ -2237,7 +2360,7 @@ const ManageDepartment = () => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-slate-600 font-medium">
                   Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, sortedTasks.length)}</span> of <span className="font-bold text-slate-900">{sortedTasks.length}</span> tasks
-                  {searchQuery && (
+                  {hasActiveFilters && (
                     <span className="text-blue-600 ml-2">
                       (Filtered from {tasks.length} total)
                     </span>
@@ -2422,11 +2545,6 @@ const ManageDepartment = () => {
                   <h4 className="text-sm font-semibold text-slate-500 mb-2">Remarks</h4>
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-slate-700">{selectedTask.remark || "No remarks"}</p>
-                    {/* {selectedTask.remark && selectedTask.remark.split(' ').length > 15 && (
-                      <p className="text-xs text-slate-500 mt-2">
-                        Showing 15 of {selectedTask.remark.split(' ').length} words
-                      </p>
-                    )} */}
                   </div>
                 </div>
 
