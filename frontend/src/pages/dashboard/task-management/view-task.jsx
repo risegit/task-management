@@ -732,7 +732,177 @@
             </div>
           </div>
         </div>
-      );
+      </div>
+    </div>
+  );
+};
+
+// Main ManageDepartment Component
+const ManageDepartment = () => {
+  const navigate = useNavigate();
+  const location = useLocation(); // Get location for state parameters
+  
+  const [tasks, setTasks] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null);
+  
+  // State from navigation (for filtering)
+  const [filterParams, setFilterParams] = useState({
+    filterBy: null,
+    employeeName: null,
+    employeeId: null,
+    statusFilter: null,
+    deadlineFilter: null
+  });
+  
+  // Get user from JWT
+  const user = getCurrentUser();
+  
+  // Get stable primitive values for dependencies
+  const userId = user?.id;
+  const userCode = user?.user_code;
+  const userName = user?.name;
+  
+  // Use ref to track if data has been fetched
+  const hasFetched = useRef(false);
+  
+  const itemsPerPage = 10;
+
+  // Parse filter parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      setFilterParams({
+        filterBy: location.state.filterBy || null,
+        employeeName: location.state.employeeName || null,
+        employeeId: location.state.employeeId || null,
+        statusFilter: location.state.statusFilter || null,
+        deadlineFilter: location.state.deadlineFilter || null
+      });
+      
+      // Update search query with employee name if filtering by employee
+      if (location.state.filterBy === "employee" && location.state.employeeName) {
+        setSearchQuery(location.state.employeeName);
+      }
+    }
+  }, [location.state]);
+
+  // Function to format employee name: first word full, second word only first letter
+  const formatEmployeeName = (fullName) => {
+    if (!fullName) return '';
+    
+    const parts = fullName.trim().split(' ');
+    
+    if (parts.length === 1) {
+      return parts[0];
+    } else if (parts.length === 2) {
+      return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`;
+    } else if (parts.length > 2) {
+      // Handle cases with middle names
+      return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+    }
+    
+    return fullName;
+  };
+
+  // Function to parse name and extract color
+  const parseEmployeeName = (employeeString) => {
+    if (!employeeString) return { name: '', formattedName: '', color: '#6366F1' };
+    
+    // Check if string contains color code
+    if (employeeString.includes('||#')) {
+      const parts = employeeString.split('||#');
+      if (parts.length >= 2) {
+        const originalName = parts[0].trim();
+        const formattedName = formatEmployeeName(originalName);
+        return {
+          name: originalName,
+          formattedName: formattedName,
+          color: `#${parts[1]}`
+        };
+      }
+    }
+    
+    // No color code found
+    const formattedName = formatEmployeeName(employeeString);
+    return {
+      name: employeeString,
+      formattedName: formattedName,
+      color: '#6366F1' // Default indigo color
+    };
+  };
+
+  // Function to parse multiple employees from comma-separated string
+  const parseMultipleEmployees = (employeesString) => {
+    if (!employeesString) return [];
+    
+    // Split by comma to get individual employee entries
+    const employeeEntries = employeesString.split(', ');
+    
+    return employeeEntries.map(entry => {
+      return parseEmployeeName(entry.trim());
+    });
+  };
+
+  // Helper function to get better color combination
+  const getColorStyles = (color) => {
+    const colorMap = {
+      '#6366F1': {
+        bg: 'rgba(99, 102, 241, 0.1)',
+        border: 'rgba(99, 102, 241, 0.2)',
+        text: '#4F46E5',
+        hover: 'rgba(99, 102, 241, 0.15)'
+      },
+      '#EC4899': {
+        bg: 'rgba(236, 72, 153, 0.1)',
+        border: 'rgba(236, 72, 153, 0.2)',
+        text: '#DB2777',
+        hover: 'rgba(236, 72, 153, 0.15)'
+      },
+      '#10B981': {
+        bg: 'rgba(16, 185, 129, 0.1)',
+        border: 'rgba(16, 185, 129, 0.2)',
+        text: '#059669',
+        hover: 'rgba(16, 185, 129, 0.15)'
+      },
+      '#F59E0B': {
+        bg: 'rgba(245, 158, 11, 0.1)',
+        border: 'rgba(245, 158, 11, 0.2)',
+        text: '#D97706',
+        hover: 'rgba(245, 158, 11, 0.15)'
+      },
+      '#8B5CF6': {
+        bg: 'rgba(139, 92, 246, 0.1)',
+        border: 'rgba(139, 92, 246, 0.2)',
+        text: '#7C3AED',
+        hover: 'rgba(139, 92, 246, 0.15)'
+      },
+      '#EF4444': {
+        bg: 'rgba(239, 68, 68, 0.1)',
+        border: 'rgba(239, 68, 68, 0.2)',
+        text: '#DC2626',
+        hover: 'rgba(239, 68, 68, 0.15)'
+      },
+      '#06B6D4': {
+        bg: 'rgba(6, 182, 212, 0.1)',
+        border: 'rgba(6, 182, 212, 0.2)',
+        text: '#0891B2',
+        hover: 'rgba(6, 182, 212, 0.15)'
+      },
+      '#84CC16': {
+        bg: 'rgba(132, 204, 22, 0.1)',
+        border: 'rgba(132, 204, 22, 0.2)',
+        text: '#65A30D',
+        hover: 'rgba(132, 204, 22, 0.15)'
+      }
     };
 
     // Main ManageDepartment Component
@@ -760,8 +930,256 @@
       const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
       const [selectedDeadlineFilter, setSelectedDeadlineFilter] = useState(null);
       
-      // Get user from JWT
-      const user = getCurrentUser();
+      return `${hour12}:${formattedMinutes} ${period}`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return time24;
+    }
+  };
+
+  // Check if deadline is upcoming or overdue
+  const getDeadlineStatus = (deadline) => {
+    if (!deadline) return "text-slate-500";
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return "text-red-600 font-semibold";
+    if (diffDays <= 7) return "text-black-600 font-semibold";
+    return "text-green-600 font-medium";
+  };
+
+  // Check if task deadline matches filter criteria
+  const checkDeadlineFilter = (taskDeadline, filterType) => {
+    if (!taskDeadline || !filterType) return true;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadlineDate = new Date(taskDeadline);
+    deadlineDate.setHours(0, 0, 0, 0);
+    
+    switch(filterType) {
+      case "currentAndFuture":
+        // Show tasks with today's date or future dates
+        return deadlineDate >= today;
+      case "overdueOnly":
+        // Show tasks with past dates
+        return deadlineDate < today;
+      default:
+        return true;
+    }
+  };
+
+  // Get task status badge color
+  const getTaskStatusBadge = (status) => {
+    const normalizedStatus = status ? status.toLowerCase() : '';
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200";
+      case "acknowledge":
+        return "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200";
+      case "in-progress":
+        return "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200";
+      case "completed":
+        return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200";
+      default:
+        return "bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200";
+    }
+  };
+
+  // Format task status for display
+  const formatTaskStatus = (status) => {
+    if (!status) return "Not-Acknowledge";
+    
+    const normalizedStatus = status.toLowerCase();
+    
+    switch(normalizedStatus) {
+      case "not-acknowledge":
+        return "Not-Acknowledge";
+      case "acknowledge":
+        return "Acknowledge";
+      case "in-progress":
+        return "In-progress";
+      case "completed":
+        return "Completed";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
+  // Custom styles for client filter dropdown
+  const clientFilterStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+      borderRadius: '0.75rem',
+      padding: '8px 4px',
+      backgroundColor: 'white',
+      minHeight: '52px',
+      boxShadow: state.isFocused ? '0 0 0 4px rgba(59, 130, 246, 0.1)' : 'none',
+      "&:hover": {
+        borderColor: '#94a3b8',
+      },
+      width: '100%',
+      maxWidth: '250px',
+    }),
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: '#1e293b',
+      fontWeight: '600',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? '#e0f2fe' : 'white',
+      color: state.isSelected ? '#0369a1' : '#334155',
+      fontWeight: state.isSelected ? '600' : '500',
+      borderLeft: state.isSelected ? '4px solid #3b82f6' : '4px solid transparent',
+      '&:hover': {
+        backgroundColor: '#f1f5f9',
+      },
+    }),
+  };
+
+  // Clear client filter
+  const clearClientFilter = () => {
+    setSelectedClient(null);
+    setCurrentPage(1);
+  };
+
+  // Check if current user is assigned to the task
+  const isUserAssignedToTask = (task) => {
+    if (!task || !userId || !userName) return false;
+    
+    // Check if assignedTo is an array and contains current user
+    if (Array.isArray(task.assignedTo)) {
+      return task.assignedTo.some(assignedUser => {
+        // Check if assigned user name contains current user's name or ID
+        return assignedUser.includes(userName) || 
+               assignedUser.includes(userId?.toString()) ||
+               (task.assignedToIds && task.assignedToIds.includes(userId));
+      });
+    }
+    
+    // Check if assignedTo is a string and contains current user
+    if (typeof task.assignedTo === 'string') {
+      return task.assignedTo.includes(userName) || 
+             task.assignedTo.includes(userId?.toString());
+    }
+    
+    return false;
+  };
+
+  // Enhanced filter function that searches in assignedTo array
+  const filterTasks = (task) => {
+    // Apply employee filter if specified
+    if (filterParams.filterBy === "employee" && filterParams.employeeName) {
+      // Check if this task belongs to the specified employee
+      const isEmployeeTask = task.assignedToOriginal && 
+        task.assignedToOriginal.toLowerCase().includes(filterParams.employeeName.toLowerCase());
+      
+      if (!isEmployeeTask) return false;
+    }
+    
+    // Apply status filter if specified
+    // if (filterParams.statusFilter) {
+    //   const normalizedTaskStatus = task.taskStatus ? task.taskStatus.toLowerCase().replace("-", "") : "";
+    //   const normalizedFilterStatus = filterParams.statusFilter.toLowerCase().replace("-", "");
+      
+    //   if (normalizedFilterStatus !== normalizedTaskStatus) {
+    //     return false;
+    //   }
+    // }
+    
+    // Apply deadline filter if specified
+    if (filterParams.deadlineFilter && task.deadline) {
+      if (!checkDeadlineFilter(task.deadline, filterParams.deadlineFilter)) {
+        return false;
+      }
+    }
+    
+    // Apply search query filter
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search in task name
+    if (task.name && task.name.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in client name
+    if (task.clientName && task.clientName.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in assigned by
+    if (task.assignedBy && task.assignedBy.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in assignedTo array
+    if (task.assignedTo && Array.isArray(task.assignedTo)) {
+      for (const assignedUser of task.assignedTo) {
+        if (assignedUser.toLowerCase().includes(query)) {
+          return true;
+        }
+      }
+    }
+    
+    // Search in assignedToString (concatenated version)
+    if (task.assignedToString && task.assignedToString.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in description
+    if (task.description && task.description.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in remarks
+    if (task.remark && task.remark.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in task status
+    if (task.taskStatus && task.taskStatus.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in formatted date
+    if (task.deadline) {
+      const formattedDate = formatDate(task.deadline).toLowerCase();
+      if (formattedDate.includes(query)) {
+        return true;
+      }
+    }
+    
+    // Search in formatted time
+    if (task.time) {
+      const formattedTime = formatTimeTo12Hour(task.time).toLowerCase();
+      if (formattedTime.includes(query)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Fetch clients from API
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      console.log("Fetching clients...");
       
       // Get stable primitive values for dependencies
       const userId = user?.id;
@@ -813,7 +1231,157 @@
               value: employeeId || employeeName,
               label: employeeName
             };
-            setSelectedEmployeeFilter(employeeOption);
+          });
+          
+          setTasks(transformedTasks);
+          console.log("Transformed tasks:", transformedTasks);
+        } else {
+          console.warn("API returned error:", result.message);
+          setTasks([]);
+        }
+      } catch (error) {
+        console.error("Fetch Error:", error);
+        setTasks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasks();
+    fetchClients();
+  }, [userId, userCode]); // Only depend on primitive values
+
+  // Handle client filter change
+  const handleClientFilterChange = (selected) => {
+    setSelectedClient(selected);
+    setCurrentPage(1);
+  };
+
+  // Handle sorting
+  const handleSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Sort arrow component
+  const SortArrow = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) {
+      return (
+        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    return (
+      <svg className={`w-4 h-4 text-blue-600 ${sortConfig.direction === "descending" ? "rotate-180" : ""} transition-transform`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
+    );
+  };
+
+  // Filter tasks based on search query AND client filter AND custom filters
+  const filteredTasks = tasks.filter(task => {
+    // Apply client filter first
+    const clientFilterPass = !selectedClient || 
+                            selectedClient.value === "all" || 
+                            task.clientId === selectedClient.value;
+    
+    // Apply custom filters (employee, status, deadline)
+    const customFilterPass = filterTasks(task);
+    
+    return clientFilterPass && customFilterPass;
+  });
+
+  // Apply sorting to filtered results
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
+
+    if (aValue < bValue) {
+      return sortConfig.direction === "ascending" ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortConfig.direction === "ascending" ? 1 : -1;
+    }
+    return 0;
+  });
+
+  // Pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTasks = sortedTasks.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedTasks.length / itemsPerPage);
+
+  // Handlers
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+  
+  const clearSearch = () => setSearchQuery("");
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setSelectedClient(null);
+    setFilterParams({
+      filterBy: null,
+      employeeName: null,
+      employeeId: null,
+      statusFilter: null,
+      deadlineFilter: null
+    });
+    setCurrentPage(1);
+  };
+  
+  // Navigate to edit task page
+  const handleEdit = (id) => {
+    navigate(`/dashboard/task-management/edit-task/${id}`);
+  };
+  
+  // Open view modal
+  const handleView = (task) => {
+    setSelectedTask(task);
+    setShowViewModal(true);
+  };
+
+  // Close view modal
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedTask(null);
+  };
+
+  // Open CreateTask modal (eye button click)
+  const handleCreateTaskModal = () => {
+    setShowCreateTaskModal(true);
+  };
+
+  // Close CreateTask modal
+  const closeCreateTaskModal = () => {
+    setShowCreateTaskModal(false);
+  };
+
+  // Handle successful task creation
+  const handleTaskCreated = () => {
+    // Reset the fetch flag to allow refresh
+    hasFetched.current = false;
+    
+    // Refresh the tasks list
+    const fetchTasks = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}api/task-management.php`,
+          {
+            params: { 
+              id: userId,
+              user_code: userCode,
+              view_task: true
+            }
           }
           
           // Update status filter if provided
@@ -2116,7 +2684,7 @@
                       </div>
                     )}
 
-                    {selectedStatusFilter && selectedStatusFilter.value !== "all" && (
+                      {selectedStatusFilter && selectedStatusFilter.value !== "all" && (
                       <div className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
