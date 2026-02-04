@@ -131,7 +131,7 @@ const Home = () => {
     };
 
     fetchTask();
-  }, [user]);
+  }, []);
 
   // Function to generate marquee items based on overdue tasks
   const generateMarqueeItems = (overdueTasks, isAdmin) => {
