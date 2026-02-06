@@ -131,7 +131,7 @@ const Home = () => {
     };
 
     fetchTask();
-  }, [user]);
+  }, []);
 
   // Function to generate marquee items based on overdue tasks
   const generateMarqueeItems = (overdueTasks, isAdmin) => {
@@ -421,10 +421,18 @@ const Home = () => {
                  statusType === "completed" ? CheckCircle : 
                  ClipboardDocumentCheckIcon;
     
+    // For completed tasks, always use green styling regardless of priority
+    const completedStyles = statusType === "completed" ? {
+      background: "bg-gradient-to-r from-green-50 to-emerald-50",
+      borderColor: "border-green-500",
+      iconColor: "text-green-600",
+      countColor: "text-green-700"
+    } : styles;
+    
     return (
-      <div key={task.user_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${statusType === "overdue" ? "bg-gradient-to-r from-red-50 to-pink-50 border-red-500" : styles.background} ${statusType === "overdue" ? "border-red-500" : styles.borderColor}`}>
+      <div key={task.user_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${statusType === "overdue" ? "bg-gradient-to-r from-red-50 to-pink-50 border-red-500" : statusType === "completed" ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-500" : completedStyles.background} ${statusType === "overdue" ? "border-red-500" : statusType === "completed" ? "border-green-500" : completedStyles.borderColor}`}>
         <div className="flex items-start">
-          {React.createElement(icon, { className: `w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}` })}
+          {React.createElement(icon, { className: `w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${statusType === "completed" ? "text-green-600" : completedStyles.iconColor}` })}
           <div>
             <Link 
               to="/dashboard/task-management/view-task" 
@@ -437,8 +445,8 @@ const Home = () => {
               }}
               className="block"
             >
-              <h4 className="font-semibold text-black-800 text-sm mb-1 hover:text-blue-600 transition-colors">
-                {task.name} has <span className={styles.countColor}>{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
+              <h4 className={`font-semibold text-black-800 text-sm mb-1 hover:text-blue-600 transition-colors ${statusType === "completed" ? "line-through" : ""}`}>
+                {task.name} has <span className={statusType === "completed" ? "text-green-700" : completedStyles.countColor}>{task.count_tasks || 1}</span> {status} Task{(task.count_tasks || 1) !== 1 ? 's' : ''}
               </h4>
             </Link>
           </div>
@@ -637,7 +645,7 @@ const Home = () => {
                       <Link to={`/dashboard/task-management/edit-task/${task.task_id}`} key={task.ta_id || task.user_id || index}>
                         <div className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow bg-gradient-to-r from-green-50 to-emerald-50 border-green-500`}>
                           <div className="flex items-start">
-                            <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 ${styles.iconColor}`} />
+                            <CheckCircle className={`w-5 h-5 mt-0.5 mr-3 flex-shrink-0 text-green-600`} />
                             <div>
                               <h4 className={`font-semibold text-black-800 text-sm mb-1 ${textDecoration}`}>
                                 {task.task_name || "Task"}
