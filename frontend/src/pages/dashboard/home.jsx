@@ -373,7 +373,7 @@ const Home = () => {
                   employeeName: task.name,
                   employeeId: task.user_id,
                   statusFilter: status.toLowerCase().replace(" ", ""),
-                  deadlineFilter: "currentAndFuture"
+                  // deadlineFilter: "currentAndFuture"
                 }}
                 className="block"
               >
@@ -441,7 +441,7 @@ const Home = () => {
                 employeeName: task.name,
                 employeeId: task.user_id,
                 statusFilter: statusType,
-                deadlineFilter: statusType === "overdue" ? "overdueOnly" : "currentAndFuture"
+                // deadlineFilter: statusType === "overdue" ? "overdueOnly" : "currentAndFuture"
               }}
               className="block"
             >
