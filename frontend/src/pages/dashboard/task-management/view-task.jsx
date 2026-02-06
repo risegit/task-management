@@ -1113,7 +1113,7 @@ const ManageDepartment = () => {
                 </div>
                 
                 {/* Deadline Filter Dropdown - Only for Admins and Managers */}
-                {(userRole === 'admin' || userRole === 'manager') && (
+                {/* {(userRole === 'admin' || userRole === 'manager') && (
                   <div className="w-full md:w-48">
                     <Select
                       options={deadlineOptions}
@@ -1135,7 +1135,7 @@ const ManageDepartment = () => {
                       )}
                     />
                   </div>
-                )}
+                )} */}
                 
                 {/* Pagination Size Dropdown - Available for all users */}
                 <div className="w-full md:w-48">
