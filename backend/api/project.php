@@ -71,9 +71,9 @@ switch ($method) {
             // }
             
             if (!empty($userCode)) {
-                if (str_starts_with($userCode, 'ST') || str_starts_with($userCode, 'MN')) {
+                if (str_starts_with($userCode, 'ST')) {
                     $whereClause = "WHERE emp_id = '$userId'";
-                } elseif (str_starts_with($userCode, 'AD')) {
+                } elseif (str_starts_with($userCode, 'AD') || str_starts_with($userCode, 'MN')) {
                     $whereClause = '';
                 }
             }
