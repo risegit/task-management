@@ -354,8 +354,19 @@ const Home = () => {
     );
   };
 
+  // Helper function to get status filter value
+  const getStatusFilter = (statusType) => {
+    switch(statusType) {
+      case "inProgress": return "in-progress";
+      case "overdue": return "overdue";
+      case "completed": return "completed";
+      case "todo": return "acknowledge";
+      default: return "";
+    }
+  };
+
   // Helper function to render task card based on user role
-  const renderTaskCard = (task, index, status) => {
+  const renderTaskCard = (task, index, status, statusType = "todo") => {
     const isAdmin = user?.role !== "staff";
     const styles = getTaskCardStyles(task.priority || "Medium");
     
@@ -372,7 +383,7 @@ const Home = () => {
                   filterBy: "employee",
                   employeeName: task.name,
                   employeeId: task.user_id,
-                  statusFilter: status.toLowerCase().replace(" ", ""),
+                  statusFilter: getStatusFilter(statusType),
                   // deadlineFilter: "currentAndFuture"
                 }}
                 className="block"
@@ -429,6 +440,9 @@ const Home = () => {
       countColor: "text-green-700"
     } : styles;
     
+    // Get status filter value
+    const statusFilter = getStatusFilter(statusType);
+    
     return (
       <div key={task.user_id || index} className={`p-4 mb-2 rounded-lg border-l-4 hover:shadow-md transition-shadow ${statusType === "overdue" ? "bg-gradient-to-r from-red-50 to-pink-50 border-red-500" : statusType === "completed" ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-500" : completedStyles.background} ${statusType === "overdue" ? "border-red-500" : statusType === "completed" ? "border-green-500" : completedStyles.borderColor}`}>
         <div className="flex items-start">
@@ -440,7 +454,7 @@ const Home = () => {
                 filterBy: "employee",
                 employeeName: task.name,
                 employeeId: task.user_id,
-                statusFilter: statusType,
+                statusFilter: statusFilter,
                 // deadlineFilter: statusType === "overdue" ? "overdueOnly" : "currentAndFuture"
               }}
               className="block"
@@ -485,7 +499,7 @@ const Home = () => {
                 </div>
               ) : (
                 getPaginatedTasks(todoTasks, todoPage).map((task, index) => (
-                  renderTaskCard(task, index, "To Do")
+                  renderTaskCard(task, index, "To Do", "todo")
                 ))
               )}
             </div>
