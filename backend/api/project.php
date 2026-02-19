@@ -210,6 +210,7 @@ switch ($method) {
         }
 
         $sql = "SELECT name FROM clients WHERE name='$projectName' and id != '$projectId'";
+        
         $result = $conn->query($sql); 
         if($result->num_rows > 0){
             echo json_encode(["status" => "error", "message" => "Project Name Already Exists"]);
@@ -219,25 +220,46 @@ switch ($method) {
         $conn->begin_transaction();
 
         try {
-            $sql =  "UPDATE clients SET name=?, description=?, start_date=?, status=?, updated_by=?, updated_date=?, updated_time=? WHERE id=?";
             $stmt = $conn->prepare(
                 "UPDATE clients SET name=?, description=?, start_date=?, status=?, updated_by=?, updated_date=?, updated_time=? WHERE id=?"
             );
+            $sql1 = "UPDATE clients SET name='$projectName', description='$projectDescription', start_date='$startDate', status='$status', updated_by='$id', updated_date='$date', updated_time='$time' WHERE id='$projectId'";
+
             $stmt->bind_param("ssssissi", $projectName, $projectDescription, $startDate, $status, $id, $date, $time, $projectId);
             $stmt->execute();
+            
+            $chkPOC = "SELECT * FROM client_users WHERE client_id='$projectId' and emp_id = '$poc' and is_poc = 1";
+            // echo json_encode(["status" => "success", "chkPOC" => $chkPOC]);
+            
+            $poc_result = $conn->query($chkPOC); 
+            if($poc_result->num_rows < 1){
+                $stmtUpdatePOC = $conn->prepare("UPDATE client_users SET is_poc = 0 WHERE client_id=?");
+                $stmtUpdatePOCSQL = "UPDATE client_users SET is_poc = 0 WHERE client_id='$projectId'";
+                $stmtUpdatePOC->bind_param("i", $projectId);
+                $stmtUpdatePOC->execute(); 
+                // echo json_encode(["status" => "success", "stmtUpdatePOCSQL" => $stmtUpdatePOCSQL]);
 
-            $stmtDelPOC = $conn->prepare("DELETE FROM client_users WHERE client_id=? AND is_poc=1");
-            $stmtDelPOC->bind_param("i", $projectId);
-            $stmtDelPOC->execute();
+                $stmtUpdateNewPOC = $conn->prepare("UPDATE client_users SET is_poc = 1 WHERE client_id=? and emp_id = ? ");
+                $stmtUpdateNewPOCSQL = "UPDATE client_users SET is_poc = 1 WHERE client_id='$projectId' and emp_id = '$poc'";
 
-            if ($poc) {
-                $stmtPOC = $conn->prepare(
-                    "INSERT INTO client_users (client_id, emp_id, is_poc, created_date, created_time)
-                     VALUES (?, ?, 1, ?, ?)"
-                );
-                $stmtPOC->bind_param("iiss", $projectId, $poc, $date, $time);
-                $stmtPOC->execute();
+                $stmtUpdateNewPOC->bind_param("ii", $projectId, $poc);
+                $stmtUpdateNewPOC->execute();
+                // echo json_encode(["status" => "success", "stmtUpdateNewPOCSQL" => $stmtUpdateNewPOCSQL]);
+
             }
+            
+            
+            // if ($poc) {
+            //     $stmtPOC = $conn->prepare(
+            //         "INSERT INTO client_users (client_id, emp_id, is_poc, created_date, created_time)
+            //          VALUES (?, ?, 1, ?, ?)"
+            //     );
+            //     $stmtPOCSQL = "INSERT INTO client_users (client_id, emp_id, is_poc, created_date, created_time) VALUES ('$projectId', '$poc', 1, '$date', '$time')";
+
+            //     echo json_encode(["status" => "success", "stmtPOCSQL" => $stmtPOCSQL]);
+            //     $stmtPOC->bind_param("iiss", $projectId, $poc, $date, $time);
+            //     $stmtPOC->execute();
+            // }
 
             $stmtDelEmp = $conn->prepare("DELETE FROM client_users WHERE client_id=? AND is_poc=0");
             $stmtDelEmp->bind_param("i", $projectId);
