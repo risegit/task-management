@@ -423,6 +423,8 @@ const ManageDepartment = () => {
               time: task.time,
               created_date: task.created_date,
               created_time: task.created_time,
+              updated_date: task.updated_date, 
+              updated_time: task.updated_time, 
               remark: task.remarks,
               taskStatus: task.task_status || "not-acknowledge",
               createdBy: task.created_by,
@@ -1428,6 +1430,11 @@ const ManageDepartment = () => {
                                   </button>
                                 )}
                               </div>
+                              {task.updated_date && task.updated_time && (
+                                    <div className="text-xs mt-1 text-slate-500">
+                                      {formatDate(task.updated_date)} {formatTimeTo12Hour(task.updated_time)}
+                                    </div>
+                                  )}
                               
                               {/* Status Dropdown - Only show if user is assigned */}
                               {isAssigned && statusDropdownOpen === task.id && (
