@@ -13,9 +13,11 @@ const Tasksheet = () => {
   const location = useLocation();
   
   const [tasks, setTasks] = useState([]);
+  const [filteredApiTasks, setFilteredApiTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,10 +34,11 @@ const Tasksheet = () => {
   const [selectedDeadlineFilter, setSelectedDeadlineFilter] = useState(null);
   
   // State for date range filter
-  const [tempFromDate, setTempFromDate] = useState(null);
-  const [tempToDate, setTempToDate] = useState(null);
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [tempFromDate, setTempFromDate] = useState('');
+  const [tempToDate, setTempToDate] = useState('');
+  const [dateFilterApplied, setDateFilterApplied] = useState(false);
   
   const user = getCurrentUser();
   const userRole = user?.role || 'staff';
@@ -107,12 +110,12 @@ const Tasksheet = () => {
 
       // Set date range filters if provided
       if (fromDateParam) {
-        setFromDate(new Date(fromDateParam));
-        setTempFromDate(new Date(fromDateParam));
+        setFromDate(fromDateParam);
+        setTempFromDate(fromDateParam);
       }
       if (toDateParam) {
-        setToDate(new Date(toDateParam));
-        setTempToDate(new Date(toDateParam));
+        setToDate(toDateParam);
+        setTempToDate(toDateParam);
       }
     }
   }, []);
@@ -234,12 +237,17 @@ const Tasksheet = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "N/A";
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return "N/A";
+    }
   };
 
   const formatDateForExport = (dateString) => {
@@ -250,6 +258,17 @@ const Tasksheet = () => {
       month: '2-digit',
       day: '2-digit'
     });
+  };
+
+  const formatDateForAPI = (dateString) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      return "";
+    }
   };
 
   const formatTimeTo12Hour = (time24) => {
@@ -369,54 +388,42 @@ const Tasksheet = () => {
     return false;
   };
 
-  // Apply date range filter to tasks
-  const isTaskInDateRange = (task) => {
-    if (!fromDate && !toDate) return true;
-    
-    const taskDate = new Date(task.created_date);
-    taskDate.setHours(0, 0, 0, 0);
-    
-    if (fromDate && toDate) {
-      const from = new Date(fromDate);
-      from.setHours(0, 0, 0, 0);
-      const to = new Date(toDate);
-      to.setHours(0, 0, 0, 0);
-      return taskDate >= from && taskDate <= to;
-    } else if (fromDate) {
-      const from = new Date(fromDate);
-      from.setHours(0, 0, 0, 0);
-      return taskDate >= from;
-    } else if (toDate) {
-      const to = new Date(toDate);
-      to.setHours(0, 0, 0, 0);
-      return taskDate <= to;
-    }
-    
-    return true;
-  };
-
-  // Export to Excel function - only exports tasks within selected date range
+  // Export to Excel function - exports tasks from API filtered results
   const exportToExcel = () => {
     try {
-      // First filter tasks by date range
-      const tasksInDateRange = tasks.filter(task => isTaskInDateRange(task));
+      const tasksToExport = filteredApiTasks.length > 0 ? filteredApiTasks : tasks;
       
-      if (tasksInDateRange.length === 0) {
+      if (tasksToExport.length === 0) {
         Swal.fire({
           icon: 'info',
           title: 'No Data',
-          text: 'No tasks found in the selected date range',
+          text: 'No tasks found to export',
           confirmButtonColor: '#3b82f6'
         });
         return;
       }
 
+      const cleanAssignedTo = (assignedToOriginal) => {
+        if (!assignedToOriginal) return 'No assignments';
+        
+        // Remove color codes in format "Name||#COLOR"
+        let cleaned = assignedToOriginal.replace(/\|\|#[0-9A-Fa-f]{6}/g, '');
+        
+        // Also handle any remaining color codes in different formats
+        cleaned = cleaned.replace(/#[0-9A-Fa-f]{6}/g, '');
+        
+        // Clean up any double commas or extra spaces
+        cleaned = cleaned.replace(/\s*,\s*/g, ', ').trim();
+        
+        return cleaned || 'No assignments';
+      };
+
       // Prepare data for export
-      const exportData = tasksInDateRange.map(task => ({
+      const exportData = tasksToExport.map(task => ({
         'Task Name': task.name || 'Unnamed Task',
         'Client': task.clientName || 'N/A',
         'Assigned By': task.assignedByOriginal || 'Unknown',
-        'Assigned To': task.assignedToOriginal || 'No assignments',
+        'Assigned To': cleanAssignedTo(task.assignedToOriginal || 'No assignments'),
         'Deadline': formatDateForExport(task.deadline),
         'Deadline Time': task.time ? formatTimeTo12Hour(task.time) : '',
         'Task Status': formatTaskStatus(task.taskStatus),
@@ -445,13 +452,17 @@ const Tasksheet = () => {
             ? `until_${formatDateForExport(toDate)}`
             : 'all_tasks';
       
-      const fileName = `tasks_export_${dateRangeStr}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const employeeStr = selectedEmployeeFilter && selectedEmployeeFilter.value !== "all" 
+        ? `_${selectedEmployeeFilter.label.replace(/\s+/g, '_')}` 
+        : '';
+      
+      const fileName = `tasks_export${employeeStr}_${dateRangeStr}_${new Date().toISOString().split('T')[0]}.xlsx`;
       saveAs(data, fileName);
       
       Swal.fire({
         icon: 'success',
         title: 'Export Successful!',
-        text: `${exportData.length} tasks exported from selected date range`,
+        text: `${exportData.length} tasks exported successfully`,
         timer: 2000,
         showConfirmButton: false,
         timerProgressBar: true
@@ -467,29 +478,202 @@ const Tasksheet = () => {
     }
   };
 
-  // Submit date range filter
-  const handleDateRangeSubmit = () => {
-    setFromDate(tempFromDate);
-    setToDate(tempToDate);
+  // Submit date range filter to API
+  // Submit date range filter to API
+const handleDateRangeSubmit = async () => {
+  if (!tempFromDate && !tempToDate) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Select Date Range',
+      text: 'Please select at least one date to filter',
+      confirmButtonColor: '#f59e0b'
+    });
+    return;
+  }
+
+  setFilterLoading(true);
+
+  try {
+    console.log("Submitting date range filter:", {
+      from_date: tempFromDate ? formatDateForAPI(tempFromDate) : '',
+      to_date: tempToDate ? formatDateForAPI(tempToDate) : '',
+      employee_id: selectedEmployeeFilter?.value,
+      employee_name: selectedEmployeeFilter?.label
+    });
+
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_URL}api/reports.php`,
+      {
+        params: {
+          'view_task_sheet': true,
+          user_id: userId,
+          user_code: userCode,
+          from_date: tempFromDate ? formatDateForAPI(tempFromDate) : '',
+          to_date: tempToDate ? formatDateForAPI(tempToDate) : '',
+          employee_id: selectedEmployeeFilter && selectedEmployeeFilter.value !== "all" ? selectedEmployeeFilter.value : '',
+        }
+      }
+    );
+
+    const result = response.data;
+    console.log("API Response:", result);
+
+    if (result.status === "success") {
+      // Process the API response - based on your response, it's returning tasks
+      let apiData = [];
+      
+      if (result.data && Array.isArray(result.data)) {
+        apiData = result.data;
+      }
+
+      if (apiData.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'No Data Found',
+          text: 'No tasks found for the selected date range',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        setFilteredApiTasks([]);
+        setDateFilterApplied(true);
+        setFromDate(tempFromDate);
+        setToDate(tempToDate);
+        setCurrentPage(1);
+        setFilterLoading(false);
+        return;
+      }
+
+      // Transform the task data to match your task format
+      const transformedTasks = apiData.map((task) => {
+        // Parse assigned by
+        const assignedByParsed = parseEmployeeName(task.assigned_by_name || "Unknown");
+        
+        // Parse assigned to
+        let assignedToArray = [];
+        let assignedToColors = [];
+        let assignedToOriginal = '';
+        
+        if (task.assigned_to_names) {
+          assignedToOriginal = task.assigned_to_names;
+          if (task.assigned_to_names.includes(',')) {
+            const parsedEmployees = parseMultipleEmployees(task.assigned_to_names);
+            assignedToArray = parsedEmployees.map(emp => emp.formattedName || emp.name);
+            assignedToColors = parsedEmployees.map(emp => emp.color);
+          } else {
+            const parsedEmployee = parseEmployeeName(task.assigned_to_names);
+            assignedToArray = [parsedEmployee.formattedName || parsedEmployee.name];
+            assignedToColors = [parsedEmployee.color];
+          }
+        }
+        
+        // Parse assigned to IDs
+        let assignedToIds = [];
+        if (task.assigned_to_ids) {
+          assignedToIds = String(task.assigned_to_ids).split(',').map(id => id.trim());
+        }
+        
+        return {
+          id: task.id,
+          clientName: task.client_name || "Unknown Client",
+          clientId: task.client_id,
+          name: task.task_name || "Unnamed Task",
+          description: task.remarks || "No description",
+          assignedBy: assignedByParsed.formattedName || assignedByParsed.name || "Unknown",
+          assignedByOriginal: task.assigned_by_name || "Unknown",
+          assignedByColor: assignedByParsed.color,
+          assignedTo: assignedToArray,
+          assignedToOriginal: assignedToOriginal,
+          assignedToColors: assignedToColors,
+          assignedToString: assignedToOriginal,
+          assignedToIds: assignedToIds,
+          deadline: task.deadline,
+          time: task.time || "",
+          created_date: task.created_date,
+          created_time: task.created_time,
+          remark: task.remarks || "",
+          taskStatus: task.task_status || "not-acknowledge",
+          createdBy: task.created_by,
+          rawAssignedTo: task.assigned_to || "",
+          rawAssignedToNames: task.assigned_to_names || ""
+        };
+      });
+      
+      console.log("Transformed tasks:", transformedTasks);
+      setFilteredApiTasks(transformedTasks);
+      setFromDate(tempFromDate);
+      setToDate(tempToDate);
+      setDateFilterApplied(true);
+      setCurrentPage(1);
+      
+      Swal.fire({ 
+        icon: 'success', 
+        title: 'Date Range Applied!', 
+        text: `Found ${transformedTasks.length} tasks in the selected date range${selectedEmployeeFilter ? ` for ${selectedEmployeeFilter.label}` : ''}.`,
+        timer: 2000, 
+        showConfirmButton: false,
+        timerProgressBar: true
+      });
+      
+    } else {
+      Swal.fire({ 
+        icon: 'error', 
+        title: 'Filter Failed', 
+        text: result.message || result.error || "Failed to fetch tasks for selected date range." 
+      });
+      setFilteredApiTasks([]);
+    }
+  } catch (error) {
+    console.error("Date Range Filter Error:", error);
+    
+    let errorMessage = 'An error occurred while applying date filter.';
+    let errorTitle = 'Error';
+    
+    if (error.response) {
+      console.error("Error response data:", error.response.data);
+      console.error("Error response status:", error.response.status);
+      
+      errorMessage = error.response.data?.message || 
+                    error.response.data?.error || 
+                    `Server error: ${error.response.status}`;
+      errorTitle = 'Server Error';
+    } else if (error.request) {
+      console.error("Error request:", error.request);
+      errorMessage = 'No response from server. Please check your connection.';
+      errorTitle = 'Connection Error';
+    } else {
+      console.error("Error message:", error.message);
+      errorMessage = `Error: ${error.message}`;
+    }
+    
+    Swal.fire({ 
+      icon: 'error', 
+      title: errorTitle, 
+      text: errorMessage,
+      confirmButtonColor: '#d33',
+    });
+  } finally {
+    setFilterLoading(false);
+  }
+};
+
+  // Clear date range filter
+  const clearDateRangeFilter = () => {
+    setTempFromDate('');
+    setTempToDate('');
+    setFromDate('');
+    setToDate('');
+    setFilteredApiTasks([]);
+    setDateFilterApplied(false);
     setCurrentPage(1);
     
     Swal.fire({
-      icon: 'success',
-      title: 'Date Range Applied',
-      text: `Filtering tasks from ${tempFromDate ? formatDate(tempFromDate) : 'any date'} to ${tempToDate ? formatDate(tempToDate) : 'any date'}`,
+      icon: 'info',
+      title: 'Date Filter Cleared',
+      text: 'Showing all tasks',
       timer: 1500,
       showConfirmButton: false,
       timerProgressBar: true
     });
-  };
-
-  // Clear date range filter
-  const clearDateRangeFilter = () => {
-    setTempFromDate(null);
-    setTempToDate(null);
-    setFromDate(null);
-    setToDate(null);
-    setCurrentPage(1);
   };
 
   // Main data fetching effect
@@ -518,7 +702,7 @@ const Tasksheet = () => {
           params.client_id = selectedClient.value;
         }
         
-        if (selectedEmployeeFilter && selectedEmployeeFilter.value !== "all") {
+        if (selectedEmployeeFilter && selectedEmployeeFilter.value !== "all" && !dateFilterApplied) {
           params.employee_name = selectedEmployeeFilter.label;
         }
         
@@ -689,17 +873,17 @@ const Tasksheet = () => {
     };
   }, [userId, userCode, selectedClient, selectedEmployeeFilter, selectedStatusFilter]);
 
-  // Filter tasks based on all filters - including date range
+  // Get active tasks (either from API filter or main tasks)
+  const activeTasks = useMemo(() => {
+    return dateFilterApplied && filteredApiTasks.length > 0 ? filteredApiTasks : tasks;
+  }, [dateFilterApplied, filteredApiTasks, tasks]);
+
+  // Apply client-side filters (search, status, deadline) to active tasks
   const filteredTasks = useMemo(() => {
-    if (!tasks.length) return [];
+    if (!activeTasks.length) return [];
     
-    return tasks.filter(task => {
-      // Apply date range filter
-      if (!isTaskInDateRange(task)) {
-        return false;
-      }
-      
-      // Apply search query filter (client-side only)
+    return activeTasks.filter(task => {
+      // Apply search query filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const searchableFields = [
@@ -720,9 +904,23 @@ const Tasksheet = () => {
         }
       }
       
+      // Apply status filter
+      if (selectedStatusFilter && selectedStatusFilter.value !== "all") {
+        if (task.taskStatus?.toLowerCase() !== selectedStatusFilter.value.toLowerCase()) {
+          return false;
+        }
+      }
+      
+      // Apply deadline filter
+      if (selectedDeadlineFilter && selectedDeadlineFilter.value !== "all") {
+        if (!checkDeadlineFilter(task.deadline, selectedDeadlineFilter.value)) {
+          return false;
+        }
+      }
+      
       return true;
     });
-  }, [tasks, searchQuery, fromDate, toDate]);
+  }, [activeTasks, searchQuery, selectedStatusFilter, selectedDeadlineFilter]);
 
   // Apply sorting to filtered results
   const sortedTasks = useMemo(() => {
@@ -755,10 +953,12 @@ const Tasksheet = () => {
     setSelectedEmployeeFilter(null);
     setSelectedStatusFilter(null);
     setSelectedDeadlineFilter(null);
-    setTempFromDate(null);
-    setTempToDate(null);
-    setFromDate(null);
-    setToDate(null);
+    setTempFromDate('');
+    setTempToDate('');
+    setFromDate('');
+    setToDate('');
+    setFilteredApiTasks([]);
+    setDateFilterApplied(false);
     setCurrentPage(1);
   };
   
@@ -808,13 +1008,11 @@ const Tasksheet = () => {
   };
 
   const handleTempFromDateChange = (e) => {
-    const date = e.target.value ? new Date(e.target.value) : null;
-    setTempFromDate(date);
+    setTempFromDate(e.target.value);
   };
 
   const handleTempToDateChange = (e) => {
-    const date = e.target.value ? new Date(e.target.value) : null;
-    setTempToDate(date);
+    setTempToDate(e.target.value);
   };
 
   const handleSort = (key) => {
@@ -926,7 +1124,16 @@ const Tasksheet = () => {
 
       const result = response.data;
       if (result.status === "success") {
+        // Update tasks in both states
         setTasks(prevTasks =>
+          prevTasks.map(task =>
+            task.id === taskId
+              ? { ...task, taskStatus: newStatus }
+              : task
+          )
+        );
+        
+        setFilteredApiTasks(prevTasks =>
           prevTasks.map(task =>
             task.id === taskId
               ? { ...task, taskStatus: newStatus }
@@ -974,11 +1181,11 @@ const Tasksheet = () => {
                           (selectedStatusFilter && selectedStatusFilter.value !== "all") || 
                           (selectedDeadlineFilter && selectedDeadlineFilter.value !== "all") || 
                           (selectedClient && selectedClient.value !== "all") || 
-                          (fromDate || toDate) ||
+                          dateFilterApplied ||
                           searchQuery;
 
   const totalTasksCount = tasks.length;
-  const tasksInSelectedDateRange = tasks.filter(task => isTaskInDateRange(task)).length;
+  const activeTasksCount = activeTasks.length;
   const filteredTasksCount = filteredTasks.length;
 
   const currentPaginationSize = paginationSizeOptions.find(opt => opt.value === itemsPerPage) || paginationSizeOptions[0];
@@ -1142,8 +1349,8 @@ const Tasksheet = () => {
                 </h2>
                 <p className="text-blue-100 mt-2">View and manage all tasks with task assignments</p>
                 <p className="text-blue-100 text-sm mt-1">
-                  Found {filteredTasksCount} task{filteredTasksCount !== 1 ? 's' : ''} of {totalTasksCount} total
-                  {fromDate || toDate ? ` (${tasksInSelectedDateRange} in selected date range)` : ''}
+                  Found {filteredTasksCount} task{filteredTasksCount !== 1 ? 's' : ''} of {activeTasksCount} total
+                  {dateFilterApplied && ` (filtered by date range)`}
                 </p>
               </div>
               
@@ -1346,13 +1553,13 @@ const Tasksheet = () => {
                       </div>
                     )}
 
-                    {fromDate && (
+                    {dateFilterApplied && (
                       <div className="flex items-center gap-1 bg-white text-blue-700 px-2 py-1 rounded-full shadow-sm text-xs">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span>
-                          Date Range: {formatDate(fromDate)} {toDate ? `to ${formatDate(toDate)}` : "onwards"}
+                          Date Range: {fromDate ? formatDate(fromDate) : 'Any'} - {toDate ? formatDate(toDate) : 'Any'}
                         </span>
                         <button onClick={clearDateRangeFilter} className="ml-1 hover:text-blue-900">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1372,117 +1579,116 @@ const Tasksheet = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        Date Range:
+                        Date Range Filter:
                       </h2>
                     </div>
 
-                    {/* Date Range Filter Section */}
-                    <div className="flex flex-col gap-2 mb-3">
-                      <div className="flex items-center gap-2 w-full">
-                        <div className="relative flex-1">
-                          <input
-                            type="date"
-                            value={tempFromDate ? tempFromDate.toISOString().split('T')[0] : ''}
-                            onChange={handleTempFromDateChange}
-                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                            placeholder="From Date"
-                          />
-                        </div>
-                        <span className="text-slate-500">to</span>
-                        <div className="relative flex-1">
-                          <input
-                            type="date"
-                            value={tempToDate ? tempToDate.toISOString().split('T')[0] : ''}
-                            onChange={handleTempToDateChange}
-                            min={tempFromDate ? tempFromDate.toISOString().split('T')[0] : ''}
-                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                            placeholder="To Date"
-                          />
-                        </div>
+                    {/* Date Range Filter Section - From and To Date side by side */}
+                    <div className="flex flex-row gap-2 mb-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
+                        <input
+                          type="date"
+                          value={tempFromDate}
+                          onChange={handleTempFromDateChange}
+                          className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        />
                       </div>
-
-                      {/* Submit Button for Date Range */}
-                      <div className="flex gap-2 mt-1">
-                        <button
-                          onClick={handleDateRangeSubmit}
-                          disabled={!tempFromDate && !tempToDate}
-                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                            !tempFromDate && !tempToDate
-                              ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-200'
-                          }`}
-                        >
-                          Apply Date Range
-                        </button>
-                        {(tempFromDate || tempToDate) && (
-                          <button
-                            onClick={() => {
-                              setTempFromDate(null);
-                              setTempToDate(null);
-                            }}
-                            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-semibold transition-all"
-                          >
-                            Clear
-                          </button>
-                        )}
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
+                        <input
+                          type="date"
+                          value={tempToDate}
+                          onChange={handleTempToDateChange}
+                          min={tempFromDate}
+                          className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        />
                       </div>
-
-                      {/* Employee Filter in Date Range Section - Only for Admins and Managers */}
-                      {(userRole === 'admin' || userRole === 'manager') && (
-                        <div className="w-full mt-2">
-                          <Select
-                            options={employees}
-                            value={selectedEmployeeFilter}
-                            onChange={handleEmployeeFilterChange}
-                            classNamePrefix="react-select"
-                            styles={filterDropdownStyles}
-                            placeholder="Select Employee to Filter"
-                            isClearable={true}
-                            isSearchable={true}
-                            formatOptionLabel={(option) => (
-                              <div className="flex items-center gap-2">
-                                {option.value === "all" && (
-                                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                )}
-                                <span>{option.label}</span>
-                              </div>
-                            )}
-                          />
-                        </div>
-                      )}
                     </div>
 
-                    {/* Export Button - Only enabled when date range is applied */}
-                    <div className="mt-auto pt-3">
+                    {/* Employee Filter in Date Range Section - Only for Admins and Managers */}
+                    {(userRole === 'admin' || userRole === 'manager') && (
+                      <div className="w-full mb-3">
+                        <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Employee (Optional)</label>
+                        <Select
+                          options={employees}
+                          value={selectedEmployeeFilter}
+                          onChange={handleEmployeeFilterChange}
+                          classNamePrefix="react-select"
+                          styles={filterDropdownStyles}
+                          placeholder="Select Employee (Optional)"
+                          isClearable={true}
+                          isSearchable={true}
+                          formatOptionLabel={(option) => (
+                            <div className="flex items-center gap-2">
+                              {option.value === "all" && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              )}
+                              <span>{option.label}</span>
+                            </div>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {/* Submit Button for Date Range */}
+                    <div className="flex gap-2 mt-1">
                       <button
-                        onClick={exportToExcel}
-                        disabled={!fromDate && !toDate}
-                        className={`w-full px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                          !fromDate && !toDate
+                        onClick={handleDateRangeSubmit}
+                        disabled={filterLoading || (!tempFromDate && !tempToDate)}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                          filterLoading || (!tempFromDate && !tempToDate)
                             ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                            : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg hover:shadow-green-200'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-200'
                         }`}
-                        title={!fromDate && !toDate ? "Please select and apply a date range first" : "Export tasks in selected date range"}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Export to Excel {fromDate || toDate ? `(${tasksInSelectedDateRange} tasks)` : ''}
+                        {filterLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Applying...</span>
+                          </>
+                        ) : (
+                          'Apply Date Range'
+                        )}
                       </button>
-                      {(!fromDate && !toDate) && (
-                        <p className="text-xs text-amber-600 mt-1 text-center">
-                          Select and apply a date range to export
-                        </p>
+                      {(tempFromDate || tempToDate) && (
+                        <button
+                          onClick={() => {
+                            setTempFromDate('');
+                            setTempToDate('');
+                          }}
+                          className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-semibold transition-all"
+                        >
+                          Clear
+                        </button>
                       )}
                     </div>
+
+                    {/* Export Button - Visible when date range is applied */}
+                    {dateFilterApplied && (
+                      <div className="mt-4 pt-3 border-t border-blue-200">
+                        <button
+                          onClick={exportToExcel}
+                          className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all bg-green-600 hover:bg-green-700 text-white hover:shadow-lg hover:shadow-green-200"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Export to Excel ({activeTasksCount} tasks)
+                        </button>
+                        <p className="text-xs text-green-600 mt-1 text-center">
+                          Exporting tasks from selected date range
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
               
               <div className="px-4 py-2 bg-blue-100/50 border-t border-blue-200">
                 <p className="text-sm text-blue-600">
-                  Showing {filteredTasksCount} of {totalTasksCount} total tasks
-                  {fromDate || toDate ? ` (${tasksInSelectedDateRange} in selected date range)` : ''}
+                  Showing {filteredTasksCount} of {activeTasksCount} active tasks
+                  {dateFilterApplied ? ' (filtered by date range)' : ''}
                 </p>
               </div>
             </div>
@@ -1513,7 +1719,7 @@ const Tasksheet = () => {
               </div>
             ) : (
               <>
-                {/* Desktop Table - Keep existing table code */}
+                {/* Desktop Table */}
                 <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -1753,7 +1959,7 @@ const Tasksheet = () => {
                   </table>
                 </div>
 
-                {/* Mobile Cards - Keep existing mobile cards code */}
+                {/* Mobile Cards */}
                 <div className="block lg:hidden space-y-4">
                   {currentTasks.slice(0, 10).map((task) => {
                     const isAssigned = isUserAssignedToTask(task);
