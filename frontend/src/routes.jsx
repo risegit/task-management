@@ -30,6 +30,7 @@ import EditTask from "@/pages/dashboard/task-management/edit-task";
 import Profile from "@/pages/dashboard/profile";
 import OthersActivities from "@/pages/dashboard/otheractivities";
 import OthersActivitiesDepartment from "@/pages/dashboard/otheractivitiesdepartment";
+import ViewReport from "@/pages/dashboard/reports/task-sheet";
 
 import Adddept from "@/pages/dashboard/department/add-deptartment";
 import Managedept from "@/pages/dashboard/department/manage-department";
@@ -211,6 +212,17 @@ const routes = [
             element: (
               <RoleProtectedRoute
                 element={<Viewtask />}
+                allowedRoles={["admin", "staff", "manager"]}
+              />
+            ),
+          },
+           {
+            name: "Reports",
+            path: "/task-management/task-sheet",
+            allowedRoles: ["admin", "staff", "manager"],
+            element: (
+              <RoleProtectedRoute
+                element={<ViewReport />}
                 allowedRoles={["admin", "staff", "manager"]}
               />
             ),
