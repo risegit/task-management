@@ -16,3 +16,4 @@ export * from "@/pages/dashboard/projects/manage-projects";
 export * from "@/pages/dashboard/projects/edit-project";
 export * from "@/pages/dashboard/task-management/edittask";
 export * from "@/pages/dashboard/reports/task-sheet";
+export * from "@/pages/dashboard/work-load/work-load";
