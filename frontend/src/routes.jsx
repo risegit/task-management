@@ -12,7 +12,8 @@ import {
   BuildingOfficeIcon,
   ClipboardDocumentCheckIcon,
   UserGroupIcon,
-  SpeakerWaveIcon
+  SpeakerWaveIcon,
+  ChartBarIcon 
 } from "@heroicons/react/24/solid";
 
 import {
@@ -39,6 +40,7 @@ import Addproject from "@/pages/dashboard/projects/add-project";
 import Manageprojects from "@/pages/dashboard/projects/manage-projects";
 import Editproject from "@/pages/dashboard/projects/edit-project";
 import EditTaskComment from "@/pages/dashboard/task-management/edittask";
+import WorkLoad from "@/pages/dashboard/work-load/work-load";
 
 
 import { SignIn, SignUp } from "@/pages/auth";
@@ -253,6 +255,19 @@ const routes = [
           },
         ],
       },
+        {
+            name: "Edit Task Comment",
+            path: "/task-management/edittask/:id",
+            hidden: true,
+            allowedRoles: ["admin", "manager", "staff"],
+            element: (
+              <RoleProtectedRoute
+                element={<EditTaskComment />}
+                allowedRoles={["admin", "manager", "staff"]}
+              />
+            ),
+          },
+
       // {
       //   icon: <SpeakerWaveIcon {...icon} />,
       //   name: "Announcements",
@@ -277,6 +292,18 @@ const routes = [
       //     />
       //   ),
       // },
+       {
+        icon: <ChartBarIcon {...icon} />,
+        name: "Work Load",
+        path: "/work-load",
+        allowedRoles: ["admin", "staff", "manager"],
+        element: (
+          <RoleProtectedRoute
+            element={<WorkLoad />}
+            allowedRoles={["admin", "staff", "manager"]}
+          />
+        ),
+      },
       {
         icon: <IdentificationIcon {...icon} />,
         name: "Profile",
