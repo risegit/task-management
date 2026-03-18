@@ -383,7 +383,7 @@ const Home = () => {
                   filterBy: "employee",
                   employeeName: task.name,
                   employeeId: task.user_id,
-                  statusFilter: getStatusFilter(statusType),
+                  // statusFilter: getStatusFilter(statusType),
                   // deadlineFilter: "currentAndFuture"
                 }}
                 className="block"
