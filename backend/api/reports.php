@@ -176,9 +176,9 @@ switch ($method) {
             $task_filter = $_GET['task_filter'] ?? null;
             $dept_id = $_GET['dept_id'] ?? null;
             $emp_id = $_GET['emp_id'] ?? null;
-            $one_month = date('Y-m-d', strtotime('-30 days'));
-            if(!empty($one_month)){
-                $fromDate = $one_month;
+            $week = date('Y-m-d', strtotime('-7 days'));
+            if(!empty($week)){
+                $fromDate = $week;
                 $toDate = date('Y-m-d');
             }else{
                 $fromDate = $_GET['from_date'] ?? null;
@@ -186,34 +186,14 @@ switch ($method) {
             
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {
-                    // $taskStatusCond = "MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END)";
-                    $sqlDept = "SELECT * FROM client_users cu INNER JOIN users u ON u.id=cu.emp_id WHERE u.id='$userId' and cu.is_poc=1";
-                    $resultPOC = $conn->query($sqlDept);
-                    
-                    if($resultPOC->num_rows > 0){
-                        $taskStatusCond = "CASE WHEN t.created_by = '$userId' THEN CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END WHEN MAX(CASE WHEN ta.user_id = '$userId' THEN 1 ELSE 0 END) = 1 THEN MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END) ELSE CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END END";
-
-                        $whereClause = "LEFT JOIN client_users cu ON cu.client_id = t.client_id AND cu.emp_id = '$userId' AND cu.is_poc = 1 WHERE ( t.created_by = '$userId' OR ta.user_id = '$userId' OR cu.emp_id IS NOT NULL )";
-                    }else{
-                        $taskStatusCond = "CASE WHEN t.created_by = '$userId' THEN CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END ELSE MAX(CASE WHEN ta.user_id = '$userId' THEN ta.status END) END";
-                        $whereClause = "WHERE t.id IN (SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id WHERE t2.created_by = '$userId' OR ta2.user_id = '$userId')";
-                    }
                 } 
                 elseif (str_starts_with($userCode, 'MN')) {
-                    $sqlDept = "SELECT d.id dept_id,d.name,u.id,u.name from users u INNER JOIN departments d ON d.id=u.department_id WHERE u.id='$userId'";
-                    $resultDept = $conn->query($sqlDept);
-                    $deptData = $resultDept->fetch_assoc();
-                    $deptId=$deptData['dept_id'];
-                    $taskStatusCond = "GROUP_CONCAT(DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ') AS assigned_to_departments, CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
-                    // $whereClause = "WHERE ( cb.department_id = '$deptId' OR EXISTS ( SELECT 1 FROM task_assignees ta2 INNER JOIN users u2 ON ta2.user_id = u2.id WHERE ta2.task_id = t.id AND u2.department_id = '$deptId' ) )";
-                    $whereClause = "LEFT JOIN client_users cu ON cu.client_id = t.client_id AND cu.emp_id = '$userId' AND cu.is_poc = 1 WHERE (cb.department_id = '$deptId' OR EXISTS ( SELECT 1 FROM task_assignees ta2 INNER JOIN users u2 ON ta2.user_id = u2.id WHERE ta2.task_id = t.id AND u2.department_id = '$deptId' )  OR cu.emp_id IS NOT NULL )";
                 } 
                 elseif (str_starts_with($userCode, 'AD')) {
-                    $taskStatusCond = "CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
                     $whereClause = 'WHERE t.created_date BETWEEN \'' . $fromDate . '\' AND \'' . $toDate . '\'';
                 }
             }
-            $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, t.created_date, t.created_time, ta.updated_date, ta.updated_time, cb.name AS assigned_by_name, GROUP_CONCAT( DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ' ) AS assigned_to_ids, GROUP_CONCAT( DISTINCT CONCAT(u.name, '||', d.color_code) ORDER BY u.name SEPARATOR ', ' ) AS assigned_to_names, ta.time, GROUP_CONCAT( DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ' ) AS assigned_to_departments, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY t.id ORDER BY t.id DESC";
+            $sql1 = "SELECT u.id AS user_id, u.name AS employee_name, d.id AS department_id, d.name AS department_name, COUNT(DISTINCT t.id) AS total_tasks, SUM(CASE WHEN ta.status = 'not-acknowledge' THEN 1 ELSE 0 END) AS not_ack_count, SUM(CASE WHEN ta.status = 'acknowledge' THEN 1 ELSE 0 END) AS ack_count, SUM(CASE WHEN ta.status = 'in-progress' THEN 1 ELSE 0 END) AS in_progress_count FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY u.id, d.id ORDER BY total_tasks DESC;";
 
             // echo json_encode(["status" => "success","query" => $sql1]);
             $result = $conn->query($sql1);
