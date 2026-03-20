@@ -10,7 +10,7 @@ const EmployeeTaskSheet = () => {
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "totalWork", direction: "descending" });
+  const [sortConfig, setSortConfig] = useState({ key: "total_tasks", direction: "descending" });
   
   // Temporary filter states
   const [tempTaskFilter, setTempTaskFilter] = useState(null);
@@ -39,10 +39,10 @@ const EmployeeTaskSheet = () => {
 
   const workloadFilterOptions = [
     { value: "all", label: "All Workloads", color: "#6b7280" },
-    { value: "overloaded", label: "Overloaded (>8 tasks)", color: "#ef4444" },
-    { value: "high", label: "High (6-8 tasks)", color: "#f59e0b" },
-    { value: "medium", label: "Medium (3-5 tasks)", color: "#3b82f6" },
-    { value: "low", label: "Low (1-2 tasks)", color: "#10b981" },
+    { value: "overloaded", label: "Overloaded (>20 tasks)", color: "#ef4444" },
+    { value: "high", label: "High (11-20 tasks)", color: "#f59e0b" },
+    { value: "medium", label: "Medium (6-10 tasks)", color: "#3b82f6" },
+    { value: "low", label: "Low (1-5 tasks)", color: "#10b981" },
     { value: "idle", label: "Idle (0 tasks)", color: "#6b7280" },
   ];
 
@@ -55,17 +55,18 @@ const EmployeeTaskSheet = () => {
 
   // Helper function to get workload category
   const getWorkloadCategory = (totalTasks) => {
-    if (totalTasks === 0) return { label: "Idle", color: "#6b7280", bg: "bg-gray-100" };
-    if (totalTasks <= 5) return { label: "Low", color: "#10b981", bg: "bg-green-100" };
-    if (totalTasks <= 10) return { label: "Medium", color: "#3b82f6", bg: "bg-blue-100" };
-    if (totalTasks <= 20) return { label: "High", color: "#f59e0b", bg: "bg-amber-100" };
+    const tasks = parseInt(totalTasks) || 0;
+    if (tasks === 0) return { label: "Idle", color: "#6b7280", bg: "bg-gray-100" };
+    if (tasks <= 5) return { label: "Low", color: "#10b981", bg: "bg-green-100" };
+    if (tasks <= 10) return { label: "Medium", color: "#3b82f6", bg: "bg-blue-100" };
+    if (tasks <= 20) return { label: "High", color: "#f59e0b", bg: "bg-amber-100" };
     return { label: "Overloaded", color: "#ef4444", bg: "bg-red-100" };
   };
 
   // Helper function to get workload percentage for progress bar
   const getWorkloadPercentage = (totalTasks) => {
     const maxTasks = 30; // Consider 30 tasks as 100% workload
-    const percentage = Math.min((totalTasks / maxTasks) * 100, 100);
+    const percentage = Math.min((parseInt(totalTasks) / maxTasks) * 100, 100);
     return percentage;
   };
 
@@ -172,21 +173,22 @@ const EmployeeTaskSheet = () => {
       );
 
       const result = response.data;
+      console.log("API Response:", result);
       
-      if (result.status === "success") {
+      if (result.status === "success" && result.data) {
         // Transform the data with additional calculated fields
         const transformedData = result.data.map(item => ({
-          id: item.employee_id,
+          id: item.user_id,
           empName: item.employee_name || 'Unknown',
           deptName: item.department_name || 'No Department',
-          notAcknowledge: parseInt(item.not_acknowledge_count) || 0,
-          acknowledge: parseInt(item.acknowledge_count) || 0,
+          notAcknowledge: parseInt(item.not_ack_count) || 0,
+          acknowledge: parseInt(item.ack_count) || 0,
           inprogress: parseInt(item.in_progress_count) || 0,
           totalWork: parseInt(item.total_tasks) || 0,
           completionRate: item.total_tasks > 0 
-            ? Math.round(((parseInt(item.acknowledge_count) + parseInt(item.in_progress_count)) / parseInt(item.total_tasks)) * 100) 
+            ? Math.round(((parseInt(item.ack_count) + parseInt(item.in_progress_count)) / parseInt(item.total_tasks)) * 100) 
             : 0,
-          pendingTasks: parseInt(item.not_acknowledge_count) || 0,
+          pendingTasks: parseInt(item.not_ack_count) || 0,
           workloadCategory: getWorkloadCategory(parseInt(item.total_tasks) || 0),
           workloadPercentage: getWorkloadPercentage(parseInt(item.total_tasks) || 0)
         }));
@@ -194,12 +196,12 @@ const EmployeeTaskSheet = () => {
         setEmployeeData(transformedData);
         
         // Set employees for dropdown from the response
-        if (result.employees) {
+        if (result.data && result.data.length > 0) {
           const empOptions = [
             { value: "all", label: "All Employees", color: "#3b82f6" },
-            ...result.employees.map(emp => ({
-              value: emp.id,
-              label: emp.name,
+            ...result.data.map(emp => ({
+              value: emp.user_id,
+              label: emp.employee_name,
               color: "#10b981"
             }))
           ];
@@ -242,7 +244,7 @@ const EmployeeTaskSheet = () => {
     }
     
     // Apply workload category filter
-    if (tempTaskFilter) {
+    if (tempTaskFilter && workloadFilterOptions.some(opt => opt.value === tempTaskFilter.value)) {
       switch(tempTaskFilter.value) {
         case "overloaded":
           data = data.filter(item => item.totalWork > 20);
@@ -504,7 +506,7 @@ const EmployeeTaskSheet = () => {
                   />
                 </div>
 
-                {/* Department Dropdown - Now populated from department.php API */}
+                {/* Department Dropdown */}
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Department</label>
                   <Select
@@ -514,7 +516,7 @@ const EmployeeTaskSheet = () => {
                     styles={dropdownStyles}
                     placeholder="Select Department"
                     isClearable={true}
-                    isLoading={departments.length === 0} // Show loading state if no departments
+                    isLoading={departments.length === 0}
                   />
                 </div>
 
@@ -643,127 +645,127 @@ const EmployeeTaskSheet = () => {
                       </th>
                     </tr>
                   </thead>
-                 <tbody>
-                  {currentItems.map((item, index) => {
-                    const workloadCategory = getWorkloadCategory(item.totalWork);
+                  <tbody>
+                    {currentItems.map((item, index) => {
+                      const workloadCategory = getWorkloadCategory(item.totalWork);
 
-                    return (
-                      <tr
-                        key={item.id || index}
-                        className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200"
-                      >
-                        {/* Employee */}
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
-                              {item.empName ? item.empName.charAt(0).toUpperCase() : "E"}
+                      return (
+                        <tr
+                          key={item.id || index}
+                          className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200"
+                        >
+                          {/* Employee */}
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
+                                {item.empName ? item.empName.charAt(0).toUpperCase() : "E"}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-slate-900 block">
+                                  {item.empName}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  {item.deptName}
+                                </span>
+                              </div>
                             </div>
-                            <div>
-                              <span className="font-semibold text-slate-900 block">
-                                {item.empName}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {item.deptName}
-                              </span>
+                          </td>
+
+                          {/* Not Ack */}
+                          <td className="py-4 px-4 text-center">
+                            <div className="flex flex-col items-center">
+                              <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-red-50 border border-red-200 shadow-sm">
+                                <span className="text-red-600 font-bold text-sm">
+                                  {item.notAcknowledge}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Not Ack */}
-                        <td className="py-4 px-4 text-center">
-                          <div className="flex flex-col items-center">
-                            <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-red-50 border border-red-200 shadow-sm">
-                              <span className="text-red-600 font-bold text-sm">
-                                {item.notAcknowledge}
-                              </span>
+                          {/* Ack */}
+                          <td className="py-4 px-4 text-center">
+                            <div className="flex flex-col items-center">
+                              <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-blue-50 border border-blue-200 shadow-sm">
+                                <span className="text-blue-600 font-bold text-sm">
+                                  {item.acknowledge}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Ack */}
-                        <td className="py-4 px-4 text-center">
-                          <div className="flex flex-col items-center">
-                            <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-blue-50 border border-blue-200 shadow-sm">
-                              <span className="text-blue-600 font-bold text-sm">
-                                {item.acknowledge}
-                              </span>
+                          {/* In Progress */}
+                          <td className="py-4 px-4 text-center">
+                            <div className="flex flex-col items-center">
+                              <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 shadow-sm">
+                                <span className="text-amber-600 font-bold text-sm">
+                                  {item.inprogress}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* In Progress */}
-                        <td className="py-4 px-4 text-center">
-                          <div className="flex flex-col items-center">
-                            <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 shadow-sm">
-                              <span className="text-amber-600 font-bold text-sm">
-                                {item.inprogress}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Total Work */}
-                        <td className="py-4 px-4 text-center">
-                          <div className="flex flex-col items-center">
-                            <div
-                              className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-md ${workloadCategory.bg}`}
-                            >
-                              <span
-                                className="font-bold text-base"
-                                style={{ color: workloadCategory.color }}
-                              >
-                                {item.totalWork}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Workload Status */}
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="px-3 py-1.5 rounded-full text-xs font-semibold"
-                              style={{
-                                backgroundColor: workloadCategory.color + "20",
-                                color: workloadCategory.color,
-                                border: `1px solid ${workloadCategory.color}40`,
-                              }}
-                            >
-                              {workloadCategory.label}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Progress */}
-                        <td className="py-4 px-4">
-                          <div className="w-36">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-slate-500">
-                                Completion
-                              </span>
-                              <span
-                                className="text-xs font-semibold"
-                                style={{ color: workloadCategory.color }}
-                              >
-                                {item.completionRate}%
-                              </span>
-                            </div>
-
-                            <div className="w-full bg-slate-200 rounded-full h-2">
+                          {/* Total Work */}
+                          <td className="py-4 px-4 text-center">
+                            <div className="flex flex-col items-center">
                               <div
-                                className="h-2 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${item.completionRate}%`,
-                                  backgroundColor: workloadCategory.color,
-                                }}
-                              />
+                                className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-md ${workloadCategory.bg}`}
+                              >
+                                <span
+                                  className="font-bold text-base"
+                                  style={{ color: workloadCategory.color }}
+                                >
+                                  {item.totalWork}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
+                          </td>
+
+                          {/* Workload Status */}
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                                style={{
+                                  backgroundColor: workloadCategory.color + "20",
+                                  color: workloadCategory.color,
+                                  border: `1px solid ${workloadCategory.color}40`,
+                                }}
+                              >
+                                {workloadCategory.label}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Progress */}
+                          <td className="py-4 px-4">
+                            <div className="w-36">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-slate-500">
+                                  Completion
+                                </span>
+                                <span
+                                  className="text-xs font-semibold"
+                                  style={{ color: workloadCategory.color }}
+                                >
+                                  {item.completionRate}%
+                                </span>
+                              </div>
+
+                              <div className="w-full bg-slate-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{
+                                    width: `${item.completionRate}%`,
+                                    backgroundColor: workloadCategory.color,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
                 </table>
               </div>
             )}
