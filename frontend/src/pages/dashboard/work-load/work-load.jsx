@@ -39,10 +39,10 @@ const EmployeeTaskSheet = () => {
 
   const workloadFilterOptions = [
     { value: "all", label: "All Workloads", color: "#6b7280" },
-    { value: "overloaded", label: "Overloaded (>20 tasks)", color: "#ef4444" },
-    { value: "high", label: "High (11-20 tasks)", color: "#f59e0b" },
-    { value: "medium", label: "Medium (6-10 tasks)", color: "#3b82f6" },
-    { value: "low", label: "Low (1-5 tasks)", color: "#10b981" },
+    { value: "overloaded", label: "Overloaded (>8 tasks)", color: "#ef4444" },
+    { value: "high", label: "High (6-8 tasks)", color: "#f59e0b" },
+    { value: "medium", label: "Medium (3-5 tasks)", color: "#3b82f6" },
+    { value: "low", label: "Low (1-2 tasks)", color: "#10b981" },
     { value: "idle", label: "Idle (0 tasks)", color: "#6b7280" },
   ];
 
@@ -114,18 +114,54 @@ const EmployeeTaskSheet = () => {
     setCurrentPage(1);
   };
 
+  // Fetch departments from department.php API
+  const fetchDepartments = async () => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/department.php`,
+        {
+          params: {
+            // id: userId,
+            // user_code: userCode
+          }
+        }
+      );
+
+      const result = response.data;
+      
+      if (result.status === "success" && result.data) {
+        const deptOptions = [
+          { value: "all", label: "All Departments", color: "#3b82f6" },
+          ...result.data.map(dept => ({
+            value: dept.id,
+            label: dept.name,
+            color: "#6b7280"
+          }))
+        ];
+        setDepartments(deptOptions);
+      } else {
+        // Fallback to empty array with "All Departments"
+        setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+      }
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      // Fallback to empty array with "All Departments"
+      setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+    }
+  };
+
   // Fetch data
   const fetchEmployeeTaskData = async () => {
     if (!userId || !userCode) return;
     
     try {
-      setFilterLoading(true);
+      setFilterLoading(true); 
       
       const params = {
-        user_id: userId,
+        id: userId,
         user_code: userCode,
-        view_employee_task_sheet: true,
-        task_filter: appliedTaskFilter?.value || 'all',
+        work_load_data: true,
+        task_filter: appliedTaskFilter?.value || 'one_month',
         dept_id: appliedDeptFilter?.value || '',
         employee_id: appliedEmployeeFilter?.value || ''
       };
@@ -157,20 +193,7 @@ const EmployeeTaskSheet = () => {
         
         setEmployeeData(transformedData);
         
-        // Set departments for dropdown
-        if (result.departments) {
-          const deptOptions = [
-            { value: "all", label: "All Departments", color: "#3b82f6" },
-            ...result.departments.map(dept => ({
-              value: dept.id,
-              label: dept.name,
-              color: "#6b7280"
-            }))
-          ];
-          setDepartments(deptOptions);
-        }
-        
-        // Set employees for dropdown
+        // Set employees for dropdown from the response
         if (result.employees) {
           const empOptions = [
             { value: "all", label: "All Employees", color: "#3b82f6" },
@@ -194,9 +217,14 @@ const EmployeeTaskSheet = () => {
     }
   };
 
-  // Initial data fetch
+  // Initial data fetch - fetch departments and employee task data
   useEffect(() => {
-    fetchEmployeeTaskData();
+    if (userId && userCode) {
+      // Fetch departments first
+      fetchDepartments();
+      // Then fetch employee task data
+      fetchEmployeeTaskData();
+    }
   }, [userId, userCode]);
 
   // Filter and sort data
@@ -476,7 +504,7 @@ const EmployeeTaskSheet = () => {
                   />
                 </div>
 
-                {/* Department Dropdown */}
+                {/* Department Dropdown - Now populated from department.php API */}
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Department</label>
                   <Select
@@ -486,6 +514,7 @@ const EmployeeTaskSheet = () => {
                     styles={dropdownStyles}
                     placeholder="Select Department"
                     isClearable={true}
+                    isLoading={departments.length === 0} // Show loading state if no departments
                   />
                 </div>
 
@@ -614,94 +643,127 @@ const EmployeeTaskSheet = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {currentItems.map((item, index) => {
-                      const workloadCategory = getWorkloadCategory(item.totalWork);
-                      return (
-                        <tr 
-                          key={item.id || index} 
-                          className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200"
-                        >
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-semibold">
-                                {item.empName ? item.empName.charAt(0).toUpperCase() : 'E'}
-                              </div>
-                              <div>
-                                <span className="font-semibold text-slate-900 block">
-                                  {item.empName}
-                                </span>
-                                <span className="text-sm text-slate-500">
-                                  {item.deptName}
-                                </span>
-                              </div>
+                 <tbody>
+                  {currentItems.map((item, index) => {
+                    const workloadCategory = getWorkloadCategory(item.totalWork);
+
+                    return (
+                      <tr
+                        key={item.id || index}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200"
+                      >
+                        {/* Employee */}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
+                              {item.empName ? item.empName.charAt(0).toUpperCase() : "E"}
                             </div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <span className={`px-3 py-1.5 rounded-lg font-semibold ${
-                              item.notAcknowledge > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'
-                            }`}>
-                              {item.notAcknowledge}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <span className={`px-3 py-1.5 rounded-lg font-semibold ${
-                              item.acknowledge > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
-                            }`}>
-                              {item.acknowledge}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <span className={`px-3 py-1.5 rounded-lg font-semibold ${
-                              item.inprogress > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                            }`}>
-                              {item.inprogress}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <span className={`px-4 py-1.5 rounded-lg font-bold text-lg ${
-                              workloadCategory.bg
-                            }`} style={{ color: workloadCategory.color }}>
-                              {item.totalWork}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <span 
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                                style={{
-                                  backgroundColor: workloadCategory.color + '20',
-                                  color: workloadCategory.color,
-                                  border: `1px solid ${workloadCategory.color}40`
-                                }}
-                              >
-                                {workloadCategory.label}
+                            <div>
+                              <span className="font-semibold text-slate-900 block">
+                                {item.empName}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {item.deptName}
                               </span>
                             </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="w-32">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-slate-500">Completion</span>
-                                <span className="text-xs font-semibold" style={{ color: workloadCategory.color }}>
-                                  {item.completionRate}%
-                                </span>
-                              </div>
-                              <div className="w-full bg-slate-200 rounded-full h-2">
-                                <div 
-                                  className="h-2 rounded-full transition-all duration-300"
-                                  style={{ 
-                                    width: `${item.completionRate}%`,
-                                    backgroundColor: workloadCategory.color
-                                  }}
-                                />
-                              </div>
+                          </div>
+                        </td>
+
+                        {/* Not Ack */}
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center">
+                            <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-red-50 border border-red-200 shadow-sm">
+                              <span className="text-red-600 font-bold text-sm">
+                                {item.notAcknowledge}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
+                          </div>
+                        </td>
+
+                        {/* Ack */}
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center">
+                            <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-blue-50 border border-blue-200 shadow-sm">
+                              <span className="text-blue-600 font-bold text-sm">
+                                {item.acknowledge}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* In Progress */}
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center">
+                            <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 shadow-sm">
+                              <span className="text-amber-600 font-bold text-sm">
+                                {item.inprogress}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Total Work */}
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center">
+                            <div
+                              className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-md ${workloadCategory.bg}`}
+                            >
+                              <span
+                                className="font-bold text-base"
+                                style={{ color: workloadCategory.color }}
+                              >
+                                {item.totalWork}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Workload Status */}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                              style={{
+                                backgroundColor: workloadCategory.color + "20",
+                                color: workloadCategory.color,
+                                border: `1px solid ${workloadCategory.color}40`,
+                              }}
+                            >
+                              {workloadCategory.label}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Progress */}
+                        <td className="py-4 px-4">
+                          <div className="w-36">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-slate-500">
+                                Completion
+                              </span>
+                              <span
+                                className="text-xs font-semibold"
+                                style={{ color: workloadCategory.color }}
+                              >
+                                {item.completionRate}%
+                              </span>
+                            </div>
+
+                            <div className="w-full bg-slate-200 rounded-full h-2">
+                              <div
+                                className="h-2 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${item.completionRate}%`,
+                                  backgroundColor: workloadCategory.color,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
                 </table>
               </div>
             )}

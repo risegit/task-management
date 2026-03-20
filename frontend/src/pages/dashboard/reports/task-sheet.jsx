@@ -711,7 +711,7 @@ const handleDateRangeSubmit = async () => {
         }
         
         // Fetch tasks with all parameters
-        const tasksResponse = await axios.get(`${import.meta.env.VITE_API_URL}api/task-management.php`, {
+        const tasksResponse = await axios.get(`${import.meta.env.VITE_API_URL}api/reports.php`, {
           params: params
         });
         
