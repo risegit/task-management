@@ -170,7 +170,7 @@ const EmployeeTaskSheet = () => {
         work_load_data: true,
         from_date: fromDate,
         to_date: toDate,
-        employee_id: employeeFilter?.value || ''
+        // employee_id: employeeFilter?.value || ''
       };
 
       console.log("Sending date range params to API:", params);
@@ -407,13 +407,15 @@ const EmployeeTaskSheet = () => {
     
     try {
       setFilterLoading(true);
-      
+      const today = new Date().toLocaleDateString('en-CA', {
+  timeZone: 'Asia/Kolkata',
+});
       const params = {
         id: userId,
         user_code: userCode,
         work_load_data: true,
-        task_filter: appliedPeriodFilter?.value || 'today',
-        dept_id: appliedDeptFilter?.value || '',
+        from_date: today,
+        to_date: today,
       };
 
       if (appliedTaskFilter?.value && appliedTaskFilter.value !== 'all') {
@@ -521,13 +523,13 @@ const EmployeeTaskSheet = () => {
           data = data.filter(item => item.totalWork > 7);
           break;
         case "high":
-          data = data.filter(item => item.totalWork > 6 && item.totalWork <= 7);
+          data = data.filter(item => item.totalWork > 5 && item.totalWork < 8);
           break;
         case "medium":
-          data = data.filter(item => item.totalWork > 5 && item.totalWork <= 6);
+          data = data.filter(item => item.totalWork > 4 && item.totalWork < 7);
           break;
         case "low":
-          data = data.filter(item => item.totalWork > 3 && item.totalWork <= 4);
+          data = data.filter(item => item.totalWork > 2 && item.totalWork < 5);
           break;
         case "idle":
           data = data.filter(item => item.totalWork <= 2);
@@ -629,7 +631,8 @@ const EmployeeTaskSheet = () => {
     setSelectedEmployeeDateFilter(null);
     setCurrentPage(1);
     
-    await fetchEmployeeTaskDataWithFilters(appliedPeriodFilter, appliedTaskFilter, appliedDeptFilter, appliedEmployeeFilter);
+    // await fetchEmployeeTaskDataWithFilters(appliedPeriodFilter, appliedTaskFilter, appliedDeptFilter, appliedEmployeeFilter);
+    await fetchEmployeeTaskData();
   };
 
   // Clear right column filters (Workload, Department, Employee)
@@ -900,7 +903,7 @@ const EmployeeTaskSheet = () => {
                   </div>
 
                   {/* Employee Filter in Date Range Section */}
-                  {(userRole === 'admin' || userRole === 'manager') && (
+                  {/* {(userRole === 'admin' || userRole === 'manager') && (
                     <div className="w-full mb-3">
                       <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Employee (Date Range)</label>
                       <Select
@@ -923,7 +926,7 @@ const EmployeeTaskSheet = () => {
                         )}
                       />
                     </div>
-                  )}
+                  )} */}
 
                   {/* Submit Button for Date Range */}
                   <div className="flex gap-2 mt-1">
@@ -968,7 +971,7 @@ const EmployeeTaskSheet = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Export to Excel ({activeTasksCount} tasks)
+                        Export to Excel ({filteredAndSortedData.length})
                       </button>
                       <p className="text-xs text-green-600 mt-1 text-center">
                         Exporting tasks from selected date range
@@ -986,7 +989,7 @@ const EmployeeTaskSheet = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16v-8m0 8l-4-4m4 4l4-4M4 20h16" />
                         </svg>
-                        Export to Excel ({filteredAndSortedData.length} tasks)
+                        Export to Excel ({filteredAndSortedData.length})
                       </button>
                     </div>
                   )}

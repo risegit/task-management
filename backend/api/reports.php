@@ -180,30 +180,29 @@ switch ($method) {
             echo json_encode(["status" => "success","data" => $data, "query" => $sql1, "userId" => $userId, 'empId' => $empId]);
 
         }else if($work_load_data){
-            $task_filter = $_GET['task_filter'] ?? null;
-            $dept_id = $_GET['dept_id'] ?? null;
-            $emp_id = $_GET['emp_id'] ?? null;
-            $days = date('Y-m-d');
-            if($task_filter === 'today'){
-                $days = date('Y-m-d');
-            }else if($task_filter === 'week'){
-                $days = date('Y-m-d', strtotime('-6 days'));
-            }else if($task_filter === 'month'){
-                $days = date('Y-m-d', strtotime('-29 days'));
-            }else if($task_filter === 'all'){
-                $days = date('Y-m-d', strtotime('-364 days'));
-            }           
+            $fromDate = $_GET['from_date'] ?? null;
+            $toDate = $_GET['to_date'] ?? null;
+            // $task_filter = $_GET['task_filter'] ?? null;
+            // $dept_id = $_GET['dept_id'] ?? null;
+            // $emp_id = $_GET['emp_id'] ?? null;
+            // $days = date('Y-m-d');
+            // if($task_filter === 'today'){
+            //     $days = date('Y-m-d');
+            // }else if($task_filter === 'week'){
+            //     $days = date('Y-m-d', strtotime('-6 days'));
+            // }else if($task_filter === 'month'){
+            //     $days = date('Y-m-d', strtotime('-29 days'));
+            // }else if($task_filter === 'all'){
+            //     $days = date('Y-m-d', strtotime('-364 days'));
+            // }           
             // $today = date('Y-m-d', strtotime('-1 days'));
-            if(!empty($task_filter) && $task_filter !== 'all'){
-                $fromDate = $days;
-                $toDate = date('Y-m-d');
-                
-                // echo json_encode(["status" => "success","if" => 'if']);
-            }else{
-                $fromDate = $days;
-                $toDate = date('Y-m-d');
-                // echo json_encode(["status" => "success","else" => 'else', "days" => $days]);
-            }
+            // if(!empty($task_filter) && $task_filter !== 'all'){
+            //     $fromDate = $days;
+            //     $toDate = date('Y-m-d');
+            // }else{
+            //     $fromDate = $days;
+            //     $toDate = date('Y-m-d');
+            // }
             
             if (!empty($userCode)) {
                 if (str_starts_with($userCode, 'ST')) {

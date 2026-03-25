@@ -218,17 +218,17 @@ const routes = [
               />
             ),
           },
-           {
-            name: "Reports",
-            path: "/task-management/task-sheet",
-            allowedRoles: ["admin", "staff", "manager"],
-            element: (
-              <RoleProtectedRoute
-                element={<ViewReport />}
-                allowedRoles={["admin", "staff", "manager"]}
-              />
-            ),
-          },
+          //  {
+          //   name: "Reports",
+          //   path: "/task-management/task-sheet",
+          //   allowedRoles: ["admin", "staff", "manager"],
+          //   element: (
+          //     <RoleProtectedRoute
+          //       element={<ViewReport />}
+          //       allowedRoles={["admin", "staff", "manager"]}
+          //     />
+          //   ),
+          // },
           {
             name: "Edit Task",
             path: "/task-management/edit-task/:id",
