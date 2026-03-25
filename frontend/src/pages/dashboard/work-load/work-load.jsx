@@ -18,6 +18,15 @@ const EmployeeTaskSheet = () => {
   const [tempDeptFilter, setTempDeptFilter] = useState(null);
   const [tempEmployeeFilter, setTempEmployeeFilter] = useState(null);
   
+  // Date Range Filter States
+  const [tempFromDate, setTempFromDate] = useState('');
+  const [tempToDate, setTempToDate] = useState('');
+  const [appliedFromDate, setAppliedFromDate] = useState('');
+  const [appliedToDate, setAppliedToDate] = useState('');
+  const [dateFilterApplied, setDateFilterApplied] = useState(false);
+  const [employeesRangeFilter, setEmployeesRangeFilter] = useState([]);
+  const [selectedEmployeeDateFilter, setSelectedEmployeeDateFilter] = useState(null);
+  
   // Applied filter states
   const [appliedPeriodFilter, setAppliedPeriodFilter] = useState(null);
   const [appliedTaskFilter, setAppliedTaskFilter] = useState(null);
@@ -32,8 +41,7 @@ const EmployeeTaskSheet = () => {
   const user = getCurrentUser();
   const userId = user?.id;
   const userCode = user?.user_code;
-
-
+  const userRole = user?.role;
 
   // Filter options
   const taskFilterOptions = [
@@ -49,14 +57,7 @@ const EmployeeTaskSheet = () => {
     { value: "high", label: "High (6-7 tasks)", color: "#f59e0b" },
     { value: "medium", label: "Medium (5-6 tasks)", color: "#3b82f6" },
     { value: "low", label: "Low (3-4 tasks)", color: "#10b981" },
-    { value: "idle", label: "Idle (2 tasks)", color: "#6b7280" },
-  ];
-
-  const paginationSizeOptions = [
-    { value: 10, label: "10 per page" },
-    { value: 25, label: "25 per page" },
-    { value: 50, label: "50 per page" },
-    { value: 100, label: "100 per page" },
+    { value: "idle", label: "Idle (≤2 tasks)", color: "#6b7280" },
   ];
 
   // Helper function to get workload category
@@ -69,9 +70,9 @@ const EmployeeTaskSheet = () => {
     return { label: "Overloaded", color: "#ef4444", bg: "bg-red-100" };
   };
 
-  // Helper function to get workload percentage for progress bar
+  // Helper function to get workload percentage
   const getWorkloadPercentage = (totalTasks) => {
-    const maxTasks = 30; // Consider 30 tasks as 100% workload
+    const maxTasks = 30;
     const percentage = Math.min((parseInt(totalTasks) / maxTasks) * 100, 100);
     return percentage;
   };
@@ -101,33 +102,168 @@ const EmployeeTaskSheet = () => {
     );
   };
 
-  // Handle submit button click
+  // Handle Date Range Submit
+  const handleDateRangeSubmit = async () => {
+    if (tempFromDate && tempToDate) {
+      setAppliedFromDate(tempFromDate);
+      setAppliedToDate(tempToDate);
+      setDateFilterApplied(true);
+      setAppliedPeriodFilter(null);
+      setTempPeriodFilter(null);
+      setCurrentPage(1);
+      await fetchEmployeeTaskDataWithDateRange(tempFromDate, tempToDate, selectedEmployeeDateFilter);
+    }
+  };
+
+  // Handle Date Employee Filter Change
+  const handleDateEmployeeFilterChange = (selected) => {
+    setSelectedEmployeeDateFilter(selected);
+    if (tempFromDate && tempToDate) {
+      fetchEmployeeTaskDataWithDateRange(tempFromDate, tempToDate, selected);
+    }
+  };
+
+  // Handle Temp From Date Change
+  const handleTempFromDateChange = (e) => {
+    setTempFromDate(e.target.value);
+    if (tempToDate && e.target.value > tempToDate) {
+      setTempToDate('');
+    }
+  };
+
+  // Handle Temp To Date Change
+  const handleTempToDateChange = (e) => {
+    setTempToDate(e.target.value);
+  };
+
+  // Handle Workload Category Change (Auto-filter)
+  const handleWorkloadFilterChange = (selected) => {
+    setTempTaskFilter(selected);
+    setAppliedTaskFilter(selected);
+    setCurrentPage(1);
+  };
+
+  // Handle Department Change (Auto-filter)
+  const handleDeptFilterChange = (selected) => {
+    setTempDeptFilter(selected);
+    setAppliedDeptFilter(selected);
+    setCurrentPage(1);
+  };
+
+  // Handle Employee Change (Auto-filter)
+  const handleEmployeeFilterChange = (selected) => {
+    setTempEmployeeFilter(selected);
+    setAppliedEmployeeFilter(selected);
+    setCurrentPage(1);
+  };
+
+  // Function to fetch data with date range
+  const fetchEmployeeTaskDataWithDateRange = async (fromDate, toDate, employeeFilter) => {
+    if (!userId || !userCode) return;
+    
+    try {
+      setFilterLoading(true);
+      
+      const params = {
+        id: userId,
+        user_code: userCode,
+        work_load_data: true,
+        from_date: fromDate,
+        to_date: toDate,
+        employee_id: employeeFilter?.value || ''
+      };
+
+      console.log("Sending date range params to API:", params);
+
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/reports.php`,
+        { params }
+      );
+
+      const result = response.data;
+      console.log("API Response:", result);
+
+      if (result.status === "success" && result.data && result.data.length > 0) {
+        setShowExport(true);
+      } else {
+        setShowExport(false);
+      }
+      
+      if (result.status === "success" && result.data) {
+        const transformedData = result.data.map(item => ({
+          id: item.user_id,
+          empName: item.employee_name || 'Unknown',
+          deptName: item.department_name || 'No Department',
+          deptId: item.department_id,
+          notAcknowledge: parseInt(item.not_ack_count) || 0,
+          acknowledge: parseInt(item.ack_count) || 0,
+          inprogress: parseInt(item.in_progress_count) || 0,
+          totalWork: parseInt(item.total_tasks) || 0,
+          completionRate: item.total_tasks > 0 
+            ? Math.round(((parseInt(item.ack_count) + parseInt(item.in_progress_count)) / parseInt(item.total_tasks)) * 100) 
+            : 0,
+          pendingTasks: parseInt(item.not_ack_count) || 0,
+          workloadCategory: getWorkloadCategory(parseInt(item.total_tasks) || 0),
+          workloadPercentage: getWorkloadPercentage(parseInt(item.total_tasks) || 0)
+        }));
+        
+        setEmployeeData(transformedData);
+        
+        const deptOptions = extractDepartments(result.data);
+        setDepartments(deptOptions);
+        
+        const empOptions = extractEmployees(result.data);
+        setEmployees(empOptions);
+        
+        const empRangeOptions = extractEmployeesForRange(result.data);
+        setEmployeesRangeFilter(empRangeOptions);
+      } else {
+        setEmployeeData([]);
+        setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+        setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+        setEmployeesRangeFilter([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+      }
+    } catch (error) {
+      console.error("Error fetching employee task data with date range:", error);
+      setEmployeeData([]);
+      setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+      setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+      setEmployeesRangeFilter([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+    } finally {
+      setLoading(false);
+      setFilterLoading(false);
+    }
+  };
+
+  // Handle submit button click for quick period filters
   const handleSubmitFilters = async () => {
-    // Get current values
+    // Clear date range filter when applying regular filters
+    setDateFilterApplied(false);
+    setAppliedFromDate('');
+    setAppliedToDate('');
+    setTempFromDate('');
+    setTempToDate('');
+    setSelectedEmployeeDateFilter(null);
+    
     const periodValue = tempPeriodFilter;
     const taskValue = tempTaskFilter;
     const deptValue = tempDeptFilter;
     const employeeValue = tempEmployeeFilter;
     
-    // Update applied filters
     setAppliedPeriodFilter(periodValue);
     setAppliedTaskFilter(taskValue);
     setAppliedDeptFilter(deptValue);
     setAppliedEmployeeFilter(employeeValue);
     setCurrentPage(1);
     
-    // Call API with the new values directly
     await fetchEmployeeTaskDataWithFilters(periodValue, taskValue, deptValue, employeeValue);
   };
 
   // Function to extract unique departments from API response
   const extractDepartments = (data) => {
     const uniqueDepartments = new Map();
-    
-    // Add "All Departments" option
     const deptOptions = [{ value: "all", label: "All Departments", color: "#3b82f6" }];
     
-    // Extract unique departments from the data
     data.forEach(item => {
       if (item.department_name && !uniqueDepartments.has(item.department_name)) {
         uniqueDepartments.set(item.department_name, {
@@ -138,7 +274,6 @@ const EmployeeTaskSheet = () => {
       }
     });
     
-    // Convert Map to array and add to options
     uniqueDepartments.forEach(dept => {
       deptOptions.push(dept);
     });
@@ -149,11 +284,8 @@ const EmployeeTaskSheet = () => {
   // Function to extract unique employees from API response
   const extractEmployees = (data) => {
     const uniqueEmployees = new Map();
-    
-    // Add "All Employees" option
     const empOptions = [{ value: "all", label: "All Employees", color: "#3b82f6" }];
     
-    // Extract unique employees from the data
     data.forEach(item => {
       if (item.employee_name && !uniqueEmployees.has(item.user_id)) {
         uniqueEmployees.set(item.user_id, {
@@ -164,7 +296,28 @@ const EmployeeTaskSheet = () => {
       }
     });
     
-    // Convert Map to array and add to options
+    uniqueEmployees.forEach(emp => {
+      empOptions.push(emp);
+    });
+    
+    return empOptions;
+  };
+
+  // Function to extract unique employees for date range filter
+  const extractEmployeesForRange = (data) => {
+    const uniqueEmployees = new Map();
+    const empOptions = [{ value: "all", label: "All Employees", color: "#3b82f6" }];
+    
+    data.forEach(item => {
+      if (item.employee_name && !uniqueEmployees.has(item.user_id)) {
+        uniqueEmployees.set(item.user_id, {
+          value: item.user_id,
+          label: item.employee_name,
+          color: "#10b981"
+        });
+      }
+    });
+    
     uniqueEmployees.forEach(emp => {
       empOptions.push(emp);
     });
@@ -185,10 +338,8 @@ const EmployeeTaskSheet = () => {
         work_load_data: true,
         task_filter: periodFilter?.value || 'today',
         dept_id: deptFilter?.value || '',
-        // employee_id: employeeFilter?.value || ''
       };
 
-      // Add workload filter only if it has a value and is not 'all'
       if (taskFilter?.value && taskFilter.value !== 'all') {
         params.workload_filter = taskFilter.value;
       }
@@ -210,7 +361,6 @@ const EmployeeTaskSheet = () => {
       }
       
       if (result.status === "success" && result.data) {
-        // Transform the data with additional calculated fields
         const transformedData = result.data.map(item => ({
           id: item.user_id,
           empName: item.employee_name || 'Unknown',
@@ -230,11 +380,9 @@ const EmployeeTaskSheet = () => {
         
         setEmployeeData(transformedData);
         
-        // Extract departments from the API response
         const deptOptions = extractDepartments(result.data);
         setDepartments(deptOptions);
         
-        // Extract employees from the API response
         const empOptions = extractEmployees(result.data);
         setEmployees(empOptions);
       } else {
@@ -253,7 +401,7 @@ const EmployeeTaskSheet = () => {
     }
   };
 
-  // Original fetch function for initial load and when dependencies change
+  // Original fetch function for initial load
   const fetchEmployeeTaskData = async () => {
     if (!userId || !userCode) return;
     
@@ -266,10 +414,8 @@ const EmployeeTaskSheet = () => {
         work_load_data: true,
         task_filter: appliedPeriodFilter?.value || 'today',
         dept_id: appliedDeptFilter?.value || '',
-        employee_id: appliedEmployeeFilter?.value || ''
       };
 
-      // Add workload filter only if it has a value and is not 'all'
       if (appliedTaskFilter?.value && appliedTaskFilter.value !== 'all') {
         params.workload_filter = appliedTaskFilter.value;
       }
@@ -291,7 +437,6 @@ const EmployeeTaskSheet = () => {
       }
       
       if (result.status === "success" && result.data) {
-        // Transform the data with additional calculated fields
         const transformedData = result.data.map(item => ({
           id: item.user_id,
           empName: item.employee_name || 'Unknown',
@@ -311,23 +456,26 @@ const EmployeeTaskSheet = () => {
         
         setEmployeeData(transformedData);
         
-        // Extract departments from the API response
         const deptOptions = extractDepartments(result.data);
         setDepartments(deptOptions);
         
-        // Extract employees from the API response
         const empOptions = extractEmployees(result.data);
         setEmployees(empOptions);
+        
+        const empRangeOptions = extractEmployeesForRange(result.data);
+        setEmployeesRangeFilter(empRangeOptions);
       } else {
         setEmployeeData([]);
         setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
         setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+        setEmployeesRangeFilter([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
       }
     } catch (error) {
       console.error("Error fetching employee task data:", error);
       setEmployeeData([]);
       setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
       setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+      setEmployeesRangeFilter([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
     } finally {
       setLoading(false);
       setFilterLoading(false);
@@ -338,7 +486,6 @@ const EmployeeTaskSheet = () => {
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
-    // setShowExport(false);
   };
 
   const clearSearch = () => {
@@ -450,13 +597,17 @@ const EmployeeTaskSheet = () => {
 
   // Clear all filters
   const clearAllFilters = async () => {
-    // Clear temp states
     setTempPeriodFilter(null);
     setTempTaskFilter(null);
     setTempDeptFilter(null);
     setTempEmployeeFilter(null);
+    setTempFromDate('');
+    setTempToDate('');
+    setAppliedFromDate('');
+    setAppliedToDate('');
+    setDateFilterApplied(false);
+    setSelectedEmployeeDateFilter(null);
     
-    // Clear applied states
     setAppliedPeriodFilter(null);
     setAppliedTaskFilter(null);
     setAppliedDeptFilter(null);
@@ -465,8 +616,31 @@ const EmployeeTaskSheet = () => {
     setCurrentPage(1);
     setShowExport(false);
     
-    // Fetch data with no filters
     await fetchEmployeeTaskDataWithFilters(null, null, null, null);
+  };
+
+  // Clear left column filters (Date Range)
+  const clearLeftColumnFilters = async () => {
+    setTempFromDate('');
+    setTempToDate('');
+    setAppliedFromDate('');
+    setAppliedToDate('');
+    setDateFilterApplied(false);
+    setSelectedEmployeeDateFilter(null);
+    setCurrentPage(1);
+    
+    await fetchEmployeeTaskDataWithFilters(appliedPeriodFilter, appliedTaskFilter, appliedDeptFilter, appliedEmployeeFilter);
+  };
+
+  // Clear right column filters (Workload, Department, Employee)
+  const clearRightColumnFilters = async () => {
+    setTempTaskFilter(null);
+    setTempDeptFilter(null);
+    setTempEmployeeFilter(null);
+    setAppliedTaskFilter(null);
+    setAppliedDeptFilter(null);
+    setAppliedEmployeeFilter(null);
+    setCurrentPage(1);
   };
 
   const handleExport = () => {
@@ -501,7 +675,16 @@ const EmployeeTaskSheet = () => {
   };
 
   // Check if any filter is applied
-  const hasActiveFilters = appliedPeriodFilter || appliedTaskFilter || appliedDeptFilter || appliedEmployeeFilter || searchQuery;
+  const hasActiveFilters = appliedPeriodFilter || appliedTaskFilter || appliedDeptFilter || appliedEmployeeFilter || searchQuery || dateFilterApplied;
+
+  // Check if left column has active filters
+  const hasLeftColumnFilters = dateFilterApplied;
+
+  // Check if right column has active filters
+  const hasRightColumnFilters = appliedTaskFilter || appliedDeptFilter || appliedEmployeeFilter;
+
+  // Calculate active tasks count for export
+  const activeTasksCount = filteredAndSortedData.reduce((total, item) => total + item.totalWork, 0);
 
   // Styles for dropdowns
   const dropdownStyles = {
@@ -512,6 +695,36 @@ const EmployeeTaskSheet = () => {
       padding: '4px 8px',
       backgroundColor: 'white',
       minHeight: '40px',
+      boxShadow: state.isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+      "&:hover": {
+        borderColor: '#94a3b8',
+      },
+      width: '100%',
+    }),
+    menu: (provided) => ({ 
+      ...provided, 
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      marginTop: '4px',
+      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)'
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      padding: '8px 12px',
+      backgroundColor: state.isSelected ? '#e0f2fe' : 'white',
+      color: state.isSelected ? '#0369a1' : state.data.color || '#334155',
+      fontWeight: state.isSelected ? '600' : '500',
+    }),
+  };
+
+  const filterDropdownStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      border: `2px solid ${state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
+      borderRadius: '0.5rem',
+      padding: '2px 4px',
+      backgroundColor: 'white',
+      minHeight: '38px',
       boxShadow: state.isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
       "&:hover": {
         borderColor: '#94a3b8',
@@ -625,128 +838,221 @@ const EmployeeTaskSheet = () => {
           {/* Filters Section */}
           <div className="p-6">
             <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="font-medium text-blue-700 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
                   Filters:
                 </h2>
-                {hasActiveFilters && (
+                {(hasLeftColumnFilters || hasRightColumnFilters || searchQuery) && (
                   <button 
                     onClick={clearAllFilters}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 bg-white rounded-full shadow-sm"
                   >
-                    Clear All
+                    Clear All Filters
                   </button>
                 )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {/* Task Filter Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Time Period</label>
-                  <Select
-                    options={taskFilterOptions}
-                    value={tempPeriodFilter}
-                    onChange={(val) => {
-                      setTempPeriodFilter(val);
-                      setShowExport(false);
-                    }}
-                    styles={dropdownStyles}
-                    placeholder="Select Period"
-                    isClearable={true}
-                  />
-                </div>
-
-                {/* Workload Filter Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Workload Category</label>
-                  <Select
-                    options={workloadFilterOptions}
-                    value={tempTaskFilter}
-                    onChange={(val) => {
-                      setTempTaskFilter(val);
-                      setShowExport(false);
-                    }}
-                    styles={dropdownStyles}
-                    placeholder="Filter by Load"
-                    isClearable={true}
-                  />
-                </div>
-
-                {/* Department Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Department</label>
-                  <Select
-                    options={departments}
-                    value={tempDeptFilter}
-                    onChange={(val) => {
-                      setTempDeptFilter(val);
-                      setShowExport(false);
-                    }}
-                    styles={dropdownStyles}
-                    placeholder="Select Department"
-                    isClearable={true}
-                    isLoading={departments.length === 0}
-                  />
-                </div>
-
-                {/* Employee Dropdown */}
-                {/* <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Employee</label>
-                  <Select
-                    options={employees}
-                    value={tempEmployeeFilter}
-                    onChange={setTempEmployeeFilter}
-                    styles={dropdownStyles}
-                    placeholder="Select Employee"
-                    isClearable={true}
-                  />
-                </div> */}
-
-                {/* Submit Button */}
-                <div className="flex items-end gap-2 w-full">
-                  {/* Apply Filters Button */}
-                  <button
-                    onClick={handleSubmitFilters}
-                    disabled={filterLoading}
-                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                      filterLoading
-                        ? 'bg-blue-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-200'
-                    }`}
-                  >
-                    {filterLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>Applying...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Apply Filters
-                      </>
-                    )}
-                  </button>
-
-                  
-                </div>
-                <div className="flex items-end gap-2 w-full">
-                    {/* Export Button */}
-                  {showExport && (
-                    <button
-                      onClick={handleExport}
-                      className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
-                    >
+              {/* Updated Grid Layout - 2 columns */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Date Range Filter */}
+                <div className="border-r-2 border-blue-200 pr-0 lg:pr-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-medium text-blue-700 flex items-center gap-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16v-8m0 8l-4-4m4 4l4-4M4 20h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      Export to Excel ({filteredAndSortedData.length} tasks)
-                    </button>
+                      Date Range Filter:
+                    </h2>
+                    {hasLeftColumnFilters && (
+                      <button 
+                        onClick={clearLeftColumnFilters}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 bg-white rounded-full shadow-sm"
+                      >
+                        Clear Date Filter
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Date Range Filter Section - From and To Date side by side */}
+                  <div className="flex flex-row gap-2 mb-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        value={tempFromDate}
+                        onChange={handleTempFromDateChange}
+                        className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        value={tempToDate}
+                        onChange={handleTempToDateChange}
+                        min={tempFromDate}
+                        className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Employee Filter in Date Range Section */}
+                  {(userRole === 'admin' || userRole === 'manager') && (
+                    <div className="w-full mb-3">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Employee (Date Range)</label>
+                      <Select
+                        options={employeesRangeFilter}
+                        value={selectedEmployeeDateFilter}
+                        onChange={handleDateEmployeeFilterChange}
+                        classNamePrefix="react-select"
+                        styles={filterDropdownStyles}
+                        placeholder="Select Employee (Optional)"
+                        isClearable={true}
+                        isSearchable={true}
+                        isMulti={false}
+                        formatOptionLabel={(option) => (
+                          <div className="flex items-center gap-2">
+                            {option.value === "all" && (
+                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                            )}
+                            <span>{option.label}</span>
+                          </div>
+                        )}
+                      />
+                    </div>
                   )}
+
+                  {/* Submit Button for Date Range */}
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={handleDateRangeSubmit}
+                      disabled={filterLoading || (!tempFromDate && !tempToDate)}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                        filterLoading || (!tempFromDate && !tempToDate)
+                          ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-200'
+                      }`}
+                    >
+                      {filterLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Applying...</span>
+                        </>
+                      ) : (
+                        'Apply Date Range'
+                      )}
+                    </button>
+                    {(tempFromDate || tempToDate) && (
+                      <button
+                        onClick={() => {
+                          setTempFromDate('');
+                          setTempToDate('');
+                        }}
+                        className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-semibold transition-all"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Export Button - Visible when date range is applied */}
+                  {dateFilterApplied && (
+                    <div className="mt-4 pt-3 border-t border-blue-200">
+                      <button
+                        onClick={handleExport}
+                        className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all bg-green-600 hover:bg-green-700 text-white hover:shadow-lg hover:shadow-green-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export to Excel ({activeTasksCount} tasks)
+                      </button>
+                      <p className="text-xs text-green-600 mt-1 text-center">
+                        Exporting tasks from selected date range
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Regular Export Button (when no date range applied) */}
+                  {showExport && !dateFilterApplied && filteredAndSortedData.length > 0 && (
+                    <div className="mt-3">
+                      <button
+                        onClick={handleExport}
+                        className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-green-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16v-8m0 8l-4-4m4 4l4-4M4 20h16" />
+                        </svg>
+                        Export to Excel ({filteredAndSortedData.length} tasks)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Workload Category, Department, and Employee (Auto-filter) */}
+                <div className="pl-0 lg:pl-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-medium text-blue-700 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Filter Options:
+                    </h2>
+                    {hasRightColumnFilters && (
+                      <button 
+                        onClick={clearRightColumnFilters}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 bg-white rounded-full shadow-sm"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Workload Category Dropdown - Auto-filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Workload Category</label>
+                      <Select
+                        options={workloadFilterOptions}
+                        value={tempTaskFilter}
+                        onChange={handleWorkloadFilterChange}
+                        styles={dropdownStyles}
+                        placeholder="Filter by Load"
+                        isClearable={true}
+                      />
+                    </div>
+
+                    {/* Department Dropdown - Auto-filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Department</label>
+                      <Select
+                        options={departments}
+                        value={tempDeptFilter}
+                        onChange={handleDeptFilterChange}
+                        styles={dropdownStyles}
+                        placeholder="Select Department"
+                        isClearable={true}
+                        isLoading={departments.length === 0}
+                      />
+                    </div>
+
+                    {/* Employee Dropdown - Auto-filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Employee</label>
+                      <Select
+                        options={employees}
+                        value={tempEmployeeFilter}
+                        onChange={handleEmployeeFilterChange}
+                        styles={dropdownStyles}
+                        placeholder="Select Employee"
+                        isClearable={true}
+                        isSearchable={true}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -755,6 +1061,10 @@ const EmployeeTaskSheet = () => {
                 <p className="text-sm text-blue-600">
                   Showing {filteredAndSortedData.length} of {employeeData.length} employees
                   {searchQuery && ` matching "${searchQuery}"`}
+                  {dateFilterApplied && ` (Date Range: ${appliedFromDate} to ${appliedToDate})`}
+                  {appliedTaskFilter && appliedTaskFilter.value !== 'all' && ` | Workload: ${appliedTaskFilter.label}`}
+                  {appliedDeptFilter && appliedDeptFilter.value !== 'all' && ` | Dept: ${appliedDeptFilter.label}`}
+                  {appliedEmployeeFilter && appliedEmployeeFilter.value !== 'all' && ` | Employee: ${appliedEmployeeFilter.label}`}
                 </p>
               </div>
             </div>
@@ -829,9 +1139,6 @@ const EmployeeTaskSheet = () => {
                       <th className="py-4 px-4 text-left font-semibold text-slate-700">
                         Workload Status
                       </th>
-                      {/* <th className="py-4 px-4 text-left font-semibold text-slate-700">
-                        Progress
-                      </th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -843,7 +1150,6 @@ const EmployeeTaskSheet = () => {
                           key={item.id || index}
                           className="border-b border-slate-100 hover:bg-slate-50 transition-all duration-200"
                         >
-                          {/* Employee */}
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
@@ -860,7 +1166,6 @@ const EmployeeTaskSheet = () => {
                             </div>
                           </td>
 
-                          {/* Not Ack */}
                           <td className="py-4 px-4 text-center">
                             <div className="flex flex-col items-center">
                               <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-red-50 border border-red-200 shadow-sm">
@@ -871,7 +1176,6 @@ const EmployeeTaskSheet = () => {
                             </div>
                           </td>
 
-                          {/* Ack */}
                           <td className="py-4 px-4 text-center">
                             <div className="flex flex-col items-center">
                               <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-blue-50 border border-blue-200 shadow-sm">
@@ -882,7 +1186,6 @@ const EmployeeTaskSheet = () => {
                             </div>
                           </td>
 
-                          {/* In Progress */}
                           <td className="py-4 px-4 text-center">
                             <div className="flex flex-col items-center">
                               <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 shadow-sm">
@@ -893,7 +1196,6 @@ const EmployeeTaskSheet = () => {
                             </div>
                           </td>
 
-                          {/* Total Work */}
                           <td className="py-4 px-4 text-center">
                             <div className="flex flex-col items-center">
                               <div
@@ -909,7 +1211,6 @@ const EmployeeTaskSheet = () => {
                             </div>
                           </td>
 
-                          {/* Workload Status */}
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
                               <span
@@ -924,33 +1225,6 @@ const EmployeeTaskSheet = () => {
                               </span>
                             </div>
                           </td>
-
-                          {/* Progress */}
-                          {/* <td className="py-4 px-4">
-                            <div className="w-36">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-slate-500">
-                                  Completion
-                                </span>
-                                <span
-                                  className="text-xs font-semibold"
-                                  style={{ color: workloadCategory.color }}
-                                >
-                                  {item.completionRate}%
-                                </span>
-                              </div>
-
-                              <div className="w-full bg-slate-200 rounded-full h-2">
-                                <div
-                                  className="h-2 rounded-full transition-all duration-300"
-                                  style={{
-                                    width: `${item.completionRate}%`,
-                                    backgroundColor: workloadCategory.color,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                           </td> */}
                         </tr>
                       );
                     })}
@@ -964,45 +1238,40 @@ const EmployeeTaskSheet = () => {
           {filteredAndSortedData.length > 0 && (
             <div className="px-6 py-4 border-t-2 border-slate-200 bg-slate-50">
               <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-
                 <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <span>Show</span>
-                            <select
-                              value={itemsPerPage}
-                              onChange={(e) => {
-                                setItemsPerPage(parseInt(e.target.value));
-                                setCurrentPage(1);
-                              }}
-                              className="border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              {[10, 25, 50, 100].map(size => (
-                                <option key={size} value={size}>{size}</option>
-                              ))}
-                            </select>
-                            <span>entries per page</span>
-                          </div>
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(parseInt(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {[10, 25, 50, 100].map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                  <span>entries per page</span>
+                </div>
 
-                          {/* CENTER: Showing info */}
-                          <div className="text-sm text-slate-600">
-                            Showing{" "}
-                            <span className="font-semibold">
-                              {filteredAndSortedData.length === 0 ? 0 : indexOfFirstItem + 1}
-                            </span>{" "}
-                            to{" "}
-                            <span className="font-semibold">
-                              {Math.min(indexOfLastItem, filteredAndSortedData.length)}
-                            </span>{" "}
-                            of{" "}
-                            <span className="font-semibold">
-                              {filteredAndSortedData.length}
-                            </span>{" "}
-                            entries
-                          </div>
+                <div className="text-sm text-slate-600">
+                  Showing{" "}
+                  <span className="font-semibold">
+                    {filteredAndSortedData.length === 0 ? 0 : indexOfFirstItem + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-semibold">
+                    {Math.min(indexOfLastItem, filteredAndSortedData.length)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold">
+                    {filteredAndSortedData.length}
+                  </span>{" "}
+                  entries
+                </div>
 
-                {/* RIGHT: Pagination */}
                 <div className="flex items-center gap-1">
-
-                  {/* Prev */}
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
@@ -1015,7 +1284,6 @@ const EmployeeTaskSheet = () => {
                     &lt; Prev
                   </button>
 
-                  {/* Page Numbers with Ellipsis */}
                   {(() => {
                     const pages = [];
                     const total = totalPages;
@@ -1055,7 +1323,6 @@ const EmployeeTaskSheet = () => {
                     );
                   })()}
 
-                  {/* Next */}
                   <button
                     onClick={() =>
                       setCurrentPage(prev => Math.min(totalPages, prev + 1))
@@ -1069,7 +1336,6 @@ const EmployeeTaskSheet = () => {
                   >
                     Next &gt;
                   </button>
-
                 </div>
               </div>
             </div>
