@@ -127,7 +127,7 @@ switch ($method) {
                 $data[] = $row;
             }
 
-            echo json_encode(["status" => "success","data123" => $data]);
+            echo json_encode(["status" => "success","data123" => $data, "query" => $sql1, "userId" => $userId]);
 
         }else if($view_task_sheet){
             $fromDate = $_GET['from_date'] ?? null;
@@ -157,8 +157,15 @@ switch ($method) {
                     $whereClause = "LEFT JOIN client_users cu ON cu.client_id = t.client_id AND cu.emp_id = '$userId' AND cu.is_poc = 1 WHERE (cb.department_id = '$deptId' OR EXISTS ( SELECT 1 FROM task_assignees ta2 INNER JOIN users u2 ON ta2.user_id = u2.id WHERE ta2.task_id = t.id AND u2.department_id = '$deptId' )  OR cu.emp_id IS NOT NULL )";
                 } 
                 elseif (str_starts_with($userCode, 'AD')) {
-                    $taskStatusCond = "CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
-                    $whereClause = 'WHERE t.created_date BETWEEN \'' . $fromDate . '\' AND \'' . $toDate . '\'';
+                    $empId = $_GET['employee_id'] ?? null;
+                    if(!empty($empId)){
+                        $taskStatusCond = "CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
+                        $whereClause = "WHERE t.id IN (SELECT DISTINCT t2.id FROM tasks t2 LEFT JOIN task_assignees ta2 ON t2.id = ta2.task_id WHERE (t2.created_date BETWEEN '$fromDate' AND '$toDate') AND (t2.created_by = '$empId' OR ta2.user_id = '$empId'))";
+                    }else{
+                        $taskStatusCond = "CASE WHEN SUM(ta.status = 'completed') = COUNT(*) AND COUNT(*) > 0 THEN 'completed' WHEN SUM(ta.status = 'in-progress') > 0 THEN 'in-progress' WHEN SUM(ta.status = 'acknowledge') > 0 THEN 'acknowledge' WHEN SUM(ta.status = 'not-acknowledge') > 0 THEN 'not-acknowledge' ELSE 'pending' END";
+                        $whereClause = 'WHERE t.created_date BETWEEN \'' . $fromDate . '\' AND \'' . $toDate . '\'';
+                    }
+                    
                 }
             }
             $sql1 = "SELECT t.id, t.client_id, t.task_name, c.name AS client_name, t.remarks, t.deadline, t.created_by, t.created_date, t.created_time, ta.updated_date, ta.updated_time, cb.name AS assigned_by_name, GROUP_CONCAT( DISTINCT ta.user_id ORDER BY ta.user_id SEPARATOR ', ' ) AS assigned_to_ids, GROUP_CONCAT( DISTINCT CONCAT(u.name, '||', d.color_code) ORDER BY u.name SEPARATOR ', ' ) AS assigned_to_names, ta.time, GROUP_CONCAT( DISTINCT u.department_id ORDER BY u.department_id SEPARATOR ', ' ) AS assigned_to_departments, $taskStatusCond AS task_status FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id INNER JOIN users cb ON t.created_by = cb.id INNER JOIN clients c ON c.id = t.client_id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY t.id ORDER BY t.id DESC";
@@ -170,18 +177,32 @@ switch ($method) {
                 $data[] = $row;
             }
 
-            echo json_encode(["status" => "success","data" => $data]);
+            echo json_encode(["status" => "success","data" => $data, "query" => $sql1, "userId" => $userId, 'empId' => $empId]);
 
         }else if($work_load_data){
             $task_filter = $_GET['task_filter'] ?? null;
             $dept_id = $_GET['dept_id'] ?? null;
             $emp_id = $_GET['emp_id'] ?? null;
-            $week = date('Y-m-d', strtotime('-7 days'));
-            if(!empty($week)){
-                $fromDate = $week;
+            $days = date('Y-m-d');
+            if($task_filter === 'today'){
+                $days = date('Y-m-d');
+            }else if($task_filter === 'week'){
+                $days = date('Y-m-d', strtotime('-6 days'));
+            }else if($task_filter === 'month'){
+                $days = date('Y-m-d', strtotime('-29 days'));
+            }else if($task_filter === 'all'){
+                $days = date('Y-m-d', strtotime('-364 days'));
+            }           
+            // $today = date('Y-m-d', strtotime('-1 days'));
+            if(!empty($task_filter) && $task_filter !== 'all'){
+                $fromDate = $days;
                 $toDate = date('Y-m-d');
+                
+                // echo json_encode(["status" => "success","if" => 'if']);
             }else{
-                $fromDate = $_GET['from_date'] ?? null;
+                $fromDate = $days;
+                $toDate = date('Y-m-d');
+                // echo json_encode(["status" => "success","else" => 'else', "days" => $days]);
             }
             
             if (!empty($userCode)) {
@@ -193,16 +214,16 @@ switch ($method) {
                     $whereClause = 'WHERE t.created_date BETWEEN \'' . $fromDate . '\' AND \'' . $toDate . '\'';
                 }
             }
-            $sql1 = "SELECT u.id AS user_id, u.name AS employee_name, d.id AS department_id, d.name AS department_name, COUNT(DISTINCT t.id) AS total_tasks, SUM(CASE WHEN ta.status = 'not-acknowledge' THEN 1 ELSE 0 END) AS not_ack_count, SUM(CASE WHEN ta.status = 'acknowledge' THEN 1 ELSE 0 END) AS ack_count, SUM(CASE WHEN ta.status = 'in-progress' THEN 1 ELSE 0 END) AS in_progress_count FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY u.id, d.id ORDER BY total_tasks DESC;";
+            $sql1 = "SELECT u.id AS user_id, u.name AS employee_name, d.id AS department_id, d.name AS department_name, ( SUM(CASE WHEN ta.status = 'not-acknowledge' THEN 1 ELSE 0 END) + SUM(CASE WHEN ta.status = 'acknowledge' THEN 1 ELSE 0 END) + SUM(CASE WHEN ta.status = 'in-progress' THEN 1 ELSE 0 END) ) AS total_tasks, SUM(CASE WHEN ta.status = 'not-acknowledge' THEN 1 ELSE 0 END) AS not_ack_count, SUM(CASE WHEN ta.status = 'acknowledge' THEN 1 ELSE 0 END) AS ack_count, SUM(CASE WHEN ta.status = 'in-progress' THEN 1 ELSE 0 END) AS in_progress_count FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY u.id, d.id HAVING total_tasks > 0 ORDER BY total_tasks DESC;";
 
-            // echo json_encode(["status" => "success","query" => $sql1]);
+            // echo json_encode(["status" => "success","query" => $sql1, "days=" => $days]);
             $result = $conn->query($sql1);
             $data = [];
             while ($row = $result->fetch_assoc()) {
                 $data[] = $row;
             }
 
-            echo json_encode(["status" => "success","data" => $data]);
+            echo json_encode(["status" => "success","data" => $data, "query" => $sql1, "days=" => $days]);
 
         }else{
             if (!empty($userCode)) {
