@@ -13,11 +13,13 @@ const EmployeeTaskSheet = () => {
   const [sortConfig, setSortConfig] = useState({ key: "total_tasks", direction: "descending" });
   
   // Temporary filter states
+  const [tempPeriodFilter, setTempPeriodFilter] = useState(null);
   const [tempTaskFilter, setTempTaskFilter] = useState(null);
   const [tempDeptFilter, setTempDeptFilter] = useState(null);
   const [tempEmployeeFilter, setTempEmployeeFilter] = useState(null);
   
   // Applied filter states
+  const [appliedPeriodFilter, setAppliedPeriodFilter] = useState(null);
   const [appliedTaskFilter, setAppliedTaskFilter] = useState(null);
   const [appliedDeptFilter, setAppliedDeptFilter] = useState(null);
   const [appliedEmployeeFilter, setAppliedEmployeeFilter] = useState(null);
@@ -25,9 +27,13 @@ const EmployeeTaskSheet = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
+  const [showExport, setShowExport] = useState(false);
+
   const user = getCurrentUser();
   const userId = user?.id;
   const userCode = user?.user_code;
+
+
 
   // Filter options
   const taskFilterOptions = [
@@ -39,11 +45,11 @@ const EmployeeTaskSheet = () => {
 
   const workloadFilterOptions = [
     { value: "all", label: "All Workloads", color: "#6b7280" },
-    { value: "overloaded", label: "Overloaded (>20 tasks)", color: "#ef4444" },
-    { value: "high", label: "High (11-20 tasks)", color: "#f59e0b" },
-    { value: "medium", label: "Medium (6-10 tasks)", color: "#3b82f6" },
-    { value: "low", label: "Low (1-5 tasks)", color: "#10b981" },
-    { value: "idle", label: "Idle (0 tasks)", color: "#6b7280" },
+    { value: "overloaded", label: "Overloaded (>7 tasks)", color: "#ef4444" },
+    { value: "high", label: "High (6-7 tasks)", color: "#f59e0b" },
+    { value: "medium", label: "Medium (5-6 tasks)", color: "#3b82f6" },
+    { value: "low", label: "Low (3-4 tasks)", color: "#10b981" },
+    { value: "idle", label: "Idle (2 tasks)", color: "#6b7280" },
   ];
 
   const paginationSizeOptions = [
@@ -56,10 +62,10 @@ const EmployeeTaskSheet = () => {
   // Helper function to get workload category
   const getWorkloadCategory = (totalTasks) => {
     const tasks = parseInt(totalTasks) || 0;
-    if (tasks === 0) return { label: "Idle", color: "#6b7280", bg: "bg-gray-100" };
-    if (tasks <= 5) return { label: "Low", color: "#10b981", bg: "bg-green-100" };
-    if (tasks <= 10) return { label: "Medium", color: "#3b82f6", bg: "bg-blue-100" };
-    if (tasks <= 20) return { label: "High", color: "#f59e0b", bg: "bg-amber-100" };
+    if (tasks <= 2) return { label: "Idle", color: "#6b7280", bg: "bg-gray-100" };
+    if (tasks <= 4) return { label: "Low", color: "#10b981", bg: "bg-green-100" };
+    if (tasks <= 6) return { label: "Medium", color: "#3b82f6", bg: "bg-blue-100" };
+    if (tasks <= 7) return { label: "High", color: "#f59e0b", bg: "bg-amber-100" };
     return { label: "Overloaded", color: "#ef4444", bg: "bg-red-100" };
   };
 
@@ -96,76 +102,98 @@ const EmployeeTaskSheet = () => {
   };
 
   // Handle submit button click
-  const handleSubmitFilters = () => {
-    setAppliedTaskFilter(tempTaskFilter);
-    setAppliedDeptFilter(tempDeptFilter);
-    setAppliedEmployeeFilter(tempEmployeeFilter);
+  const handleSubmitFilters = async () => {
+    // Get current values
+    const periodValue = tempPeriodFilter;
+    const taskValue = tempTaskFilter;
+    const deptValue = tempDeptFilter;
+    const employeeValue = tempEmployeeFilter;
+    
+    // Update applied filters
+    setAppliedPeriodFilter(periodValue);
+    setAppliedTaskFilter(taskValue);
+    setAppliedDeptFilter(deptValue);
+    setAppliedEmployeeFilter(employeeValue);
     setCurrentPage(1);
-    fetchEmployeeTaskData();
+    
+    // Call API with the new values directly
+    await fetchEmployeeTaskDataWithFilters(periodValue, taskValue, deptValue, employeeValue);
   };
 
-  // Handle search input change
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const clearSearch = () => {
-    setSearchQuery("");
-    setCurrentPage(1);
-  };
-
-  // Fetch departments from department.php API
-  const fetchDepartments = async () => {
-    try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}api/department.php`,
-        {
-          params: {
-            // id: userId,
-            // user_code: userCode
-          }
-        }
-      );
-
-      const result = response.data;
-      
-      if (result.status === "success" && result.data) {
-        const deptOptions = [
-          { value: "all", label: "All Departments", color: "#3b82f6" },
-          ...result.data.map(dept => ({
-            value: dept.id,
-            label: dept.name,
-            color: "#6b7280"
-          }))
-        ];
-        setDepartments(deptOptions);
-      } else {
-        // Fallback to empty array with "All Departments"
-        setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+  // Function to extract unique departments from API response
+  const extractDepartments = (data) => {
+    const uniqueDepartments = new Map();
+    
+    // Add "All Departments" option
+    const deptOptions = [{ value: "all", label: "All Departments", color: "#3b82f6" }];
+    
+    // Extract unique departments from the data
+    data.forEach(item => {
+      if (item.department_name && !uniqueDepartments.has(item.department_name)) {
+        uniqueDepartments.set(item.department_name, {
+          value: item.department_id || item.department_name,
+          label: item.department_name,
+          color: "#6b7280"
+        });
       }
-    } catch (error) {
-      console.error("Error fetching departments:", error);
-      // Fallback to empty array with "All Departments"
-      setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
-    }
+    });
+    
+    // Convert Map to array and add to options
+    uniqueDepartments.forEach(dept => {
+      deptOptions.push(dept);
+    });
+    
+    return deptOptions;
   };
 
-  // Fetch data
-  const fetchEmployeeTaskData = async () => {
+  // Function to extract unique employees from API response
+  const extractEmployees = (data) => {
+    const uniqueEmployees = new Map();
+    
+    // Add "All Employees" option
+    const empOptions = [{ value: "all", label: "All Employees", color: "#3b82f6" }];
+    
+    // Extract unique employees from the data
+    data.forEach(item => {
+      if (item.employee_name && !uniqueEmployees.has(item.user_id)) {
+        uniqueEmployees.set(item.user_id, {
+          value: item.user_id,
+          label: item.employee_name,
+          color: "#10b981"
+        });
+      }
+    });
+    
+    // Convert Map to array and add to options
+    uniqueEmployees.forEach(emp => {
+      empOptions.push(emp);
+    });
+    
+    return empOptions;
+  };
+
+  // Function to fetch data with specific filters
+  const fetchEmployeeTaskDataWithFilters = async (periodFilter, taskFilter, deptFilter, employeeFilter) => {
     if (!userId || !userCode) return;
     
     try {
-      setFilterLoading(true); 
+      setFilterLoading(true);
       
       const params = {
         id: userId,
         user_code: userCode,
         work_load_data: true,
-        task_filter: appliedTaskFilter?.value || 'one_month',
-        dept_id: appliedDeptFilter?.value || '',
-        employee_id: appliedEmployeeFilter?.value || ''
+        task_filter: periodFilter?.value || 'today',
+        dept_id: deptFilter?.value || '',
+        // employee_id: employeeFilter?.value || ''
       };
+
+      // Add workload filter only if it has a value and is not 'all'
+      if (taskFilter?.value && taskFilter.value !== 'all') {
+        params.workload_filter = taskFilter.value;
+      }
+
+      console.log("Sending params to API:", params);
 
       const response = await axios.get(
         `${import.meta.env.VITE_API_URL}api/reports.php`,
@@ -174,6 +202,12 @@ const EmployeeTaskSheet = () => {
 
       const result = response.data;
       console.log("API Response:", result);
+
+      if (result.status === "success" && result.data && result.data.length > 0) {
+        setShowExport(true);
+      } else {
+        setShowExport(false);
+      }
       
       if (result.status === "success" && result.data) {
         // Transform the data with additional calculated fields
@@ -181,6 +215,7 @@ const EmployeeTaskSheet = () => {
           id: item.user_id,
           empName: item.employee_name || 'Unknown',
           deptName: item.department_name || 'No Department',
+          deptId: item.department_id,
           notAcknowledge: parseInt(item.not_ack_count) || 0,
           acknowledge: parseInt(item.ack_count) || 0,
           inprogress: parseInt(item.in_progress_count) || 0,
@@ -195,36 +230,125 @@ const EmployeeTaskSheet = () => {
         
         setEmployeeData(transformedData);
         
-        // Set employees for dropdown from the response
-        if (result.data && result.data.length > 0) {
-          const empOptions = [
-            { value: "all", label: "All Employees", color: "#3b82f6" },
-            ...result.data.map(emp => ({
-              value: emp.user_id,
-              label: emp.employee_name,
-              color: "#10b981"
-            }))
-          ];
-          setEmployees(empOptions);
-        }
+        // Extract departments from the API response
+        const deptOptions = extractDepartments(result.data);
+        setDepartments(deptOptions);
+        
+        // Extract employees from the API response
+        const empOptions = extractEmployees(result.data);
+        setEmployees(empOptions);
       } else {
         setEmployeeData([]);
+        setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+        setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
       }
     } catch (error) {
       console.error("Error fetching employee task data:", error);
       setEmployeeData([]);
+      setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+      setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
     } finally {
       setLoading(false);
       setFilterLoading(false);
     }
   };
 
-  // Initial data fetch - fetch departments and employee task data
+  // Original fetch function for initial load and when dependencies change
+  const fetchEmployeeTaskData = async () => {
+    if (!userId || !userCode) return;
+    
+    try {
+      setFilterLoading(true);
+      
+      const params = {
+        id: userId,
+        user_code: userCode,
+        work_load_data: true,
+        task_filter: appliedPeriodFilter?.value || 'today',
+        dept_id: appliedDeptFilter?.value || '',
+        employee_id: appliedEmployeeFilter?.value || ''
+      };
+
+      // Add workload filter only if it has a value and is not 'all'
+      if (appliedTaskFilter?.value && appliedTaskFilter.value !== 'all') {
+        params.workload_filter = appliedTaskFilter.value;
+      }
+
+      console.log("Sending params to API:", params);
+
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/reports.php`,
+        { params }
+      );
+
+      const result = response.data;
+      console.log("API Response:", result);
+
+      if (result.status === "success" && result.data && result.data.length > 0) {
+        setShowExport(true);
+      } else {
+        setShowExport(false);
+      }
+      
+      if (result.status === "success" && result.data) {
+        // Transform the data with additional calculated fields
+        const transformedData = result.data.map(item => ({
+          id: item.user_id,
+          empName: item.employee_name || 'Unknown',
+          deptName: item.department_name || 'No Department',
+          deptId: item.department_id,
+          notAcknowledge: parseInt(item.not_ack_count) || 0,
+          acknowledge: parseInt(item.ack_count) || 0,
+          inprogress: parseInt(item.in_progress_count) || 0,
+          totalWork: parseInt(item.total_tasks) || 0,
+          completionRate: item.total_tasks > 0 
+            ? Math.round(((parseInt(item.ack_count) + parseInt(item.in_progress_count)) / parseInt(item.total_tasks)) * 100) 
+            : 0,
+          pendingTasks: parseInt(item.not_ack_count) || 0,
+          workloadCategory: getWorkloadCategory(parseInt(item.total_tasks) || 0),
+          workloadPercentage: getWorkloadPercentage(parseInt(item.total_tasks) || 0)
+        }));
+        
+        setEmployeeData(transformedData);
+        
+        // Extract departments from the API response
+        const deptOptions = extractDepartments(result.data);
+        setDepartments(deptOptions);
+        
+        // Extract employees from the API response
+        const empOptions = extractEmployees(result.data);
+        setEmployees(empOptions);
+      } else {
+        setEmployeeData([]);
+        setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+        setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+      }
+    } catch (error) {
+      console.error("Error fetching employee task data:", error);
+      setEmployeeData([]);
+      setDepartments([{ value: "all", label: "All Departments", color: "#3b82f6" }]);
+      setEmployees([{ value: "all", label: "All Employees", color: "#3b82f6" }]);
+    } finally {
+      setLoading(false);
+      setFilterLoading(false);
+    }
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+    // setShowExport(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
+
+  // Initial data fetch
   useEffect(() => {
     if (userId && userCode) {
-      // Fetch departments first
-      fetchDepartments();
-      // Then fetch employee task data
       fetchEmployeeTaskData();
     }
   }, [userId, userCode]);
@@ -244,22 +368,22 @@ const EmployeeTaskSheet = () => {
     }
     
     // Apply workload category filter
-    if (tempTaskFilter && workloadFilterOptions.some(opt => opt.value === tempTaskFilter.value)) {
-      switch(tempTaskFilter.value) {
+    if (appliedTaskFilter && appliedTaskFilter.value !== "all") {
+      switch(appliedTaskFilter.value) {
         case "overloaded":
-          data = data.filter(item => item.totalWork > 20);
+          data = data.filter(item => item.totalWork > 7);
           break;
         case "high":
-          data = data.filter(item => item.totalWork > 10 && item.totalWork <= 20);
+          data = data.filter(item => item.totalWork > 6 && item.totalWork <= 7);
           break;
         case "medium":
-          data = data.filter(item => item.totalWork > 5 && item.totalWork <= 10);
+          data = data.filter(item => item.totalWork > 5 && item.totalWork <= 6);
           break;
         case "low":
-          data = data.filter(item => item.totalWork > 0 && item.totalWork <= 5);
+          data = data.filter(item => item.totalWork > 3 && item.totalWork <= 4);
           break;
         case "idle":
-          data = data.filter(item => item.totalWork === 0);
+          data = data.filter(item => item.totalWork <= 2);
           break;
         default:
           break;
@@ -304,16 +428,16 @@ const EmployeeTaskSheet = () => {
     }
     
     return data;
-  }, [employeeData, appliedDeptFilter, appliedEmployeeFilter, tempTaskFilter, searchQuery, sortConfig]);
+  }, [employeeData, appliedDeptFilter, appliedEmployeeFilter, appliedTaskFilter, searchQuery, sortConfig]);
 
   // Calculate workload statistics
   const workloadStats = useMemo(() => {
     const total = employeeData.length;
-    const overloaded = employeeData.filter(e => e.totalWork > 20).length;
-    const high = employeeData.filter(e => e.totalWork > 10 && e.totalWork <= 20).length;
-    const medium = employeeData.filter(e => e.totalWork > 5 && e.totalWork <= 10).length;
-    const low = employeeData.filter(e => e.totalWork > 0 && e.totalWork <= 5).length;
-    const idle = employeeData.filter(e => e.totalWork === 0).length;
+    const overloaded = employeeData.filter(e => e.totalWork > 7).length;
+    const high = employeeData.filter(e => e.totalWork > 6 && e.totalWork <= 7).length;
+    const medium = employeeData.filter(e => e.totalWork > 4 && e.totalWork <= 6).length;
+    const low = employeeData.filter(e => e.totalWork > 2 && e.totalWork <= 4).length;
+    const idle = employeeData.filter(e => e.totalWork <= 2).length;
     
     return { total, overloaded, high, medium, low, idle };
   }, [employeeData]);
@@ -325,20 +449,59 @@ const EmployeeTaskSheet = () => {
   const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage);
 
   // Clear all filters
-  const clearAllFilters = () => {
+  const clearAllFilters = async () => {
+    // Clear temp states
+    setTempPeriodFilter(null);
     setTempTaskFilter(null);
     setTempDeptFilter(null);
     setTempEmployeeFilter(null);
+    
+    // Clear applied states
+    setAppliedPeriodFilter(null);
     setAppliedTaskFilter(null);
     setAppliedDeptFilter(null);
     setAppliedEmployeeFilter(null);
     setSearchQuery("");
     setCurrentPage(1);
-    fetchEmployeeTaskData();
+    setShowExport(false);
+    
+    // Fetch data with no filters
+    await fetchEmployeeTaskDataWithFilters(null, null, null, null);
+  };
+
+  const handleExport = () => {
+    const headers = [
+      "Employee",
+      "Department",
+      "Not Acknowledge",
+      "Acknowledge",
+      "In Progress",
+      "Total Tasks"
+    ];
+
+    const rows = filteredAndSortedData.map(item => [
+      item.empName,
+      item.deptName,
+      item.notAcknowledge,
+      item.acknowledge,
+      item.inprogress,
+      item.totalWork
+    ]);
+
+    let csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers, ...rows].map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "employee_workload_" + new Date().toISOString().slice(0, 10) + ".csv");
+    document.body.appendChild(link);
+    link.click();
   };
 
   // Check if any filter is applied
-  const hasActiveFilters = appliedTaskFilter || appliedDeptFilter || appliedEmployeeFilter || searchQuery || tempTaskFilter;
+  const hasActiveFilters = appliedPeriodFilter || appliedTaskFilter || appliedDeptFilter || appliedEmployeeFilter || searchQuery;
 
   // Styles for dropdowns
   const dropdownStyles = {
@@ -485,8 +648,11 @@ const EmployeeTaskSheet = () => {
                   <label className="block text-xs font-medium text-slate-500 mb-1">Time Period</label>
                   <Select
                     options={taskFilterOptions}
-                    value={tempTaskFilter}
-                    onChange={setTempTaskFilter}
+                    value={tempPeriodFilter}
+                    onChange={(val) => {
+                      setTempPeriodFilter(val);
+                      setShowExport(false);
+                    }}
                     styles={dropdownStyles}
                     placeholder="Select Period"
                     isClearable={true}
@@ -499,7 +665,10 @@ const EmployeeTaskSheet = () => {
                   <Select
                     options={workloadFilterOptions}
                     value={tempTaskFilter}
-                    onChange={setTempTaskFilter}
+                    onChange={(val) => {
+                      setTempTaskFilter(val);
+                      setShowExport(false);
+                    }}
                     styles={dropdownStyles}
                     placeholder="Filter by Load"
                     isClearable={true}
@@ -512,7 +681,10 @@ const EmployeeTaskSheet = () => {
                   <Select
                     options={departments}
                     value={tempDeptFilter}
-                    onChange={setTempDeptFilter}
+                    onChange={(val) => {
+                      setTempDeptFilter(val);
+                      setShowExport(false);
+                    }}
                     styles={dropdownStyles}
                     placeholder="Select Department"
                     isClearable={true}
@@ -521,7 +693,7 @@ const EmployeeTaskSheet = () => {
                 </div>
 
                 {/* Employee Dropdown */}
-                <div>
+                {/* <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Employee</label>
                   <Select
                     options={employees}
@@ -531,14 +703,15 @@ const EmployeeTaskSheet = () => {
                     placeholder="Select Employee"
                     isClearable={true}
                   />
-                </div>
+                </div> */}
 
                 {/* Submit Button */}
-                <div className="flex items-end">
+                <div className="flex items-end gap-2 w-full">
+                  {/* Apply Filters Button */}
                   <button
                     onClick={handleSubmitFilters}
                     disabled={filterLoading}
-                    className={`w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                       filterLoading
                         ? 'bg-blue-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-200'
@@ -558,6 +731,22 @@ const EmployeeTaskSheet = () => {
                       </>
                     )}
                   </button>
+
+                  
+                </div>
+                <div className="flex items-end gap-2 w-full">
+                    {/* Export Button */}
+                  {showExport && (
+                    <button
+                      onClick={handleExport}
+                      className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16v-8m0 8l-4-4m4 4l4-4M4 20h16" />
+                      </svg>
+                      Export to Excel ({filteredAndSortedData.length} tasks)
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -640,9 +829,9 @@ const EmployeeTaskSheet = () => {
                       <th className="py-4 px-4 text-left font-semibold text-slate-700">
                         Workload Status
                       </th>
-                      <th className="py-4 px-4 text-left font-semibold text-slate-700">
+                      {/* <th className="py-4 px-4 text-left font-semibold text-slate-700">
                         Progress
-                      </th>
+                      </th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -737,7 +926,7 @@ const EmployeeTaskSheet = () => {
                           </td>
 
                           {/* Progress */}
-                          <td className="py-4 px-4">
+                          {/* <td className="py-4 px-4">
                             <div className="w-36">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="text-xs text-slate-500">
@@ -761,7 +950,7 @@ const EmployeeTaskSheet = () => {
                                 />
                               </div>
                             </div>
-                          </td>
+                           </td> */}
                         </tr>
                       );
                     })}
@@ -774,47 +963,113 @@ const EmployeeTaskSheet = () => {
           {/* Pagination */}
           {filteredAndSortedData.length > 0 && (
             <div className="px-6 py-4 border-t-2 border-slate-200 bg-slate-50">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p className="text-sm text-slate-600 font-medium">
-                  Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to{' '}
-                  <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, filteredAndSortedData.length)}</span>{' '}
-                  of <span className="font-bold text-slate-900">{filteredAndSortedData.length}</span> employees
-                </p>
-                
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} 
-                    disabled={currentPage === 1} 
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 ${
-                      currentPage === 1 
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
-                        : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <span>Show</span>
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => {
+                                setItemsPerPage(parseInt(e.target.value));
+                                setCurrentPage(1);
+                              }}
+                              className="border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {[10, 25, 50, 100].map(size => (
+                                <option key={size} value={size}>{size}</option>
+                              ))}
+                            </select>
+                            <span>entries per page</span>
+                          </div>
+
+                          {/* CENTER: Showing info */}
+                          <div className="text-sm text-slate-600">
+                            Showing{" "}
+                            <span className="font-semibold">
+                              {filteredAndSortedData.length === 0 ? 0 : indexOfFirstItem + 1}
+                            </span>{" "}
+                            to{" "}
+                            <span className="font-semibold">
+                              {Math.min(indexOfLastItem, filteredAndSortedData.length)}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-semibold">
+                              {filteredAndSortedData.length}
+                            </span>{" "}
+                            entries
+                          </div>
+
+                {/* RIGHT: Pagination */}
+                <div className="flex items-center gap-1">
+
+                  {/* Prev */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-sm ${
+                      currentPage === 1
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-white hover:bg-gray-100"
                     }`}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span className="hidden sm:inline">Prev</span>
+                    &lt; Prev
                   </button>
-                  
-                  <span className="text-sm text-slate-600">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} 
-                    disabled={currentPage === totalPages} 
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 ${
-                      currentPage === totalPages 
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
-                        : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+
+                  {/* Page Numbers with Ellipsis */}
+                  {(() => {
+                    const pages = [];
+                    const total = totalPages;
+
+                    if (total <= 5) {
+                      for (let i = 1; i <= total; i++) {
+                        pages.push(i);
+                      }
+                    } else {
+                      if (currentPage <= 3) {
+                        pages.push(1, 2, 3, "...", total);
+                      } else if (currentPage >= total - 2) {
+                        pages.push(1, "...", total - 2, total - 1, total);
+                      } else {
+                        pages.push(1, "...", currentPage, "...", total);
+                      }
+                    }
+
+                    return pages.map((page, index) =>
+                      page === "..." ? (
+                        <span key={index} className="px-2 text-gray-500">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1.5 rounded-md border text-sm ${
+                            currentPage === page
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white hover:bg-gray-100"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    );
+                  })()}
+
+                  {/* Next */}
+                  <button
+                    onClick={() =>
+                      setCurrentPage(prev => Math.min(totalPages, prev + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-sm ${
+                      currentPage === totalPages
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-white hover:bg-gray-100"
                     }`}
                   >
-                    <span className="hidden sm:inline">Next</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    Next &gt;
                   </button>
+
                 </div>
               </div>
             </div>

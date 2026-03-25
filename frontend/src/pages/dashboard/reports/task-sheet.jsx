@@ -16,6 +16,7 @@ const Tasksheet = () => {
   const [filteredApiTasks, setFilteredApiTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [employeesRangeFilter, setEmployeesRangeFilter] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
@@ -29,9 +30,13 @@ const Tasksheet = () => {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   
+  // Separate filter states - Main Filters (for general task filtering)
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState(null);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
   const [selectedDeadlineFilter, setSelectedDeadlineFilter] = useState(null);
+  
+  // Separate filter states - Date Range Filters (for date range API calls)
+  const [selectedEmployeeDateFilter, setSelectedEmployeeDateFilter] = useState(null);
   
   // State for date range filter
   const [fromDate, setFromDate] = useState('');
@@ -138,36 +143,45 @@ const Tasksheet = () => {
   };
 
   const parseEmployeeName = (employeeString) => {
-    if (!employeeString) return { name: '', formattedName: '', color: '#6366F1' };
+    if (!employeeString) return { name: '', formattedName: '', color: '#6366F1', id: null };
     
+    let cleanEmployeeString = employeeString;
+    let employeeColor = '#6366F1';
+    let employeeId = null;
+    
+    // Extract color code if present
     if (employeeString.includes('||#')) {
       const parts = employeeString.split('||#');
-      if (parts.length >= 2) {
-        const originalName = parts[0].trim();
-        const formattedName = formatEmployeeName(originalName);
-        return {
-          name: originalName,
-          formattedName: formattedName,
-          color: `#${parts[1]}`
-        };
-      }
+      cleanEmployeeString = parts[0].trim();
+      employeeColor = `#${parts[1]}`;
     }
     
-    const formattedName = formatEmployeeName(employeeString);
+    // Handle cases where employeeString might contain multiple names
+    // If there's a comma, take only the first part
+    if (cleanEmployeeString.includes(',')) {
+      cleanEmployeeString = cleanEmployeeString.split(',')[0].trim();
+    }
+    
+    // Generate a consistent ID from the name
+    employeeId = cleanEmployeeString.toLowerCase().replace(/\s+/g, '_');
+    
+    const formattedName = formatEmployeeName(cleanEmployeeString);
     return {
-      name: employeeString,
+      name: cleanEmployeeString,
       formattedName: formattedName,
-      color: '#6366F1'
+      color: employeeColor,
+      id: employeeId
     };
   };
 
   const parseMultipleEmployees = (employeesString) => {
     if (!employeesString) return [];
     
-    const employeeEntries = employeesString.split(', ');
+    // Split by comma and process each employee
+    const employeeEntries = employeesString.split(',').map(entry => entry.trim());
     
     return employeeEntries.map(entry => {
-      return parseEmployeeName(entry.trim());
+      return parseEmployeeName(entry);
     });
   };
 
@@ -388,7 +402,7 @@ const Tasksheet = () => {
     return false;
   };
 
-  // Export to Excel function - exports tasks from API filtered results
+  // Export to Excel function
   const exportToExcel = () => {
     try {
       const tasksToExport = filteredApiTasks.length > 0 ? filteredApiTasks : tasks;
@@ -406,19 +420,13 @@ const Tasksheet = () => {
       const cleanAssignedTo = (assignedToOriginal) => {
         if (!assignedToOriginal) return 'No assignments';
         
-        // Remove color codes in format "Name||#COLOR"
         let cleaned = assignedToOriginal.replace(/\|\|#[0-9A-Fa-f]{6}/g, '');
-        
-        // Also handle any remaining color codes in different formats
         cleaned = cleaned.replace(/#[0-9A-Fa-f]{6}/g, '');
-        
-        // Clean up any double commas or extra spaces
         cleaned = cleaned.replace(/\s*,\s*/g, ', ').trim();
         
         return cleaned || 'No assignments';
       };
 
-      // Prepare data for export
       const exportData = tasksToExport.map(task => ({
         'Task Name': task.name || 'Unnamed Task',
         'Client': task.clientName || 'N/A',
@@ -432,18 +440,13 @@ const Tasksheet = () => {
         'Remarks': task.remark || 'No remarks'
       }));
 
-      // Create worksheet
       const ws = XLSX.utils.json_to_sheet(exportData);
-      
-      // Create workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
       
-      // Generate Excel file
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
       
-      // Download file
       const dateRangeStr = fromDate && toDate 
         ? `${formatDateForExport(fromDate)}_to_${formatDateForExport(toDate)}`
         : fromDate 
@@ -452,8 +455,8 @@ const Tasksheet = () => {
             ? `until_${formatDateForExport(toDate)}`
             : 'all_tasks';
       
-      const employeeStr = selectedEmployeeFilter && selectedEmployeeFilter.value !== "all" 
-        ? `_${selectedEmployeeFilter.label.replace(/\s+/g, '_')}` 
+      const employeeStr = selectedEmployeeDateFilter && selectedEmployeeDateFilter.value !== "all" 
+        ? `_${selectedEmployeeDateFilter.label.replace(/\s+/g, '_')}` 
         : '';
       
       const fileName = `tasks_export${employeeStr}_${dateRangeStr}_${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -479,182 +482,181 @@ const Tasksheet = () => {
   };
 
   // Submit date range filter to API
-  // Submit date range filter to API
-const handleDateRangeSubmit = async () => {
-  if (!tempFromDate && !tempToDate) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Select Date Range',
-      text: 'Please select at least one date to filter',
-      confirmButtonColor: '#f59e0b'
-    });
-    return;
-  }
+  const handleDateRangeSubmit = async () => {
+    if (!tempFromDate && !tempToDate) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Select Date Range',
+        text: 'Please select at least one date to filter',
+        confirmButtonColor: '#f59e0b'
+      });
+      return;
+    }
 
-  setFilterLoading(true);
+    setFilterLoading(true);
 
-  try {
-    console.log("Submitting date range filter:", {
-      from_date: tempFromDate ? formatDateForAPI(tempFromDate) : '',
-      to_date: tempToDate ? formatDateForAPI(tempToDate) : '',
-      employee_id: selectedEmployeeFilter?.value,
-      employee_name: selectedEmployeeFilter?.label
-    });
+    try {
+      console.log("Submitting date range filter:", {
+        from_date: tempFromDate ? formatDateForAPI(tempFromDate) : '',
+        to_date: tempToDate ? formatDateForAPI(tempToDate) : '',
+        employee_id: selectedEmployeeDateFilter?.value,
+        employee_name: selectedEmployeeDateFilter?.label
+      });
 
-    const response = await axios.get(
-      `${import.meta.env.VITE_API_URL}api/reports.php`,
-      {
-        params: {
-          'view_task_sheet': true,
-          user_id: userId,
-          user_code: userCode,
-          from_date: tempFromDate ? formatDateForAPI(tempFromDate) : '',
-          to_date: tempToDate ? formatDateForAPI(tempToDate) : '',
-          employee_id: selectedEmployeeFilter && selectedEmployeeFilter.value !== "all" ? selectedEmployeeFilter.value : '',
+      const params = {
+        'view_task_sheet': true,
+        user_id: userId,
+        user_code: userCode,
+        from_date: tempFromDate ? formatDateForAPI(tempFromDate) : '',
+        to_date: tempToDate ? formatDateForAPI(tempToDate) : '',
+      };
+
+      // IMPORTANT: Only add employee_id if it exists and is not "all"
+      if (selectedEmployeeDateFilter && selectedEmployeeDateFilter.value !== "all") {
+        // Ensure we're sending a single value, not an array
+        params.employee_id = String(selectedEmployeeDateFilter.value);
+      }
+
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}api/reports.php`,
+        { params }
+      );
+
+      const result = response.data;
+      console.log("API Response:", result);
+
+      if (result.status === "success") {
+        let apiData = [];
+        
+        if (result.data && Array.isArray(result.data)) {
+          apiData = result.data;
         }
-      }
-    );
 
-    const result = response.data;
-    console.log("API Response:", result);
+        if (apiData.length === 0) {
+          Swal.fire({
+            icon: 'info',
+            title: 'No Data Found',
+            text: 'No tasks found for the selected date range',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          setFilteredApiTasks([]);
+          setDateFilterApplied(true);
+          setFromDate(tempFromDate);
+          setToDate(tempToDate);
+          setCurrentPage(1);
+          setFilterLoading(false);
+          return;
+        }
 
-    if (result.status === "success") {
-      // Process the API response - based on your response, it's returning tasks
-      let apiData = [];
-      
-      if (result.data && Array.isArray(result.data)) {
-        apiData = result.data;
-      }
-
-      if (apiData.length === 0) {
-        Swal.fire({
-          icon: 'info',
-          title: 'No Data Found',
-          text: 'No tasks found for the selected date range',
-          timer: 2000,
-          showConfirmButton: false
+        const transformedTasks = apiData.map((task) => {
+          const assignedByParsed = parseEmployeeName(task.assigned_by_name || "Unknown");
+          
+          let assignedToArray = [];
+          let assignedToColors = [];
+          let assignedToOriginal = '';
+          
+          if (task.assigned_to_names) {
+            assignedToOriginal = task.assigned_to_names;
+            if (task.assigned_to_names.includes(',')) {
+              const parsedEmployees = parseMultipleEmployees(task.assigned_to_names);
+              assignedToArray = parsedEmployees.map(emp => emp.formattedName || emp.name);
+              assignedToColors = parsedEmployees.map(emp => emp.color);
+            } else {
+              const parsedEmployee = parseEmployeeName(task.assigned_to_names);
+              assignedToArray = [parsedEmployee.formattedName || parsedEmployee.name];
+              assignedToColors = [parsedEmployee.color];
+            }
+          }
+          
+          let assignedToIds = [];
+          if (task.assigned_to_ids) {
+            assignedToIds = String(task.assigned_to_ids).split(',').map(id => id.trim());
+          }
+          
+          return {
+            id: task.id,
+            clientName: task.client_name || "Unknown Client",
+            clientId: task.client_id,
+            name: task.task_name || "Unnamed Task",
+            description: task.remarks || "No description",
+            assignedBy: assignedByParsed.formattedName || assignedByParsed.name || "Unknown",
+            assignedByOriginal: task.assigned_by_name || "Unknown",
+            assignedByColor: assignedByParsed.color,
+            assignedTo: assignedToArray,
+            assignedToOriginal: assignedToOriginal,
+            assignedToColors: assignedToColors,
+            assignedToString: assignedToOriginal,
+            assignedToIds: assignedToIds,
+            deadline: task.deadline,
+            time: task.time || "",
+            created_date: task.created_date,
+            created_time: task.created_time,
+            remark: task.remarks || "",
+            taskStatus: task.task_status || "not-acknowledge",
+            createdBy: task.created_by,
+            rawAssignedTo: task.assigned_to || "",
+            rawAssignedToNames: task.assigned_to_names || ""
+          };
         });
-        setFilteredApiTasks([]);
-        setDateFilterApplied(true);
+        
+        console.log("Transformed tasks:", transformedTasks);
+        setFilteredApiTasks(transformedTasks);
         setFromDate(tempFromDate);
         setToDate(tempToDate);
+        setDateFilterApplied(true);
         setCurrentPage(1);
-        setFilterLoading(false);
-        return;
+        
+        Swal.fire({ 
+          icon: 'success', 
+          title: 'Date Range Applied!', 
+          text: `Found ${transformedTasks.length} tasks in the selected date range${selectedEmployeeDateFilter ? ` for ${selectedEmployeeDateFilter.label}` : ''}.`,
+          timer: 2000, 
+          showConfirmButton: false,
+          timerProgressBar: true
+        });
+        
+      } else {
+        Swal.fire({ 
+          icon: 'error', 
+          title: 'Filter Failed', 
+          text: result.message || result.error || "Failed to fetch tasks for selected date range." 
+        });
+        setFilteredApiTasks([]);
       }
-
-      // Transform the task data to match your task format
-      const transformedTasks = apiData.map((task) => {
-        // Parse assigned by
-        const assignedByParsed = parseEmployeeName(task.assigned_by_name || "Unknown");
-        
-        // Parse assigned to
-        let assignedToArray = [];
-        let assignedToColors = [];
-        let assignedToOriginal = '';
-        
-        if (task.assigned_to_names) {
-          assignedToOriginal = task.assigned_to_names;
-          if (task.assigned_to_names.includes(',')) {
-            const parsedEmployees = parseMultipleEmployees(task.assigned_to_names);
-            assignedToArray = parsedEmployees.map(emp => emp.formattedName || emp.name);
-            assignedToColors = parsedEmployees.map(emp => emp.color);
-          } else {
-            const parsedEmployee = parseEmployeeName(task.assigned_to_names);
-            assignedToArray = [parsedEmployee.formattedName || parsedEmployee.name];
-            assignedToColors = [parsedEmployee.color];
-          }
-        }
-        
-        // Parse assigned to IDs
-        let assignedToIds = [];
-        if (task.assigned_to_ids) {
-          assignedToIds = String(task.assigned_to_ids).split(',').map(id => id.trim());
-        }
-        
-        return {
-          id: task.id,
-          clientName: task.client_name || "Unknown Client",
-          clientId: task.client_id,
-          name: task.task_name || "Unnamed Task",
-          description: task.remarks || "No description",
-          assignedBy: assignedByParsed.formattedName || assignedByParsed.name || "Unknown",
-          assignedByOriginal: task.assigned_by_name || "Unknown",
-          assignedByColor: assignedByParsed.color,
-          assignedTo: assignedToArray,
-          assignedToOriginal: assignedToOriginal,
-          assignedToColors: assignedToColors,
-          assignedToString: assignedToOriginal,
-          assignedToIds: assignedToIds,
-          deadline: task.deadline,
-          time: task.time || "",
-          created_date: task.created_date,
-          created_time: task.created_time,
-          remark: task.remarks || "",
-          taskStatus: task.task_status || "not-acknowledge",
-          createdBy: task.created_by,
-          rawAssignedTo: task.assigned_to || "",
-          rawAssignedToNames: task.assigned_to_names || ""
-        };
-      });
+    } catch (error) {
+      console.error("Date Range Filter Error:", error);
       
-      console.log("Transformed tasks:", transformedTasks);
-      setFilteredApiTasks(transformedTasks);
-      setFromDate(tempFromDate);
-      setToDate(tempToDate);
-      setDateFilterApplied(true);
-      setCurrentPage(1);
+      let errorMessage = 'An error occurred while applying date filter.';
+      let errorTitle = 'Error';
       
-      Swal.fire({ 
-        icon: 'success', 
-        title: 'Date Range Applied!', 
-        text: `Found ${transformedTasks.length} tasks in the selected date range${selectedEmployeeFilter ? ` for ${selectedEmployeeFilter.label}` : ''}.`,
-        timer: 2000, 
-        showConfirmButton: false,
-        timerProgressBar: true
-      });
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+        
+        errorMessage = error.response.data?.message || 
+                      error.response.data?.error || 
+                      `Server error: ${error.response.status}`;
+        errorTitle = 'Server Error';
+      } else if (error.request) {
+        console.error("Error request:", error.request);
+        errorMessage = 'No response from server. Please check your connection.';
+        errorTitle = 'Connection Error';
+      } else {
+        console.error("Error message:", error.message);
+        errorMessage = `Error: ${error.message}`;
+      }
       
-    } else {
       Swal.fire({ 
         icon: 'error', 
-        title: 'Filter Failed', 
-        text: result.message || result.error || "Failed to fetch tasks for selected date range." 
+        title: errorTitle, 
+        text: errorMessage,
+        confirmButtonColor: '#d33',
       });
-      setFilteredApiTasks([]);
+    } finally {
+      setFilterLoading(false);
     }
-  } catch (error) {
-    console.error("Date Range Filter Error:", error);
-    
-    let errorMessage = 'An error occurred while applying date filter.';
-    let errorTitle = 'Error';
-    
-    if (error.response) {
-      console.error("Error response data:", error.response.data);
-      console.error("Error response status:", error.response.status);
-      
-      errorMessage = error.response.data?.message || 
-                    error.response.data?.error || 
-                    `Server error: ${error.response.status}`;
-      errorTitle = 'Server Error';
-    } else if (error.request) {
-      console.error("Error request:", error.request);
-      errorMessage = 'No response from server. Please check your connection.';
-      errorTitle = 'Connection Error';
-    } else {
-      console.error("Error message:", error.message);
-      errorMessage = `Error: ${error.message}`;
-    }
-    
-    Swal.fire({ 
-      icon: 'error', 
-      title: errorTitle, 
-      text: errorMessage,
-      confirmButtonColor: '#d33',
-    });
-  } finally {
-    setFilterLoading(false);
-  }
-};
+  };
 
   // Clear date range filter
   const clearDateRangeFilter = () => {
@@ -662,6 +664,7 @@ const handleDateRangeSubmit = async () => {
     setTempToDate('');
     setFromDate('');
     setToDate('');
+    setSelectedEmployeeDateFilter(null);
     setFilteredApiTasks([]);
     setDateFilterApplied(false);
     setCurrentPage(1);
@@ -690,27 +693,26 @@ const handleDateRangeSubmit = async () => {
         
         console.log("Fetching all data...");
         
-        // Prepare API parameters
         const params = { 
           id: userId,
           user_code: userCode,
           view_task: true
         };
         
-        // Add other filters if needed
         if (selectedClient && selectedClient.value !== "all") {
           params.client_id = selectedClient.value;
         }
         
+        // Use the main employee filter (not the date range filter)
         if (selectedEmployeeFilter && selectedEmployeeFilter.value !== "all" && !dateFilterApplied) {
-          params.employee_name = selectedEmployeeFilter.label;
+          // Ensure we're sending a single employee ID
+          params.employee_id = String(selectedEmployeeFilter.value);
         }
         
         if (selectedStatusFilter && selectedStatusFilter.value !== "all") {
           params.status = selectedStatusFilter.value;
         }
         
-        // Fetch tasks with all parameters
         const tasksResponse = await axios.get(`${import.meta.env.VITE_API_URL}api/reports.php`, {
           params: params
         });
@@ -723,7 +725,6 @@ const handleDateRangeSubmit = async () => {
           }
         });
         
-        // Process tasks response
         const tasksResult = tasksResponse.data;
         if (tasksResult.status === "success") {
           let tasksData = [];
@@ -790,7 +791,6 @@ const handleDateRangeSubmit = async () => {
           setTasks([]);
         }
         
-        // Process clients response
         const clientsResult = clientsResponse.data;
         if (clientsResult.status === "success" && clientsResult.project && Array.isArray(clientsResult.project)) {
           const clientOptions = clientsResult.project.map(client => ({
@@ -816,36 +816,74 @@ const handleDateRangeSubmit = async () => {
           }]);
         }
         
-        // Process employees from tasks data
+        // Extract employees - FIXED: Prevent duplicates
         const employeeMap = new Map();
         const currentTasks = tasksResult.status === "success" ? 
           (tasksResult.data && Array.isArray(tasksResult.data) ? tasksResult.data : 
            tasksResult.data123 && Array.isArray(tasksResult.data123) ? tasksResult.data123 : []) : [];
-        
-        currentTasks.forEach(user => {
-          if (user.assigned_to_names) {
-            const parsedEmployee = parseEmployeeName(user.assigned_to_names);
-            const employeeName = parsedEmployee.name;
+
+        console.log("Processing tasks for employees:", currentTasks.length);
+
+        currentTasks.forEach(task => {
+          // Check if assigned_to_names exists
+          if (task.assigned_to_names) {
+            // Split multiple employees if they're comma-separated
+            const employeeNames = task.assigned_to_names.split(',').map(name => name.trim());
+            const employeeIds = task.assigned_to_ids ? String(task.assigned_to_ids).split(',').map(id => id.trim()) : [];
             
-            if (!employeeMap.has(employeeName)) {
-              employeeMap.set(employeeName, {
-                value: user.id || employeeName,
-                label: employeeName,
-                formattedName: parsedEmployee.formattedName,
-                color: parsedEmployee.color
-              });
-            }
+            // Process each employee separately
+            employeeNames.forEach((empName, index) => {
+              if (empName && empName !== '') {
+                // Parse the employee name to get consistent ID
+                const parsed = parseEmployeeName(empName);
+                const employeeId = employeeIds[index] || parsed.id;
+                
+                // Clean the name
+                let cleanName = parsed.name;
+                
+                // Use the parsed.id as key for deduplication
+                if (!employeeMap.has(parsed.id)) {
+                  employeeMap.set(parsed.id, {
+                    value: employeeId, // Use the original ID if available, otherwise use parsed.id
+                    label: cleanName,
+                    formattedName: parsed.formattedName,
+                    color: parsed.color
+                  });
+                } else {
+                  // Log duplicate found (for debugging)
+                  console.log("Duplicate employee found:", cleanName, "with ID:", employeeId);
+                }
+              }
+            });
           }
         });
         
-        const employeeOptions = Array.from(employeeMap.values());
+        // Convert Map to array
+        let employeeOptions = Array.from(employeeMap.values());
+        
+        // Additional deduplication by name (case-insensitive) to catch any remaining duplicates
+        const nameMap = new Map();
+        employeeOptions.forEach(emp => {
+          const nameKey = emp.label.toLowerCase().trim();
+          if (!nameMap.has(nameKey)) {
+            nameMap.set(nameKey, emp);
+          }
+        });
+        
+        const uniqueEmployeeOptions = Array.from(nameMap.values());
+        
+        // Sort alphabetically
+        uniqueEmployeeOptions.sort((a, b) => a.label.localeCompare(b.label));
+        
         const allEmployeesOption = {
           value: "all",
           label: "All Employees",
           color: "#3b82f6"
         };
         
-        setEmployees([allEmployeesOption, ...employeeOptions]);
+        console.log("Unique employee options:", uniqueEmployeeOptions.length, uniqueEmployeeOptions);
+        setEmployees([allEmployeesOption, ...uniqueEmployeeOptions]);
+        setEmployeesRangeFilter([allEmployeesOption, ...uniqueEmployeeOptions]);
         
       } catch (error) {
         console.error("Fetch Error:", error);
@@ -860,6 +898,11 @@ const handleDateRangeSubmit = async () => {
           label: "All Employees",
           color: "#3b82f6"
         }]);
+        setEmployeesRangeFilter([{
+          value: "all",
+          label: "All Employees",
+          color: "#3b82f6"
+        }]);
       } finally {
         setLoading(false);
       }
@@ -867,7 +910,6 @@ const handleDateRangeSubmit = async () => {
 
     fetchData();
     
-    // Cleanup function
     return () => {
       hasFetched.current = false;
     };
@@ -883,7 +925,6 @@ const handleDateRangeSubmit = async () => {
     if (!activeTasks.length) return [];
     
     return activeTasks.filter(task => {
-      // Apply search query filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const searchableFields = [
@@ -904,14 +945,12 @@ const handleDateRangeSubmit = async () => {
         }
       }
       
-      // Apply status filter
       if (selectedStatusFilter && selectedStatusFilter.value !== "all") {
         if (task.taskStatus?.toLowerCase() !== selectedStatusFilter.value.toLowerCase()) {
           return false;
         }
       }
       
-      // Apply deadline filter
       if (selectedDeadlineFilter && selectedDeadlineFilter.value !== "all") {
         if (!checkDeadlineFilter(task.deadline, selectedDeadlineFilter.value)) {
           return false;
@@ -957,6 +996,7 @@ const handleDateRangeSubmit = async () => {
     setTempToDate('');
     setFromDate('');
     setToDate('');
+    setSelectedEmployeeDateFilter(null);
     setFilteredApiTasks([]);
     setDateFilterApplied(false);
     setCurrentPage(1);
@@ -972,6 +1012,11 @@ const handleDateRangeSubmit = async () => {
     setCurrentPage(1);
   };
 
+  const clearDateEmployeeFilter = () => {
+    setSelectedEmployeeDateFilter(null);
+    setCurrentPage(1);
+  };
+
   const clearStatusFilter = () => {
     setSelectedStatusFilter(null);
     setCurrentPage(1);
@@ -983,7 +1028,22 @@ const handleDateRangeSubmit = async () => {
   };
 
   const handleEmployeeFilterChange = (selected) => {
-    setSelectedEmployeeFilter(selected);
+    console.log("Selected main employee filter:", selected);
+    if (selected && selected.value === "all") {
+      setSelectedEmployeeFilter(null);
+    } else {
+      setSelectedEmployeeFilter(selected);
+    }
+    setCurrentPage(1);
+  };
+
+  const handleDateEmployeeFilterChange = (selected) => {
+    console.log("Selected date employee filter:", selected);
+    if (selected && selected.value === "all") {
+      setSelectedEmployeeDateFilter(null);
+    } else {
+      setSelectedEmployeeDateFilter(selected);
+    }
     setCurrentPage(1);
   };
 
@@ -1124,7 +1184,6 @@ const handleDateRangeSubmit = async () => {
 
       const result = response.data;
       if (result.status === "success") {
-        // Update tasks in both states
         setTasks(prevTasks =>
           prevTasks.map(task =>
             task.id === taskId
@@ -1249,46 +1308,6 @@ const handleDateRangeSubmit = async () => {
     }),
   };
 
-  const clientFilterStyles = {
-    control: (provided, state) => ({
-      ...provided,
-      border: `2px solid ${state.isFocused ? '#3b82f6' : '#e2e8f0'}`,
-      borderRadius: '0.5rem',
-      padding: '8px 4px',
-      backgroundColor: 'white',
-      minHeight: '52px',
-      boxShadow: state.isFocused ? '0 0 0 4px rgba(59, 130, 246, 0.1)' : 'none',
-      "&:hover": {
-        borderColor: '#94a3b8',
-      },
-      width: '100%',
-      maxWidth: '250px',
-    }),
-    menu: (provided) => ({ 
-      ...provided, 
-      zIndex: 9999,
-      borderRadius: '0.75rem',
-      marginTop: '4px',
-      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-    }),
-    singleValue: (provided) => ({
-      ...provided,
-      color: '#1e293b',
-      fontWeight: '600',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      padding: '12px 16px',
-      backgroundColor: state.isSelected ? '#e0f2fe' : 'white',
-      color: state.isSelected ? '#0369a1' : '#334155',
-      fontWeight: state.isSelected ? '600' : '500',
-      borderLeft: state.isSelected ? '4px solid #3b82f6' : '4px solid transparent',
-      '&:hover': {
-        backgroundColor: '#f1f5f9',
-      },
-    }),
-  };
-
   const paginationSizeStyles = {
     control: (provided, state) => ({
       ...provided,
@@ -1354,57 +1373,30 @@ const handleDateRangeSubmit = async () => {
                 </p>
               </div>
               
-              {/* Search Box and Client Filter */}
+              {/* Search Box */}
               <div className="w-full lg:w-auto">
-                <div className="flex flex-col md:flex-row gap-4">
-                  {/* Client Filter Dropdown - Available for all users */}
-                  <div className="w-full md:w-64">
-                    <div className="relative">
-                      <Select
-                        options={clients}
-                        value={selectedClient}
-                        onChange={handleClientFilterChange}
-                        classNamePrefix="react-select"
-                        styles={clientFilterStyles}
-                        placeholder="Filter by client..."
-                        isClearable={true}
-                        isSearchable={true}
-                        formatOptionLabel={(option) => (
-                          <div className="flex items-center gap-2">
-                            {option.value === "all" && (
-                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            )}
-                            <span>{option.label}</span>
-                          </div>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Search Box */}
-                  <div className="w-full md:w-96">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Search by task name, client, assigned by, or status..."
-                        value={searchQuery}
-                        onChange={handleSearchChange}
-                        className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
-                      />
-                      <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      {searchQuery && (
-                        <button 
-                          onClick={clearSearch} 
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
+                <div className="w-full md:w-96">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search by task name, client, assigned by, or status..."
+                      value={searchQuery}
+                      onChange={handleSearchChange}
+                      className="w-full px-4 py-3 pl-11 pr-11 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-blue-100 focus:border-white focus:bg-white/20 focus:ring-4 focus:ring-white/30 outline-none transition-all"
+                    />
+                    <svg className="w-5 h-5 text-blue-100 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    {searchQuery && (
+                      <button 
+                        onClick={clearSearch} 
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-100 hover:text-white transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1436,7 +1428,7 @@ const handleDateRangeSubmit = async () => {
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Employee Filter - Only for Admins and Managers */}
+                    {/* Employee Filter - Main Filter (for general task filtering) */}
                     {(userRole === 'admin' || userRole === 'manager') && (
                       <div className="w-full sm:w-48 mb-2">
                         <Select
@@ -1445,9 +1437,10 @@ const handleDateRangeSubmit = async () => {
                           onChange={handleEmployeeFilterChange}
                           classNamePrefix="react-select"
                           styles={filterDropdownStyles}
-                          placeholder="Select Employee"
+                          placeholder="Filter by Employee"
                           isClearable={true}
                           isSearchable={true}
+                          isMulti={false}
                           formatOptionLabel={(option) => (
                             <div className="flex items-center gap-2">
                               {option.value === "all" && (
@@ -1568,6 +1561,20 @@ const handleDateRangeSubmit = async () => {
                         </button>
                       </div>
                     )}
+                    
+                    {selectedEmployeeDateFilter && selectedEmployeeDateFilter.value !== "all" && dateFilterApplied && (
+                      <div className="flex items-center gap-1 bg-white text-blue-700 px-2 py-1 rounded-full shadow-sm text-xs">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span>Date Employee: {selectedEmployeeDateFilter.label}</span>
+                        <button onClick={clearDateEmployeeFilter} className="ml-1 hover:text-blue-900">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1606,19 +1613,20 @@ const handleDateRangeSubmit = async () => {
                       </div>
                     </div>
 
-                    {/* Employee Filter in Date Range Section - Only for Admins and Managers */}
+                    {/* Employee Filter in Date Range Section - Separate from main employee filter */}
                     {(userRole === 'admin' || userRole === 'manager') && (
                       <div className="w-full mb-3">
-                        <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Employee (Optional)</label>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Employee (Date Range)</label>
                         <Select
-                          options={employees}
-                          value={selectedEmployeeFilter}
-                          onChange={handleEmployeeFilterChange}
+                          options={employeesRangeFilter}
+                          value={selectedEmployeeDateFilter}
+                          onChange={handleDateEmployeeFilterChange}
                           classNamePrefix="react-select"
                           styles={filterDropdownStyles}
                           placeholder="Select Employee (Optional)"
                           isClearable={true}
                           isSearchable={true}
+                          isMulti={false}
                           formatOptionLabel={(option) => (
                             <div className="flex items-center gap-2">
                               {option.value === "all" && (
@@ -1693,6 +1701,7 @@ const handleDateRangeSubmit = async () => {
               </div>
             </div>
 
+            {/* Table content - Same as before */}
             {currentTasks.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1770,7 +1779,7 @@ const handleDateRangeSubmit = async () => {
                           Remark
                         </th>
                         <th className="py-4 px-4 text-right font-semibold text-slate-700 rounded-tr-xl">Actions</th>
-                      </tr>
+                       </tr>
                     </thead>
                     <tbody>
                       {currentTasks.map((task) => {
