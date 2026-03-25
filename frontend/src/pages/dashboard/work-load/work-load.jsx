@@ -934,7 +934,7 @@ const EmployeeTaskSheet = () => {
                       onClick={handleDateRangeSubmit}
                       disabled={filterLoading || (!tempFromDate && !tempToDate)}
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                        filterLoading || (!tempFromDate && !tempToDate)
+                        filterLoading
                           ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-200'
                       }`}
