@@ -903,7 +903,7 @@ const EmployeeTaskSheet = () => {
                   </div>
 
                   {/* Employee Filter in Date Range Section */}
-                  {(userRole === 'admin' || userRole === 'manager') && (
+                  {/* {(userRole === 'admin' || userRole === 'manager') && (
                     <div className="w-full mb-3">
                       <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Employee (Date Range)</label>
                       <Select
@@ -926,7 +926,7 @@ const EmployeeTaskSheet = () => {
                         )}
                       />
                     </div>
-                  )}
+                  )} */}
 
                   {/* Submit Button for Date Range */}
                   <div className="flex gap-2 mt-1">
