@@ -205,13 +205,14 @@ switch ($method) {
             // }
             
             if (!empty($userCode)) {
-                if (str_starts_with($userCode, 'ST')) {
-                } 
-                elseif (str_starts_with($userCode, 'MN')) {
-                } 
-                elseif (str_starts_with($userCode, 'AD')) {
-                    $whereClause = 'WHERE t.deadline BETWEEN \'' . $fromDate . '\' AND \'' . $toDate . '\'';
-                }
+                // if (str_starts_with($userCode, 'ST')) {
+                // } 
+                // elseif (str_starts_with($userCode, 'MN')) {
+                // } 
+                // elseif (str_starts_with($userCode, 'AD')) {
+                    
+                // }
+                $whereClause = 'WHERE t.deadline BETWEEN \'' . $fromDate . '\' AND \'' . $toDate . '\'';
             }
             $sql1 = "SELECT u.id AS user_id, u.name AS employee_name, d.id AS department_id, d.name AS department_name, ( SUM(CASE WHEN ta.status = 'not-acknowledge' THEN 1 ELSE 0 END) + SUM(CASE WHEN ta.status = 'acknowledge' THEN 1 ELSE 0 END) + SUM(CASE WHEN ta.status = 'in-progress' THEN 1 ELSE 0 END) ) AS total_tasks, SUM(CASE WHEN ta.status = 'not-acknowledge' THEN 1 ELSE 0 END) AS not_ack_count, SUM(CASE WHEN ta.status = 'acknowledge' THEN 1 ELSE 0 END) AS ack_count, SUM(CASE WHEN ta.status = 'in-progress' THEN 1 ELSE 0 END) AS in_progress_count FROM tasks t INNER JOIN task_assignees ta ON t.id = ta.task_id INNER JOIN users u ON ta.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id $whereClause GROUP BY u.id, d.id HAVING total_tasks > 0 ORDER BY total_tasks DESC;";
 
